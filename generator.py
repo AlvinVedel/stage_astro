@@ -16,14 +16,14 @@ class ImageDataGenerator(tf.keras.utils.Sequence):
     def _load_data(self):
         # Charger les images à partir du fichier .npz
         data = np.load(self.file_path, allow_pickle=True)
-        self.images = data['cube']  # Assumes the key is 'images'
+        self.images = np.sign(data['cube']) * (np.sqrt(np.abs(data["cube"])+1)-1)  # Assumes the key is 'images'
 
     def _apply_crops(self, image, large_crop_size, small_crop_size, num_large_crops=2, num_small_crops=4, masking_rate=0.4):
         h, w = image.shape[:2]
         ch, cw = large_crop_size
         small_crops = []
         large_crops = []
-        masked_large_crops = []
+        #masked_large_crops = []
         masked_indexes = []
         num_patch_per_large = (ch // self.patch_size)**2
         
@@ -36,6 +36,9 @@ class ImageDataGenerator(tf.keras.utils.Sequence):
                 large_crop = image[top:top + ch, left:left + cw]
                 large_crops.append(large_crop)
 
+                mask_indices = np.random.choice([False, True], size=(int(num_patch_per_large)), replace=True, p=[1-masking_rate, masking_rate])
+                
+                """
                 masked_large_crop = large_crop.copy()
                 
                 masked_patch_index = np.random.choice(np.arange(0, num_patch_per_large, 1), size=int(num_patch_per_large*masking_rate), replace=False)
@@ -47,9 +50,11 @@ class ImageDataGenerator(tf.keras.utils.Sequence):
                     col_start = col * self.patch_size
 
                     masked_large_crop[row_start:row_start+self.patch_size, col_start:col_start+self.patch_size] = mask
+                
                 masked_large_crops.append(masked_large_crop)
                 masked_indexes.append(masked_patch_index)
-
+                """
+                masked_indexes.append(mask_indices)
 
 
         ch, cw = small_crop_size
@@ -60,7 +65,7 @@ class ImageDataGenerator(tf.keras.utils.Sequence):
                 small_crop = image[top:top + ch, left:left + cw]
                 small_crops.append(small_crop)
 
-        return np.array(large_crops), np.array(small_crops), np.array(masked_large_crops), np.array(masked_indexes)
+        return np.array(large_crops), np.array(small_crops), np.array(masked_indexes) # np.array(masked_large_crops),
     
 
 
@@ -74,20 +79,20 @@ class ImageDataGenerator(tf.keras.utils.Sequence):
         batch_images = self.images[index * self.batch_size:(index + 1) * self.batch_size]
         large_crops = []
         small_crops = []
-        masked_large_crops = []
+        #masked_large_crops = []
         masked_patch_index = []
 
         for img in batch_images:
-            large_crop, small_crop, masked_crop, masked_index = self._apply_crops(img, self.large_crop_size, self.small_crop_size)
+            large_crop, small_crop, masked_index = self._apply_crops(img, self.large_crop_size, self.small_crop_size)
             large_crops.append(large_crop)
             small_crops.append(small_crop)
-            masked_large_crops.append(masked_crop)
+            #masked_large_crops.append(masked_crop)
             masked_patch_index.append(masked_index)
 
         return {
             'large_crop': np.array(large_crops),
             'small_crop': np.array(small_crops),
-            'masked_crop' : np.array(masked_large_crops),
+            #'masked_crop' : np.array(masked_large_crops),
             'masked_patch_index' : np.array(masked_patch_index)
 
         }
@@ -117,7 +122,7 @@ class ByolGenerator(tf.keras.utils.Sequence):
     def _load_data(self):
         # Charger les images à partir du fichier .npz
         data = np.load(self.file_path, allow_pickle=True)
-        self.images = np.sign(data['cube'])*np.sqrt(np.abs(data["cube"]+1))-1 
+        self.images = np.sign(data['cube'])*(np.sqrt(np.abs(data["cube"])+1)-1 )
 
     def __len__(self):
         # Nombre de batches par epoch

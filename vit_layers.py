@@ -10,50 +10,51 @@ import math
 
 class Block(tf.keras.Model) :
     def __init__(self, embed_dim, num_heads=8, mlp_ratio=4.0) :
+        ## PAS DE LayerScale (ils utilisent identity() si pas de init value, pas de init_value ici)
         super().__init__()
         self.embed_dim=embed_dim
         self.mlp_ratio = mlp_ratio
         self.num_heads = num_heads
 
+        self.norm1 = layers.LayerNormalization(epsilon=1e-6)
+        self.norm2 = layers.LayerNormalization(epsilon=1e-6)
+
+
+
         self.qkv = layers.Dense(self.embed_dim*3, activation='linear', use_bias=False)
         self.proj = layers.Dense(self.embed_dim, activation='linear')
 
-        self.mlp1 = layers.Dense(int(self.embed_dim*self.mlp_ratio), activation='relu')
-        self.mlp2 = layers.Dense(self.embed_dim, activation='relu')
+        self.mlp1 = layers.Dense(int(self.embed_dim*self.mlp_ratio), activation='gelu')
+        self.mlp2 = layers.Dense(self.embed_dim, activation='linear')
 
     def call(self, x) :
+        # layer norm 1
+        x_nrom = self.norm1(x)
+
         ##### ATTENTION PART #####
-        print("------ BLOCK SUB CALLING -------")
-        b, n, c = tf.shape(x)[0], tf.shape(x)[1], tf.shape(x)[2]
-        print("x", tf.reduce_any(tf.math.is_nan(x)))
-        qkv = self.qkv(x)  # shape batch, n, c*3
-        print("qkv", tf.reduce_any(tf.math.is_nan(qkv)))
+        b, n, c = tf.shape(x_nrom)[0], tf.shape(x_nrom)[1], tf.shape(x_nrom)[2]
+        qkv = self.qkv(x_nrom)  # shape batch, n, c*3
         qkv = tf.reshape(qkv, (b, n, 3, self.num_heads, c // self.num_heads))   # shape batch, n, 3, 8, c/8    batch, 65, 3, 8, 72
         qkv = tf.transpose(qkv, perm=[2, 0, 3, 1, 4])    # 3, batch, 8, 65, 72
-        print("QKV", tf.reduce_any(tf.math.is_nan(qkv)))
         head_dim = self.embed_dim // self.num_heads
         q, k, v = qkv[0] * head_dim**-.5, qkv[1], qkv[2]   # séparation q k v chacun étant    batch, num_head, n,  c/num_head  
         # 1, 8, 65, 72
-        print("q, k, v", tf.reduce_any(tf.math.is_nan(q)), tf.reduce_any(tf.math.is_nan(k)), tf.reduce_any(tf.math.is_nan(v)))
 
         attn = tf.matmul(q, k, transpose_b=True)  # 1, 8, 65, 65
-        print("matmul", tf.reduce_any(tf.math.is_nan(attn)))
         attn = tf.nn.softmax(attn, axis=-1)
-        print("softmax", tf.reduce_any(tf.math.is_nan(attn)))
         y = tf.matmul(attn, v)  # 1, 8, 65, 72
         y = tf.transpose(y, perm=[0, 2, 1, 3])   # 1, 65, 8, 72
         y = tf.reshape(y, (b, n, c))  # shape 1, 65, 576
-        print("y 1", tf.reduce_any(tf.math.is_nan(y)))
         y = self.proj(y)  # 1, 65, 576
-        x = x + y     # 1, 65, 576
-        print("fin 1", tf.reduce_any(tf.math.is_nan(x)))
+        x = x + y     # 1, 65, 576      y = résultat du x_norm dans le bloc attention, x pas layer normalisé
+
+
+        x_norm = self.norm2(x) 
         ##### MLP PART #####   -> pas de drop car régression?
-        y = self.mlp1(x)   # 1, 65, 576*mlp_ratio
+        y = self.mlp1(x_norm)   # 1, 65, 576*mlp_ratio
         y = self.mlp2(y)     # 1, 65, 576
-        print("y 2", tf.reduce_any(tf.math.is_nan(y)))
-        x = x + y   # 1, 65, 576
-        print("fin 2", tf.reduce_any(tf.math.is_nan(x)))
-        print("---- BLOCK END CALL ----")
+        x = x + y   # 1, 65, 576       y = résultat du x_norm dans bloc attention,     x pas layer normalisé
+        
         return x
 
 class Backbone(tf.keras.Model) :
@@ -81,26 +82,28 @@ class Backbone(tf.keras.Model) :
         self.blocks = [Block(self.embed_dim) for _ in range(self.num_blocks)]
         self.layer_norm = layers.LayerNormalization(epsilon=1e-6)
 
-        #self.mask_token = self.add_weight(shape=(1, embed_dim), initializer='zeros', trainable=True)
+        self.mask_token = self.add_weight(shape=(1, embed_dim), initializer='zeros', trainable=True)
 
         
 
     def call(self, x, masks=None):
-        print("BACKBONE CALLING -------------------------------")
 
         x = tf.cast(x, tf.float32)
-        print("x", tf.reduce_any(tf.math.is_nan(x)), x)
         b, w, h, nc = tf.shape(x)[0], tf.shape(x)[1], tf.shape(x)[2], tf.shape(x)[3]
         x = self.patch_embed(x) # batch, 8, 8, 576
-        print("patch embed", tf.reduce_any(tf.math.is_nan(x)))#, self.patch_embed.weights, x)
         x = self.flatten(x)  # batch, 64, 576
-        print("flatten", tf.reduce_any(tf.math.is_nan(x)))
+
+        if masks is not None :
+            # masks censé être de shape batch, N      x de shape batch, N, embed_dim
+            masks = tf.expand_dims(masks, axis=-1)  # shape batch, N, 1
+            mask_token = tf.cast(self.mask_token, dtype=x.dtype)
+            print(masks.shape, mask_token.shape, x.shape)
+            x = tf.where(masks, mask_token, x)
 
         #if masks is not None :
         #    x = tf.where(masks, self.mask_token, x)
 
         x = self.concat([tf.tile(self.cls_token, (b, 1, 1)), x]) # batch, 65, 576
-        print("concat", tf.reduce_any(tf.math.is_nan(x)))
 
         # pos embed interpolation
         previous_dtype = x.dtype
@@ -134,15 +137,11 @@ class Backbone(tf.keras.Model) :
             result = tf.concat([tf.expand_dims(class_pos_embed, 0), patch_pos_embed], axis=1)
             x = x + tf.tile(tf.cast(result, dtype=previous_dtype), (b, 1, 1))
 
-        print("pos embed", tf.reduce_any(tf.math.is_nan(x)))
 
         for blk in self.blocks :
             x = blk(x)
-        print("blocks", tf.reduce_any(tf.math.is_nan(x)))
-
         
         x = self.layer_norm(x)
-        print("lay norm", tf.reduce_any(tf.math.is_nan(x)))
 
         return {'cls_token' : x[:, 0],
                 'patch_token' : x[:, 1:]}
@@ -152,7 +151,7 @@ class Backbone(tf.keras.Model) :
 import tensorflow as tf
 from tensorflow.keras import layers
 
-class Head(tf.keras.layers.Layer):
+class Head(tf.keras.Model):
     def __init__(
         self,
         in_dim,
@@ -201,21 +200,17 @@ class Head(tf.keras.layers.Layer):
         return layers_list
 
     def call(self, x, training=False):
-        print("HEAD CALLING ---------")
-        print("x", tf.reduce_any(tf.math.is_nan(x)))
+        
         # Passer à travers le MLP
         for layer in self.mlp:
             x = layer(x, training=training)
 
-        print("mlp", tf.reduce_any(tf.math.is_nan(x)))
         # Normalisation L2 (norme sur les vecteurs)
         eps = 1e-6 if x.dtype == tf.float16 else 1e-12
         x = tf.nn.l2_normalize(x, axis=-1, epsilon=eps)
-        print("l2 norm", tf.reduce_any(tf.math.is_nan(x)))
         # Appliquer la normalisation des poids
         #weights = tf.nn.l2_normalize(self.last_layer.kernel, axis=0) * self.g
         x = self.last_layer(x)
-        print("fin head", tf.reduce_any(tf.math.is_nan(x)))
         return x
 
 
