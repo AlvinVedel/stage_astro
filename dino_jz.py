@@ -18,7 +18,7 @@ student_backbone = Backbone()
 
 batch_size=2048
 masking_rate = 0.3
-data_generator = DinoGenerator("/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/", batch_size, (48, 48), (16, 16))
+data_generator = DinoGenerator("/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS", batch_size, (48, 48), (16, 16))
 
 momentum = 0.95
 
