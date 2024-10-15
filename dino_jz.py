@@ -2,61 +2,40 @@ import numpy as np
 import tensorflow as tf
 from vit_layers import Backbone, Head
 from dino_generator import DinoGenerator
+import os
 
 
-import click
-
-@click.command()
-@click.option(
-    'cuda_visible_devices',
-    '-gpus',
-    default=None,
-    help='The GPUs you want visible for this task, comma separated. Defaults to all GPUs visible',
-)
-@click.option(
-    'save',
-    '-s',
-    '--save',
-    is_flag=True,
-    help='Whether you want to save the model or not',
-)
-def train_model_click(cuda_visible_devices, save):
-    return train_model(cuda_visible_devices, save, batch_size=2048)
-
-
-def train_model(cuda_visible_devices, save, batch_size) :
-    import os 
-    os.environ['CUDA_VISIBLE_DEVICES'] = cuda_visible_devices
-    os.environ["CUDA_VISIBLE_DEVICES"] ='0'
+os.environ["CUDA_VISIBLE_DEVICES"] ='0'
 
 
 
-    teacher_head = Head(576, 150)
-    student_head = Head(576, 150)
-    teacher_backbone = Backbone()
-    teacher_ibot_head = Head(576, 150)
-    student_ibot_head = Head(576, 150)
-    student_backbone = Backbone()
+teacher_head = Head(576, 150)
+student_head = Head(576, 150)
+teacher_backbone = Backbone()
+teacher_ibot_head = Head(576, 150)
+student_ibot_head = Head(576, 150)
+student_backbone = Backbone()
 
-    masking_rate = 0.3
-    data_generator = DinoGenerator("/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/", batch_size, (48, 48), (16, 16))
+batch_size=2048
+masking_rate = 0.3
+data_generator = DinoGenerator("/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/", batch_size, (48, 48), (16, 16))
 
-    momentum = 0.95
+momentum = 0.95
 
-    dino_momentum = 0.9
-    dino_centre = tf.zeros(shape=(150), dtype=tf.float32)
+dino_momentum = 0.9
+dino_centre = tf.zeros(shape=(150), dtype=tf.float32)
 
-    ibot_momentum=0.9
-    ibot_centre = tf.zeros(shape=(150), dtype=tf.float32)
+ibot_momentum=0.9
+ibot_centre = tf.zeros(shape=(150), dtype=tf.float32)
 
-    def compute_cross_entropy(student_output, teacher_output, centre) :
-        teacher_output = tf.nn.softmax((teacher_output-centre)/0.8)   
-        student_output = tf.nn.log_softmax(student_output/0.7)
+def compute_cross_entropy(student_output, teacher_output, centre) :
+    teacher_output = tf.nn.softmax((teacher_output-centre)/0.8)   
+    student_output = tf.nn.log_softmax(student_output/0.7)
 
-        loss = -tf.reduce_sum(teacher_output * student_output, axis=-1)  
-        return tf.reduce_mean(loss)
+    loss = -tf.reduce_sum(teacher_output * student_output, axis=-1)  
+    return tf.reduce_mean(loss)
 
-    def compute_koleo_loss(student_outputs) :
+def compute_koleo_loss(student_outputs) :
         # forme batch, 576
         # Normalisation L2 :
         student_outputs = student_outputs / (tf.math.sqrt(tf.reduce_sum((student_outputs)**2, axis=1, keepdims=True)) + 1e-8) # batch, 576 / batch, 1 => batch, 576
@@ -70,7 +49,7 @@ def train_model(cuda_visible_devices, save, batch_size) :
         loss = - tf.reduce_mean(tf.math.log(min_pairwise_dist+1e-8))
         return loss
 
-    def update_teacher_model(student_model, teacher_model, momentum):
+def update_teacher_model(student_model, teacher_model, momentum):
         student_weights = student_model.get_weights()
         teacher_weights = teacher_model.get_weights()
         new_teacher_weights = []
@@ -81,14 +60,14 @@ def train_model(cuda_visible_devices, save, batch_size) :
         
         
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, decay=0.01)
-    total_epoch = 100
-    initial_weight_decay = 0.04
-    final_weight_decay = 0.4
+optimizer = tf.keras.optimizers.Adam(learning_rate=1e-4, decay=0.01)
+total_epoch = 100
+initial_weight_decay = 0.04
+final_weight_decay = 0.4
 
 
 
-    for epoch in range(total_epoch) :
+for epoch in range(total_epoch) :
         for batch in  data_generator: 
 
             
@@ -223,8 +202,4 @@ def train_model(cuda_visible_devices, save, batch_size) :
             student_ibot_head.save_weights("student_ibot_head.weights.h5")
 
 
-
-
-if __name__ == '__main__':
-    train_model_click()
 
