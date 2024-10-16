@@ -5,7 +5,7 @@ from dino_generator import DinoGenerator
 import os
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] ='0'
+os.environ["CUDA_VISIBLE_DEVICES"] ='0, 1, 2'
 
 
 
@@ -16,7 +16,7 @@ teacher_ibot_head = Head(576, 150)
 student_ibot_head = Head(576, 150)
 student_backbone = Backbone()
 
-batch_size=1024
+batch_size=2048
 masking_rate = 0.3
 data_generator = DinoGenerator("/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS", batch_size, (48, 48), (16, 16))
 

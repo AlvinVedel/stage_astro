@@ -10,7 +10,7 @@
 ##SBATCH -C h100                     # decommenter pour la partition gpu_p6 (GPU H100 80 Go)
 # Ici, reservation de 10 CPU (pour 1 tache) et d'un GPU sur un seul noeud :
 #SBATCH --nodes=1                    # on demande un noeud
-#SBATCH --ntasks-per-node=3          # avec une tache par noeud (= nombre de GPU ici)
+#SBATCH --ntasks-per-node=1          # avec une tache par noeud (= nombre de GPU ici)
 #SBATCH --gres=gpu:1                 # nombre de GPU par noeud (max 8 avec gpu_p2, gpu_p5)
 # Le nombre de CPU par tache doit etre adapte en fonction de la partition utilisee. Sachant
 # qu'ici on ne reserve qu'un seul GPU (soit 1/4 ou 1/8 des GPU du noeud suivant la partition),
@@ -21,7 +21,7 @@
 ##SBATCH --cpus-per-task=24           # nombre de CPU par tache pour gpu_p6 (1/4 des CPU du noeud 4-GPU H100)
 # /!\ Attention, "multithread" fait reference à l'hyperthreading dans la terminologie Slurm
 #SBATCH --hint=nomultithread         # hyperthreading desactive
-#SBATCH --time=20:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
+#SBATCH --time=48:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
 #SBATCH --output=dino_log%j.out      # nom du fichier de sortie
 #SBATCH --error=dino_log%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
  
@@ -45,4 +45,4 @@ set -x
 # Pour les partitions "gpu_p5" et "gpu_p6", le code doit etre compile avec les modules compatibles
 # avec la partition choisie
 # Execution du code
-python -u dino_jz.py
+python -u byol_jz.py
