@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=dino          # nom du job
+#SBATCH --job-name=byol          # nom du job
 # Il est possible d'utiliser une autre partition que celle par défaut
 # en activant l'une des 5 directives suivantes :
 ##SBATCH -C v100-16g                 # decommenter pour reserver uniquement des GPU V100 16 Go
@@ -22,8 +22,8 @@
 # /!\ Attention, "multithread" fait reference à l'hyperthreading dans la terminologie Slurm
 #SBATCH --hint=nomultithread         # hyperthreading desactive
 #SBATCH --time=48:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
-#SBATCH --output=dino_log%j.out      # nom du fichier de sortie
-#SBATCH --error=dino_log%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
+#SBATCH --output=byol_log%j.out      # nom du fichier de sortie
+#SBATCH --error=byol_log%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
  
 # Nettoyage des modules charges en interactif et herites par defaut
 module purge
