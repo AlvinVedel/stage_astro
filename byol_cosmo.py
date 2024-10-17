@@ -73,7 +73,7 @@ def conv_block(x, filters, kernel_size=3, stride=1, padding='same'):
 
 #data_gen = ByolGenerator("/home/barrage/HSC_READY_CUBES/XMM_SHALLOW_UNSUP_200K_OBJECTS.npz", batch_size=256)
 print("FUNCTIONS READY")
-data_gen = ByolGenerator("/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS", batch_size=256)
+data_gen = ByolGenerator(folder_path="/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS", folder_extension='_D.npz', batch_size=256)
 
 
 
