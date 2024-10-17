@@ -5,7 +5,7 @@ from dino_generator import DinoGenerator
 import os
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] ='0, 1, 2'
+os.environ["CUDA_VISIBLE_DEVICES"] ='0'
 
 
 

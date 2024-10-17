@@ -2,28 +2,51 @@ import numpy as np
 import tensorflow as tf
 import random
 import os
+import gc
 
 
 class DinoGenerator(tf.keras.utils.Sequence):
-    def __init__(self, folder_path, batch_size, large_crop_size, small_crop_size, shuffle=True, patch_size=4):
+    def __init__(self, folder_path, batch_size, large_crop_size, small_crop_size, folder_extension='_D.npz', shuffle=True, patch_size=4, limit=8):
         self.folder_path = folder_path
+        self.folder_extension = folder_extension
         self.batch_size = batch_size
         self.large_crop_size = large_crop_size
         self.small_crop_size = small_crop_size
         self.shuffle = shuffle
         self.patch_size=patch_size
-        self._load_data()
+        self.limit = limit
+        self.epoch_count = 0
+        self.file_count=0
+        self.get_filename()
+        self.load_data()
         self.on_epoch_end()
 
-    def _load_data(self):
+
+    def get_filename(self) :
+        self.file_paths = []
+        if isinstance(self.folder_path, str):
+
+            for file_name in os.listdir(self.folder_path):
+                if file_name.endswith(self.folder_extension):
+                    file_path = os.path.join(self.folder_path, file_name)
+                    self.file_paths.append(file_path)
+        else : 
+            for i, folder in enumerate(self.folder_path) :
+                for file_name in os.listdir(folder):
+                    if file_name.endswith(self.folder_extension[i]):
+                        file_path = os.path.join(folder, file_name)
+                        self.file_paths.append(file_path)
+
+    def load_data(self):
         self.images = []  
 
-        for file_name in os.listdir(self.folder_path):
-            if file_name.endswith('_D.npz'):
-                file_path = os.path.join(self.folder_path, file_name)
-                data = np.load(file_path, allow_pickle=True)
-                images = np.sign(data['cube']) * (np.sqrt(np.abs(data["cube"])+1)-1)
-                self.images.append(images)
+        for _ in range(self.limit) :
+            file_path = self.file_paths[self.file_count]
+            self.file_count = (self.file_count+1)%len(self.file_paths)
+
+            data = np.load(file_path, allow_pickle=True)
+            images = np.sign(data['cube']) * (np.sqrt(np.abs(data["cube"])+1)-1)
+            self.images.append(images)
                 
         self.images = np.concatenate(self.images, axis=0)
 
@@ -92,8 +115,12 @@ class DinoGenerator(tf.keras.utils.Sequence):
         }
 
     def on_epoch_end(self):
-        if self.shuffle:
-            np.random.shuffle(self.images)
+        self.epoch_count+=1
+        if self.epoch_count % 5 == 0 :
+            del self.images
+            gc.collect()
+            self.load_data()
+        np.random.shuffle(self.images)
 
 
 
