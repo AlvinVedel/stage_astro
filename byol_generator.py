@@ -6,8 +6,9 @@ import os
 
 
 class ByolGenerator(tf.keras.utils.Sequence):
-    def __init__(self, folder_path, batch_size, image_size=(64, 64, 9), shuffle=True, limit=8):
+    def __init__(self, folder_path, folder_extension='.npz', batch_size=256, image_size=(64, 64, 9), shuffle=True, limit=8):
         self.folder_path = folder_path
+        self.folder_extension = folder_extension
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.image_size = image_size
@@ -20,10 +21,18 @@ class ByolGenerator(tf.keras.utils.Sequence):
         
     def get_filename(self) :
         self.file_paths = []
-        for file_name in os.listdir(self.folder_path):
-            if file_name.endswith('.npz'):
-                file_path = os.path.join(self.folder_path, file_name)
-                self.file_paths.append(file_path)
+        if isinstance(self.folder_path, str):
+
+            for file_name in os.listdir(self.folder_path):
+                if file_name.endswith(self.folder_extension):
+                    file_path = os.path.join(self.folder_path, file_name)
+                    self.file_paths.append(file_path)
+        else : 
+            for i, folder in enumerate(self.folder_path) :
+                for file_name in os.listdir(folder):
+                    if file_name.endswith(self.folder_extension[i]):
+                        file_path = os.path.join(folder, file_name)
+                        self.file_paths.append(file_path)
 
     def load_data(self):
         self.images = []  
@@ -90,7 +99,7 @@ class ByolGenerator(tf.keras.utils.Sequence):
 
     def on_epoch_end(self):
         self.epoch_count+=1
-        if self.epoch_count % 20 == 0 :
+        if self.epoch_count % 5 == 0 :
             del self.images
             gc.collect()
             self.load_data()
