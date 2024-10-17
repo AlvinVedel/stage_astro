@@ -7,7 +7,7 @@ from byol_model import BYOL, ByolLoss
 
 #from tensorflow.keras.applications import ResNet50
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = '0, 1'
+os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
 
 def mlp(input_shape=2048):
@@ -72,7 +72,7 @@ def conv_block(x, filters, kernel_size=3, stride=1, padding='same'):
 
 
 #data_gen = ByolGenerator("/home/barrage/HSC_READY_CUBES/XMM_SHALLOW_UNSUP_200K_OBJECTS.npz", batch_size=256)
-
+print("FUNCTIONS READY")
 data_gen = ByolGenerator("/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS", batch_size=256)
 
 
