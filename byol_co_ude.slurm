@@ -22,8 +22,8 @@
 # /!\ Attention, "multithread" fait reference à l'hyperthreading dans la terminologie Slurm
 #SBATCH --hint=nomultithread         # hyperthreading desactive
 #SBATCH --time=20:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
-#SBATCH --output=byol_cosmo_log%j.out      # nom du fichier de sortie
-#SBATCH --error=byol_cosmo_log%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
+#SBATCH --output=byol_co_ude_log%j.out      # nom du fichier de sortie
+#SBATCH --error=byol_co_ude_log%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
  
 # Nettoyage des modules charges en interactif et herites par defaut
 module purge
