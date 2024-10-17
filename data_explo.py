@@ -10,3 +10,7 @@ meta = data["info"]
 
 print(cube.shape)
 print(meta)
+
+for key in meta :
+    print("KEY =", key)
+    print(meta[key])
