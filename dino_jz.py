@@ -5,18 +5,20 @@ from dino_generator import DinoGenerator
 import os
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] ='0'
+os.environ["CUDA_VISIBLE_DEVICES"] ='0, 1'
 
+strategy = tf.distribute.MirroredStrategy()
 
+with strategy.scope(): 
 
-teacher_head = Head(576, 150)
-student_head = Head(576, 150)
-teacher_backbone = Backbone()
-teacher_ibot_head = Head(576, 150)
-student_ibot_head = Head(576, 150)
-student_backbone = Backbone()
+	teacher_head = Head(576, 150)
+	student_head = Head(576, 150)
+	teacher_backbone = Backbone()
+	teacher_ibot_head = Head(576, 150)
+	student_ibot_head = Head(576, 150)
+	student_backbone = Backbone()
 
-batch_size=512
+batch_size=256
 masking_rate = 0.3
 data_generator = DinoGenerator("/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS", batch_size, (48, 48), (16, 16))
 
@@ -192,7 +194,7 @@ for epoch in range(total_epoch) :
             update_teacher_model(student_backbone, teacher_backbone, momentum)
             update_teacher_model(student_head, teacher_head, momentum)
 
-        if epoch % 50 == 0 :
+        if epoch % 20 == 0 :
             print("weights saved")
             teacher_backbone.save_weights("teacher_backbone.weights.h5")
             student_backbone.save_weights("student_backbone.weights.h5")

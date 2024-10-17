@@ -95,12 +95,12 @@ def cosine_annealing(epoch):
     return 0 + 0.5 * (0.3/2 - 0) * (1 + np.cos(np.pi * epoch / 600))
 lr_scheduler = tf.keras.callbacks.LearningRateScheduler(cosine_annealing)
 
-checkpoint_dir = 'checkpoints/'
+checkpoint_dir = 'checkpoints_co_de/'
 os.makedirs(checkpoint_dir, exist_ok=True)
 
 # Callback pour sauvegarder les poids toutes les 50 époques
 checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-    filepath=os.path.join(checkpoint_dir, 'byol_epoch_{epoch:02d}.h5'),
+    filepath=os.path.join(checkpoint_dir, 'byol_co_de_epoch_{epoch:02d}.h5'),
     save_weights_only=True,  # Sauvegarde uniquement les poids
     save_freq=10 * len(data_gen),  # Sauvegarde toutes les 50 époques
     save_best_only=False  # Sauvegarde toutes les 50 époques, pas seulement le meilleur modèle
@@ -109,7 +109,7 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
 print("READY TO FIT")
 history = model.fit(data_gen, epochs=600, callbacks=[lr_scheduler, checkpoint_callback])
 
-model.save_weights("byol.weights.h5")
+model.save_weights("byol_co_de.weights.h5")
 print("SAVE ENDED")
 
 
