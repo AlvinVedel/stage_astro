@@ -20,6 +20,7 @@ class ByolGenerator(tf.keras.utils.Sequence):
 
         for file_name in os.listdir(self.folder_path):
             if file_name.endswith('.npz'):
+                print("je lis un fichier npz...")
                 file_path = os.path.join(self.folder_path, file_name)
                 data = np.load(file_path, allow_pickle=True)
                 images = np.sign(data['cube']) * (np.sqrt(np.abs(data["cube"])+1)-1)

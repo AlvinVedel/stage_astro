@@ -78,8 +78,9 @@ data_gen = ByolGenerator("/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHO
 
 
 optimizer = tf.keras.optimizers.Adam(lr=0.3)
-
+print("AVANT CREATION MODEL")
 model = BYOL(ResNet50(), ResNet50(), mlp(2048), mlp(2048), mlp(256))
+print("MODEL CREE")
 model(np.random.random((32, 64, 64, 9)))
 #model.load_weights("byol.weights.h5")
 
@@ -102,10 +103,11 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     save_best_only=False  # Sauvegarde toutes les 50 époques, pas seulement le meilleur modèle
 )
 
+print("READY TO FIT")
 history = model.fit(data_gen, epochs=600, callbacks=[lr_scheduler, checkpoint_callback])
 
 model.save_weights("byol.weights.h5")
-
+print("SAVE ENDED")
 
 
 
