@@ -7,7 +7,7 @@ from byol_model import BYOL, ByolLoss
 
 #from tensorflow.keras.applications import ResNet50
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+os.environ["CUDA_VISIBLE_DEVICES"] = '0, 1'
 
 
 def mlp(input_shape=2048):
@@ -98,11 +98,11 @@ os.makedirs(checkpoint_dir, exist_ok=True)
 checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     filepath=os.path.join(checkpoint_dir, 'byol_epoch_{epoch:02d}.h5'),
     save_weights_only=True,  # Sauvegarde uniquement les poids
-    save_freq=50 * len(data_gen),  # Sauvegarde toutes les 50 époques
+    save_freq=10 * len(data_gen),  # Sauvegarde toutes les 50 époques
     save_best_only=False  # Sauvegarde toutes les 50 époques, pas seulement le meilleur modèle
 )
 
-model.fit(data_gen, epochs=600, callbacks=[lr_scheduler])
+history = model.fit(data_gen, epochs=600, callbacks=[lr_scheduler, checkpoint_callback])
 
 model.save_weights("byol.weights.h5")
 

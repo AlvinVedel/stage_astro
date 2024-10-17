@@ -10,7 +10,7 @@
 ##SBATCH -C h100                     # decommenter pour la partition gpu_p6 (GPU H100 80 Go)
 # Ici, reservation de 10 CPU (pour 1 tache) et d'un GPU sur un seul noeud :
 #SBATCH --nodes=1                  # on demande un noeud
-#SBATCH --ntasks-per-node=3          # avec une tache par noeud (= nombre de GPU ici)
+#SBATCH --ntasks-per-node=1          # avec une tache par noeud (= nombre de GPU ici)
 #SBATCH --gres=gpu:3                 # nombre de GPU par noeud (max 8 avec gpu_p2, gpu_p5)
 # Le nombre de CPU par tache doit etre adapte en fonction de la partition utilisee. Sachant
 # qu'ici on ne reserve qu'un seul GPU (soit 1/4 ou 1/8 des GPU du noeud suivant la partition),
