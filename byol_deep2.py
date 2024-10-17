@@ -72,17 +72,17 @@ def conv_block(x, filters, kernel_size=3, stride=1, padding='same'):
 
 
 #data_gen = ByolGenerator("/home/barrage/HSC_READY_CUBES/XMM_SHALLOW_UNSUP_200K_OBJECTS.npz", batch_size=256)
-
+print("FUNCTIONS DEFINED")
 data_gen = ByolGenerator("/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2", batch_size=256)
 
-
+print("DATA READY")
 
 optimizer = tf.keras.optimizers.Adam(lr=0.3)
 
 model = BYOL(ResNet50(), ResNet50(), mlp(2048), mlp(2048), mlp(256))
 model(np.random.random((32, 64, 64, 9)))
 #model.load_weights("byol.weights.h5")
-
+print("MODEL LOADED")
 model.compile(optimizer=optimizer, loss=ByolLoss())
 
 
@@ -101,11 +101,11 @@ checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
     save_freq=10 * len(data_gen),  # Sauvegarde toutes les 50 époques
     save_best_only=False  # Sauvegarde toutes les 50 époques, pas seulement le meilleur modèle
 )
-
+print("CALLBACKS DEFINED")
 history = model.fit(data_gen, epochs=600, callbacks=[lr_scheduler, checkpoint_callback])
 
 model.save_weights("byol_deep2.weights.h5")
-
+print("SCRIPT ENDED")
 
 
 
