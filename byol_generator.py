@@ -6,7 +6,7 @@ import os
 
 
 class ByolGenerator(tf.keras.utils.Sequence):
-    def __init__(self, folder_path, folder_extension='.npz', batch_size=256, image_size=(64, 64, 9), shuffle=True, limit=8):
+    def __init__(self, folder_path, folder_extension='.npz', batch_size=256, image_size=(64, 64, 9), shuffle=True, limit=200000):
         self.folder_path = folder_path
         self.folder_extension = folder_extension
         self.batch_size = batch_size
@@ -35,17 +35,20 @@ class ByolGenerator(tf.keras.utils.Sequence):
                         self.file_paths.append(file_path)
 
     def load_data(self):
-        self.images = []  
+        images = []  
 
-        for _ in range(self.limit) :
+        while len(self.images) < self.limit :
+
             file_path = self.file_paths[self.file_count]
             self.file_count = (self.file_count+1)%len(self.file_paths)
 
             data = np.load(file_path, allow_pickle=True)
             images = np.sign(data['cube']) * (np.sqrt(np.abs(data["cube"])+1)-1)
-            self.images.append(images)
+            images.append(images)
+            self.images = np.concatenate(images, axis=0)
                 
-        self.images = np.concatenate(self.images, axis=0)
+        np.random.shuffle(self.images)
+        self.images = self.images[:self.limit]
 
 
     def __len__(self):
