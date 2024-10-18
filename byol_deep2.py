@@ -81,7 +81,7 @@ optimizer = tf.keras.optimizers.Adam(lr=0.3)
 
 model = BYOL(ResNet50(), ResNet50(), mlp(2048), mlp(2048), mlp(256))
 model(np.random.random((32, 64, 64, 9)))
-#model.load_weights("byol.weights.h5")
+model.load_weights("./checkpoints_d2/byol_d2_epoch_120.h5")
 print("MODEL LOADED")
 model.compile(optimizer=optimizer, loss=ByolLoss())
 
@@ -96,7 +96,7 @@ os.makedirs(checkpoint_dir, exist_ok=True)
 
 # Callback pour sauvegarder les poids toutes les 50 époques
 checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-    filepath=os.path.join(checkpoint_dir, 'byol_d2_epoch_{epoch:02d}.h5'),
+    filepath=os.path.join(checkpoint_dir, 'byol_d2_2epoch_{epoch:02d}.weights.h5'),
     save_weights_only=True,  # Sauvegarde uniquement les poids
     save_freq=10 * len(data_gen),  # Sauvegarde toutes les 50 époques
     save_best_only=False  # Sauvegarde toutes les 50 époques, pas seulement le meilleur modèle

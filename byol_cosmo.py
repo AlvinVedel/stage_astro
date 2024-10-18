@@ -97,7 +97,7 @@ os.makedirs(checkpoint_dir, exist_ok=True)
 
 # Callback pour sauvegarder les poids toutes les 50 époques
 checkpoint_callback = tf.keras.callbacks.ModelCheckpoint(
-    filepath=os.path.join(checkpoint_dir, 'byol_cosmo_epoch_{epoch:02d}.h5'),
+    filepath=os.path.join(checkpoint_dir, 'byol_cosmo_epoch_{epoch:02d}.weights.h5'),
     save_weights_only=True,  # Sauvegarde uniquement les poids
     save_freq=10 * len(data_gen),  # Sauvegarde toutes les 50 époques
     save_best_only=False  # Sauvegarde toutes les 50 époques, pas seulement le meilleur modèle

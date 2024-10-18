@@ -18,7 +18,7 @@ with strategy.scope():
 	student_ibot_head = Head(576, 150)
 	student_backbone = Backbone()
 
-batch_size=256
+batch_size=32
 masking_rate = 0.3
 data_generator = DinoGenerator("/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS", batch_size, (48, 48), (16, 16))
 
