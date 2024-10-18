@@ -148,7 +148,7 @@ print(dist_radec.shape)
 
 model = BYOL(ResNet50(), ResNet50(), mlp(2048), mlp(2048), mlp(256))
 model(np.random.random((32, 64, 64, 9)))
-model.load_weights("byol_d2_epoch120.h5")
+model.load_weights("./checkpoints_d2/byol_d2_epoch_120.h5")
 
 extractor = model.online_backbone
 
