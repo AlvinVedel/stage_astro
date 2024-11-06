@@ -110,9 +110,14 @@ for i in range(3) :
     print("FILE ", i, file_paths[ind])
     data = np.load(file_paths[ind], allow_pickle=True)
     images = np.sign(data['cube'])*np.sqrt(np.abs(data["cube"]+1))-1 
-    meta = data["info"].item()
-    for key in meta :
-        print(key, meta[key][:10])
+    meta = data["info"]
+    print("META :",meta)
+    for met in meta :
+        print("MET :", met)
+        print("key list ----------")
+        for key in met :
+            print(key, met[key][:10])
+        print("fin key list ------------")
     all_images.append(images)
     all_metas.append(meta)
     label = ['deep2' for i in range(images.shape[0])]
@@ -122,9 +127,14 @@ for i in range(3) :
     print("FILE ", i, file_paths2['d'][ind])
     data = np.load(file_paths2['d'][ind], allow_pickle=True)
     images = np.sign(data['cube'])*np.sqrt(np.abs(data["cube"]+1))-1 
-    meta = data["info"].item()
-    for key in meta :
-        print(key, meta[key][:10])
+    meta = data["info"]
+    print("META :",meta)
+    for met in meta :
+        print("MET :", met)
+        print("key list ----------")
+        for key in met :
+            print(key, met[key][:10])
+        print("fin key list ------------")
     all_images.append(images)
     all_metas.append(meta)
     label = ['cosmos_d' for i in range(images.shape[0])]
@@ -135,9 +145,14 @@ for i in range(3) :
     print("FILE ", i, file_paths2['ud'][ind])
     data = np.load(file_paths2['ud'][ind], allow_pickle=True)
     images = np.sign(data['cube'])*np.sqrt(np.abs(data["cube"]+1))-1 
-    meta = data["info"].item()
-    for key in meta :
-        print(key, meta[key][:10])
+    meta = data["info"]
+    print("META :",meta)
+    for met in meta :
+        print("MET :", met)
+        print("key list ----------")
+        for key in met :
+            print(key, met[key][:10])
+        print("fin key list ------------")
     all_images.append(images)
     all_metas.append(meta)
     label = ['cosmos_ud' for i in range(images.shape[0])]
