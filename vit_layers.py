@@ -145,6 +145,103 @@ class Backbone(tf.keras.Model) :
 
         return {'cls_token' : x[:, 0],
                 'patch_token' : x[:, 1:]}
+    
+
+
+class BackboneAstro(tf.keras.Model) :
+    def __init__(self, img_size=64, patch_size=4, embed_dim=576, num_blocks=6) :
+        super().__init__()
+        self.num_patch = (img_size//patch_size)**2
+        self.patch_size=patch_size
+        self.embed_dim = embed_dim
+        self.num_blocks = num_blocks
+        self.interpolate_antialias = False
+        self.interpolate_offset = 0.1
+
+        self.conv1 = layers.Conv2D(filters=64, kernel_size=3, strides=1, padding='same', activation='relu')
+        self.conv2 = layers.Conv2D(filters=64, kernel_size=3, strides=1, padding='same', activation='tanh')
+
+
+
+        self.patch_embed = layers.Conv2D(filters=embed_dim, kernel_size=(patch_size, patch_size), strides=(patch_size, patch_size), padding='same')
+        self.flatten = layers.Reshape(target_shape=(-1, self.embed_dim))
+
+
+        self.cls_token = self.add_weight(shape=(1, 1, self.embed_dim), initializer='zeros', trainable=True)
+        self.concat = layers.Concatenate(axis=1)
+
+        self.pos_embed = self.add_weight(shape=(1, self.num_patch+1, embed_dim), trainable=True, initializer='zeros')
+        #self.add = layers.Add()
+
+        self.blocks = [Block(self.embed_dim) for _ in range(self.num_blocks)]
+        self.layer_norm = layers.LayerNormalization(epsilon=1e-6)
+
+        self.mask_token = self.add_weight(shape=(1, embed_dim), initializer='zeros', trainable=True)
+
+        
+
+    def call(self, x, masks=None):
+
+        x = tf.cast(x, tf.float32)
+        b, w, h, nc = tf.shape(x)[0], tf.shape(x)[1], tf.shape(x)[2], tf.shape(x)[3]
+        x = self.conv1(x)
+        x = self.conv2(x)
+
+        x = self.patch_embed(x) # batch, 8, 8, 576
+        x = self.flatten(x)  # batch, 64, 576
+
+        if masks is not None :
+            # masks censé être de shape batch, N      x de shape batch, N, embed_dim
+            masks = tf.expand_dims(masks, axis=-1)  # shape batch, N, 1
+            mask_token = tf.cast(self.mask_token, dtype=x.dtype)
+            print(masks.shape, mask_token.shape, x.shape)
+            x = tf.where(masks, mask_token, x)
+
+        #if masks is not None :
+        #    x = tf.where(masks, self.mask_token, x)
+
+        x = self.concat([tf.tile(self.cls_token, (b, 1, 1)), x]) # batch, 65, 576
+
+        # pos embed interpolation
+        previous_dtype = x.dtype
+        npatch = tf.shape(x)[1] - 1
+        N = self.pos_embed.shape[1] - 1
+        if N == npatch and w==h:
+            x = x + tf.tile(self.pos_embed, (b, 1, 1)) # batch, 65, 576
+
+        else :
+            pos_embed = tf.cast(self.pos_embed, dtype=tf.float32)
+            class_pos_embed = pos_embed[:, 0]
+            patch_pos_embed = pos_embed[:, 1:]
+            dim = tf.shape(x)[-1]
+            w0 = w // self.patch_size
+            h0 = h // self.patch_size
+            M = int(tf.sqrt(tf.cast(N, tf.float32)))  # Nombre de patches dans chaque dimension
+
+            
+            size = (w0, h0)
+
+            # Redimensionner les patches
+            patch_pos_embed = tf.reshape(patch_pos_embed, (1, M, M, dim))
+            patch_pos_embed = tf.image.resize(
+                patch_pos_embed,
+                size,
+                method='bicubic' if self.interpolate_antialias else 'bilinear',
+                antialias=self.interpolate_antialias
+            )
+
+            patch_pos_embed = tf.reshape(patch_pos_embed, (1, -1, dim))
+            result = tf.concat([tf.expand_dims(class_pos_embed, 0), patch_pos_embed], axis=1)
+            x = x + tf.tile(tf.cast(result, dtype=previous_dtype), (b, 1, 1))
+
+
+        for blk in self.blocks :
+            x = blk(x)
+        
+        x = self.layer_norm(x)
+
+        return {'cls_token' : x[:, 0],
+                'patch_token' : x[:, 1:]}
 
 
 

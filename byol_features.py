@@ -215,7 +215,7 @@ for i, w in enumerate(weights_paths) :
     plt.title("t-SNE features byol colorées par Z")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
-    plt.savefig("tsne_redshift"+code_w[i]".png")
+    plt.savefig("tsne_redshift"+code_w[i]+".png")
     plt.close()
 
 
@@ -226,7 +226,7 @@ for i, w in enumerate(weights_paths) :
     plt.title("t-SNE features byol colorées par RA")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
-    plt.savefig("tsne_ra"+code_w[i]".png")
+    plt.savefig("tsne_ra"+code_w[i]+".png")
     plt.close()
 
     plt.figure(figsize=(10, 8))
@@ -235,7 +235,7 @@ for i, w in enumerate(weights_paths) :
     plt.title("t-SNE features byol colorées par DEC")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
-    plt.savefig("tsne_dec"+code_w[i]".png")
+    plt.savefig("tsne_dec"+code_w[i]+".png")
     plt.close()
 
 
@@ -245,7 +245,7 @@ for i, w in enumerate(weights_paths) :
     plt.title("t-SNE features byol colorées par EBV")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
-    plt.savefig("tsne_ebv"+code_w[i]".png")
+    plt.savefig("tsne_ebv"+code_w[i]+".png")
     plt.close()
 
     plt.figure(figsize=(10, 8))
@@ -256,7 +256,7 @@ for i, w in enumerate(weights_paths) :
     plt.title("t-SNE features byol colorées par survey")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
-    plt.savefig("tsne_survey"+code_w[i]".png")
+    plt.savefig("tsne_survey"+code_w[i]+".png")
     plt.close()
 
 
