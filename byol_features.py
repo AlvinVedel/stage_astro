@@ -105,40 +105,43 @@ all_images = []
 all_metas = []
 origin_label = []
 
+def extract_meta(tup) :
+    # RA   DEC   EB_V   ZPHOT   EBV
+    return np.array(tup[1], tup[2], tup[7], tup[29], tup[35])
+
 for i in range(3) :
     ind = indices[i]
     print("FILE ", i, file_paths[ind])
     data = np.load(file_paths[ind], allow_pickle=True)
     images = np.sign(data['cube'])*np.sqrt(np.abs(data["cube"]+1))-1 
     meta = data["info"]
-    print("META :",meta)
-    for met in meta :
-        print("MET :", met)
-        print("key list ----------")
-        for key in met :
-            print(key, met[key][:10])
-        print("fin key list ------------")
+    print("DEEP2", meta.dtype)
+
+    
     all_images.append(images)
-    all_metas.append(meta)
-    label = ['deep2' for i in range(images.shape[0])]
+    metas = np.array([extract_meta(met) for met in meta])
+    all_metas.append(metas)
+    label = ['deep2' for _ in range(images.shape[0])]
     origin_label.append(label)
+
+
+
 
     ind = indices2[i]
     print("FILE ", i, file_paths2['d'][ind])
     data = np.load(file_paths2['d'][ind], allow_pickle=True)
     images = np.sign(data['cube'])*np.sqrt(np.abs(data["cube"]+1))-1 
     meta = data["info"]
-    print("META :",meta)
-    for met in meta :
-        print("MET :", met)
-        print("key list ----------")
-        for key in met :
-            print(key, met[key][:10])
-        print("fin key list ------------")
+    print("D :",meta.dtype)
+    
     all_images.append(images)
-    all_metas.append(meta)
+    metas = np.array([extract_meta(met) for met in meta])
+    all_metas.append(metas)
     label = ['cosmos_d' for i in range(images.shape[0])]
     origin_label.append(label)
+
+
+
 
 
     ind = indices3[i]
@@ -146,34 +149,23 @@ for i in range(3) :
     data = np.load(file_paths2['ud'][ind], allow_pickle=True)
     images = np.sign(data['cube'])*np.sqrt(np.abs(data["cube"]+1))-1 
     meta = data["info"]
-    print("META :",meta)
-    for met in meta :
-        print("MET :", met)
-        print("key list ----------")
-        for key in met :
-            print(key, met[key][:10])
-        print("fin key list ------------")
+    print("UD :", meta.dtype)
+    
     all_images.append(images)
-    all_metas.append(meta)
+    metas = np.array([extract_meta(met) for met in meta]) # shape 20k, 5
+    all_metas.append(metas)
     label = ['cosmos_ud' for i in range(images.shape[0])]
     origin_label.append(label)
 
 images = np.concatenate(all_images, axis=0)
+metas = np.concatenate(all_metas, axis=0)  # 12*20k, 5
 
-all_z = []
-all_ra = []
-all_dec = []
-all_ebv = []
-for meta in all_metas :
-    all_z.append(meta["ZSPEC"])
-    all_ra.append(meta["RA"])
-    all_dec.append(meta["DEC"])
-    all_ebv.append(meta["EBV"])
+ra = metas[:, 0]
+dec = metas[:, 1]
+ebv = metas[:, 2]
+z = metas[:, 3]
 
-z = np.concatenate(all_z, axis=0)
-ra = np.concatenate(all_ra, axis=0)
-dec = np.concatenate(all_dec, axis=0)
-ebv = np.concatenate(all_ebv, axis=0)
+
 
 origin_label = np.concatenate(origin_label, axis=0)
 
