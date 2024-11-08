@@ -101,21 +101,28 @@ random.shuffle(indices)
 random.shuffle(indices2)
 random.shuffle(indices3)
 
+import gc
+
 all_images = []
 all_metas = []
 origin_label = []
 
 def extract_meta(tup) :
     # RA   DEC   EB_V   ZPHOT   EBV
-    return np.array(tup[1], tup[2], tup[7], tup[29], tup[35])
+    return np.array(tup[1], tup[2], tup[7], max(tup[29], 1e-4), tup[35])
 
-for i in range(3) :
+for i in range(32) :
     ind = indices[i]
     print("FILE ", i, file_paths[ind])
     data = np.load(file_paths[ind], allow_pickle=True)
-    images = np.sign(data['cube'])*np.sqrt(np.abs(data["cube"]+1))-1 
+    images = np.sign(data['cube'])*(np.sqrt(np.abs(data["cube"]+1))-1) 
     meta = data["info"]
     print("DEEP2", meta.dtype)
+    si = np.arange(0, images.shape[0])
+    random.shuffle(si)
+    si = si[:500]
+    images = images[si]
+    meta = meta[si]
 
     
     all_images.append(images)
@@ -123,22 +130,28 @@ for i in range(3) :
     all_metas.append(metas)
     label = ['deep2' for _ in range(images.shape[0])]
     origin_label.append(label)
-
+    gc.collect()
 
 
 
     ind = indices2[i]
     print("FILE ", i, file_paths2['d'][ind])
     data = np.load(file_paths2['d'][ind], allow_pickle=True)
-    images = np.sign(data['cube'])*np.sqrt(np.abs(data["cube"]+1))-1 
+    images = np.sign(data['cube'])*(np.sqrt(np.abs(data["cube"]+1))-1) 
     meta = data["info"]
     print("D :",meta.dtype)
+    si = np.arange(0, images.shape[0])
+    random.shuffle(si)
+    si = si[:500]
+    images = images[si]
+    meta = meta[si]
     
     all_images.append(images)
     metas = np.array([extract_meta(met) for met in meta])
     all_metas.append(metas)
     label = ['cosmos_d' for i in range(images.shape[0])]
     origin_label.append(label)
+    gc.collect()
 
 
 
@@ -147,15 +160,21 @@ for i in range(3) :
     ind = indices3[i]
     print("FILE ", i, file_paths2['ud'][ind])
     data = np.load(file_paths2['ud'][ind], allow_pickle=True)
-    images = np.sign(data['cube'])*np.sqrt(np.abs(data["cube"]+1))-1 
+    images = np.sign(data['cube'])*(np.sqrt(np.abs(data["cube"]+1))-1)
     meta = data["info"]
     print("UD :", meta.dtype)
+    si = np.arange(0, images.shape[0])
+    random.shuffle(si)
+    si = si[:500]
+    images = images[si]
+    meta = meta[si]
     
     all_images.append(images)
     metas = np.array([extract_meta(met) for met in meta]) # shape 20k, 5
     all_metas.append(metas)
     label = ['cosmos_ud' for i in range(images.shape[0])]
     origin_label.append(label)
+    gc.collect()
 
 images = np.concatenate(all_images, axis=0)
 metas = np.concatenate(all_metas, axis=0)  # 12*20k, 5
@@ -163,7 +182,7 @@ metas = np.concatenate(all_metas, axis=0)  # 12*20k, 5
 ra = metas[:, 0]
 dec = metas[:, 1]
 ebv = metas[:, 2]
-z = metas[:, 3]
+z = np.log(metas[:, 3]+1)
 
 
 
