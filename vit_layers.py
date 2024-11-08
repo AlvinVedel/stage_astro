@@ -108,6 +108,7 @@ class Backbone(tf.keras.Model) :
         # pos embed interpolation
         previous_dtype = x.dtype
         npatch = tf.shape(x)[1] - 1
+        """
         N = self.pos_embed.shape[1] - 1
         if N == npatch and w==h:
             x = x + tf.tile(self.pos_embed, (b, 1, 1)) # batch, 65, 576
@@ -136,6 +137,40 @@ class Backbone(tf.keras.Model) :
             patch_pos_embed = tf.reshape(patch_pos_embed, (1, -1, dim))
             result = tf.concat([tf.expand_dims(class_pos_embed, 0), patch_pos_embed], axis=1)
             x = x + tf.tile(tf.cast(result, dtype=previous_dtype), (b, 1, 1))
+        """
+
+
+
+        N = self.pos_embed.shape[1] - 1
+        condition = tf.logical_and(tf.equal(N, npatch), tf.equal(w, h))
+
+        def pos_embed_match():
+            return x + tf.tile(self.pos_embed, (b, 1, 1))  # Cas où N == npatch et w == h
+
+        def pos_embed_resize():
+            pos_embed = tf.cast(self.pos_embed, dtype=tf.float32)
+            class_pos_embed = pos_embed[:, 0]
+            patch_pos_embed = pos_embed[:, 1:]
+            dim = tf.shape(x)[-1]
+            w0 = w // self.patch_size
+            h0 = h // self.patch_size
+            M = tf.cast((tf.sqrt(tf.cast(N, tf.float32))), tf.int32)  # Nombre de patches dans chaque dimension
+            size = (w0, h0)
+
+            # Redimensionner les patches
+            patch_pos_embed = tf.reshape(patch_pos_embed, (1, M, M, dim))
+            patch_pos_embed = tf.image.resize(
+                patch_pos_embed,
+                size,
+                method='bicubic' if self.interpolate_antialias else 'bilinear',
+                antialias=self.interpolate_antialias
+            )
+
+            patch_pos_embed = tf.reshape(patch_pos_embed, (1, -1, dim))
+            result = tf.concat([tf.expand_dims(class_pos_embed, 0), patch_pos_embed], axis=1)
+            return x + tf.tile(tf.cast(result, dtype=previous_dtype), (b, 1, 1))
+
+        x = tf.cond(condition, pos_embed_match, pos_embed_resize)
 
 
         for blk in self.blocks :
