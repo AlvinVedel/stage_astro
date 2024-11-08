@@ -47,16 +47,15 @@ random.shuffle(indices3)
 
 import gc
 
-all_images = np.zeros((32*500*3, 64, 64, 9))
-all_metas = np.zeros((32*500*3, 5))
+all_images = []
+all_metas = []
 origin_label = []
 
 def extract_meta(tup) :
     # RA   DEC   EB_V   ZPHOT   EBV
     return np.array([tup[1], tup[2], tup[7], max(tup[29], 1e-4), tup[35]])
 
-indice_debut = 0
-indice_fin = 500
+
 for i in range(32) :
     ind = indices[i]
     print("FILE ", i, file_paths[ind])
