@@ -47,14 +47,16 @@ random.shuffle(indices3)
 
 import gc
 
-all_images = []
-all_metas = []
+all_images = np.zeros((32*500*3, 64, 64, 9))
+all_metas = np.zeros((32*500*3, 5))
 origin_label = []
 
 def extract_meta(tup) :
     # RA   DEC   EB_V   ZPHOT   EBV
     return np.array([tup[1], tup[2], tup[7], max(tup[29], 1e-4), tup[35]])
 
+indice_debut = 0
+indice_fin = 500
 for i in range(32) :
     ind = indices[i]
     print("FILE ", i, file_paths[ind])
@@ -68,10 +70,13 @@ for i in range(32) :
     images = images[si]
     meta = meta[si]
 
-    images = np.sign(data['cube'])*(np.sqrt(np.abs(data["cube"]+1))-1)     
-    all_images.append(images)
-    metas = np.array([extract_meta(met) for met in meta])
-    all_metas.append(metas)
+    images = np.sign(images)*(np.sqrt(np.abs(images+1))-1)   
+    all_images[indice_debut:indice_fin] = images
+    #all_images.append(images)
+    all_metas[indice_debut:indice_fin] = np.array([extract_meta(met) for met in meta])
+    indice_debut = indice_fin
+    indice_fin += 500
+    #all_metas.append(metas)
     label = ['deep2' for _ in range(images.shape[0])]
     origin_label.append(label)
     gc.collect()
@@ -90,10 +95,12 @@ for i in range(32) :
     images = images[si]
     meta = meta[si]
 
-    images = np.sign(data['cube'])*(np.sqrt(np.abs(data["cube"]+1))-1)     
-    all_images.append(images)
-    metas = np.array([extract_meta(met) for met in meta])
-    all_metas.append(metas)
+    images = np.sign(images)*(np.sqrt(np.abs(images+1))-1)   
+    all_images[indice_debut:indice_fin] = images
+    #all_images.append(images)
+    all_metas[indice_debut:indice_fin] = np.array([extract_meta(met) for met in meta])  
+    #metas = np.array([extract_meta(met) for met in meta])
+
     label = ['cosmos_d' for _ in range(images.shape[0])]
     origin_label.append(label)
     gc.collect()
@@ -113,21 +120,24 @@ for i in range(32) :
     images = images[si]
     meta = meta[si]
 
-    images = np.sign(data['cube'])*(np.sqrt(np.abs(data["cube"]+1))-1)
-    all_images.append(images)
-    metas = np.array([extract_meta(met) for met in meta]) # shape 20k, 5
-    all_metas.append(metas)
+    images = np.sign(images)*(np.sqrt(np.abs(images+1))-1)
+    all_images[indice_debut:indice_fin] = images
+    all_metas[indice_debut:indice_fin] = np.array([extract_meta(met) for met in meta])
+    #metas = np.array([extract_meta(met) for met in meta]) # shape 20k, 5
+    #all_metas.append(metas)
     label = ['cosmos_ud' for _ in range(images.shape[0])]
     origin_label.append(label)
     gc.collect()
 
-images = np.concatenate(all_images, axis=0)
-metas = np.concatenate(all_metas, axis=0)  # 12*20k, 5
+#images = np.concatenate(all_images, axis=0)
+#metas = np.concatenate(all_metas, axis=0)  # 12*20k, 5
 
-ra = metas[:, 0]
-dec = metas[:, 1]
-ebv = metas[:, 2]
-z = np.log(metas[:, 3]+1)
+images = all_images
+
+ra = all_metas[:, 0]
+dec = all_metas[:, 1]
+ebv = all_metas[:, 2]
+z = np.log(all_metas[:, 3]+1)
 
 
 
