@@ -152,8 +152,19 @@ for i, w in enumerate(weights_paths) :
     model.load_weights(w)
 
     #model.load_weights("./checkpoints_d2/byol_d2_epoch_120.h5")
-    tokens = model.predict(images)  # 
-    features = tokens["cls_token"]
+    i = 0 
+    features = []
+    while i < images.shape[0] :
+        if i+200 > images.shape[0] :
+            f = model.predict(images[i:])
+        else :
+            f = model.predict(images[i:i+200])
+        features.append(f)
+        i+=200
+    features_cls = [f["cls_token"] for f in features]
+    features = np.concatenate(features_cls, axis=0)
+    #tokens = model.predict(images)  # 
+    #features = tokens["cls_token"]
     #features = extractor.predict(images)
     print(features.shape)
 
