@@ -109,7 +109,7 @@ origin_label = []
 
 def extract_meta(tup) :
     # RA   DEC   EB_V   ZPHOT   EBV
-    return np.array(tup[1], tup[2], tup[7], max(tup[29], 1e-4), tup[35])
+    return np.array([tup[1], tup[2], tup[7], max(tup[29], 1e-4), tup[35]])
 
 for i in range(32) :
     ind = indices[i]

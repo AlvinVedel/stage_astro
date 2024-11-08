@@ -8,9 +8,10 @@
 #SBATCH --gres=gpu:1                 # nombre de GPU par noeud (max 8 avec gpu_p2, gpu_p5)
 #SBATCH --cpus-per-task=10           # nombre de CPU par tache (1/4 des CPU du noeud 4-GPU V100)
 #SBATCH --hint=nomultithread         # hyperthreading desactive
-#SBATCH --time=20:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
-#SBATCH --output=./logs/byol_d2_log%j.out      # nom du fichier de sortie
-#SBATCH --error=./logs/byol_d2_log%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
+#SBATCH --time=100:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
+#SBATCH --output=./logs/byol_d2_100_log%j.out      # nom du fichier de sortie
+#SBATCH --error=./logs/byol_d2_100_log%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
+#SBATCH --qos=qos_gpu-t4
  
 module purge
 

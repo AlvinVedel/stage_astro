@@ -7,16 +7,14 @@ import os
 
 os.environ["CUDA_VISIBLE_DEVICES"] ='0, 1'
 
-strategy = tf.distribute.MirroredStrategy()
 
-with strategy.scope(): 
 
-	teacher_head = Head(576, 150)
-	student_head = Head(576, 150)
-	teacher_backbone = BackboneAstro()
-	teacher_ibot_head = Head(576, 150)
-	student_ibot_head = Head(576, 150)
-	student_backbone = BackboneAstro()
+teacher_head = Head(576, 150)
+student_head = Head(576, 150)
+teacher_backbone = BackboneAstro()
+teacher_ibot_head = Head(576, 150)
+student_ibot_head = Head(576, 150)
+student_backbone = BackboneAstro()
 
 batch_size=32
 masking_rate = 0.3
@@ -112,7 +110,7 @@ for epoch in range(total_epoch) :
 
                     ###### PREDICTION COULEUR
                     colors_pred = color_head(teacher_cls_token, training=True)
-                    color_loss = tf.reduce_mean(tf.square(colors_target - colors_pred))
+                    color_loss = tf.reduce_mean(tf.square(tf.cast(colors_target, dtype=tf.float32) - tf.cast(colors_pred, dtype=tf.float32)))
 
 
 

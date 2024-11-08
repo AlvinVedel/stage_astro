@@ -7,16 +7,14 @@ import os
 
 os.environ["CUDA_VISIBLE_DEVICES"] ='0, 1'
 
-strategy = tf.distribute.MirroredStrategy()
+ 
 
-with strategy.scope(): 
-
-	teacher_head = Head(576, 150)
-	student_head = Head(576, 150)
-	teacher_backbone = BackboneAstro()
-	teacher_ibot_head = Head(576, 150)
-	student_ibot_head = Head(576, 150)
-	student_backbone = BackboneAstro()
+teacher_head = Head(576, 150)
+student_head = Head(576, 150)
+teacher_backbone = BackboneAstro()
+teacher_ibot_head = Head(576, 150)
+student_ibot_head = Head(576, 150)
+student_backbone = BackboneAstro()
 
 batch_size=32
 masking_rate = 0.3
@@ -194,14 +192,14 @@ for epoch in range(total_epoch) :
             update_teacher_model(student_backbone, teacher_backbone, momentum)
             update_teacher_model(student_head, teacher_head, momentum)
 
-        if epoch % 20 == 0 :
+        if epoch % 1 == 0 :
             print("weights saved")
-            teacher_backbone.save_weights("teacher_backbone.weights.h5")
-            student_backbone.save_weights("student_backbone.weights.h5")
-            teacher_head.save_weights("teacher_head.weights.h5")
-            student_head.save_weights("student_head.weights.h5")
-            teacher_ibot_head.save_weights("teacher_ibot_head.weights.h5")
-            student_ibot_head.save_weights("student_ibot_head.weights.h5")
+            teacher_backbone.save_weights("./checkpoints_dino_astro/teacher_backbone.weights.h5")
+            student_backbone.save_weights("./checkpoints_dino_astro/student_backbone.weights.h5")
+            teacher_head.save_weights("checkpoints_dino_astro/teacher_head.weights.h5")
+            student_head.save_weights("checkpoints_dino_astro/student_head.weights.h5")
+            teacher_ibot_head.save_weights("checkpoints_dino_astro/teacher_ibot_head.weights.h5")
+            student_ibot_head.save_weights("checkpoints_dino_astro/student_ibot_head.weights.h5")
 
 
 

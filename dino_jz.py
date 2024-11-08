@@ -5,18 +5,14 @@ from dino_generator import DinoGenerator
 import os
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] ='0, 1'
+os.environ["CUDA_VISIBLE_DEVICES"] ='0'
 
-strategy = tf.distribute.MirroredStrategy()
-
-with strategy.scope(): 
-
-	teacher_head = Head(576, 150)
-	student_head = Head(576, 150)
-	teacher_backbone = Backbone()
-	teacher_ibot_head = Head(576, 150)
-	student_ibot_head = Head(576, 150)
-	student_backbone = Backbone()
+teacher_head = Head(576, 150)
+student_head = Head(576, 150)
+teacher_backbone = Backbone()
+teacher_ibot_head = Head(576, 150)
+student_ibot_head = Head(576, 150)
+student_backbone = Backbone()
 
 batch_size=32
 masking_rate = 0.3
@@ -70,6 +66,7 @@ final_weight_decay = 0.4
 
 
 for epoch in range(total_epoch) :
+        print("EPOCH", epoch)
         for batch in  data_generator: 
 
             
@@ -194,14 +191,14 @@ for epoch in range(total_epoch) :
             update_teacher_model(student_backbone, teacher_backbone, momentum)
             update_teacher_model(student_head, teacher_head, momentum)
 
-        if epoch % 20 == 0 :
-            print("weights saved")
-            teacher_backbone.save_weights("teacher_backbone.weights.h5")
-            student_backbone.save_weights("student_backbone.weights.h5")
-            teacher_head.save_weights("teacher_head.weights.h5")
-            student_head.save_weights("student_head.weights.h5")
-            teacher_ibot_head.save_weights("teacher_ibot_head.weights.h5")
-            student_ibot_head.save_weights("student_ibot_head.weights.h5")
+        #if epoch % 20 == 0 :
+        print("weights saved")
+        teacher_backbone.save_weights("teacher_backbone.weights.h5")
+        student_backbone.save_weights("student_backbone.weights.h5")
+        teacher_head.save_weights("teacher_head.weights.h5")
+        student_head.save_weights("student_head.weights.h5")
+        teacher_ibot_head.save_weights("teacher_ibot_head.weights.h5")
+        student_ibot_head.save_weights("student_ibot_head.weights.h5")
 
 
 
