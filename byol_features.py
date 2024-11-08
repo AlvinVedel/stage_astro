@@ -115,41 +115,44 @@ for i in range(32) :
     ind = indices[i]
     print("FILE ", i, file_paths[ind])
     data = np.load(file_paths[ind], allow_pickle=True)
-    images = np.sign(data['cube'])*(np.sqrt(np.abs(data["cube"]+1))-1) 
+    images = data["cube"]
     meta = data["info"]
-    print("DEEP2", meta.dtype)
+
     si = np.arange(0, images.shape[0])
     random.shuffle(si)
     si = si[:500]
     images = images[si]
     meta = meta[si]
 
-    
+    images = np.sign(images)*(np.sqrt(np.abs(images+1))-1)   
     all_images.append(images)
     metas = np.array([extract_meta(met) for met in meta])
     all_metas.append(metas)
-    label = ['deep2' for _ in range(images.shape[0])]
+    label = ['deep2' for _ in range(500)]
     origin_label.append(label)
     gc.collect()
+
+
 
 
 
     ind = indices2[i]
     print("FILE ", i, file_paths2['d'][ind])
     data = np.load(file_paths2['d'][ind], allow_pickle=True)
-    images = np.sign(data['cube'])*(np.sqrt(np.abs(data["cube"]+1))-1) 
+    images = data["cube"]
     meta = data["info"]
-    print("D :",meta.dtype)
+
     si = np.arange(0, images.shape[0])
     random.shuffle(si)
     si = si[:500]
     images = images[si]
     meta = meta[si]
-    
+
+    images = np.sign(images)*(np.sqrt(np.abs(images+1))-1) 
     all_images.append(images)
     metas = np.array([extract_meta(met) for met in meta])
     all_metas.append(metas)
-    label = ['cosmos_d' for i in range(images.shape[0])]
+    label = ['cosmos_d' for _ in range(images.shape[0])]
     origin_label.append(label)
     gc.collect()
 
@@ -160,21 +163,23 @@ for i in range(32) :
     ind = indices3[i]
     print("FILE ", i, file_paths2['ud'][ind])
     data = np.load(file_paths2['ud'][ind], allow_pickle=True)
-    images = np.sign(data['cube'])*(np.sqrt(np.abs(data["cube"]+1))-1)
+    images = data["cube"]
     meta = data["info"]
-    print("UD :", meta.dtype)
+
     si = np.arange(0, images.shape[0])
     random.shuffle(si)
     si = si[:500]
     images = images[si]
     meta = meta[si]
-    
+
+    images = np.sign(images)*(np.sqrt(np.abs(images+1))-1)
     all_images.append(images)
     metas = np.array([extract_meta(met) for met in meta]) # shape 20k, 5
     all_metas.append(metas)
-    label = ['cosmos_ud' for i in range(images.shape[0])]
+    label = ['cosmos_ud' for _ in range(images.shape[0])]
     origin_label.append(label)
     gc.collect()
+
 
 images = np.concatenate(all_images, axis=0)
 metas = np.concatenate(all_metas, axis=0)  # 12*20k, 5

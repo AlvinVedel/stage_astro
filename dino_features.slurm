@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=dino_tsne         # nom du job
-#SBATCH -C v100                 # decommenter pour reserver uniquement des GPU V100 32 Go
+#SBATCH -C v100-32g                 # decommenter pour reserver uniquement des GPU V100 32 Go
 #SBATCH -A dnz@v100
 #####SBATCH --partition=gpu_p2l          # decommenter pour la partition gpu_p2 (GPU V100 32 Go)   ==> V100 
 #SBATCH --nodes=1                    # on demande un noeud
