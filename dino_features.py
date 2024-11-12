@@ -56,7 +56,7 @@ def extract_meta(tup) :
     return np.array([tup[1], tup[2], tup[7], max(tup[29], 1e-4), tup[35]])
 
 
-for i in range(28) :
+for i in range(20) :
     ind = indices[i]
     print("FILE ", i, file_paths[ind])
     data = np.load(file_paths[ind], allow_pickle=True)
@@ -210,10 +210,10 @@ for i, w in enumerate(weights_paths) :
             if i>=1 :
                 im_to_pred = np.concatenate([im_to_pred, np.expand_dims(masques[k:k+200], axis=1)], axis=-1)
             f = model.predict(images[k:k+200])
-        features.append(f) 
+        features.append(f["cls_token"]) 
         k+=200
-    features_cls = [f["cls_token"] for f in features]
-    features = np.concatenate(features_cls, axis=0)
+    #features_cls = [f["cls_token"] for f in features]
+    features = np.concatenate(features, axis=0)
     #tokens = model.predict(images)  # 
     #features = tokens["cls_token"]
     #features = extractor.predict(images)
