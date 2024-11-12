@@ -162,6 +162,10 @@ def get_mask(image, threshold=0.2, center_window_fraction=0.6) :
 with mp.Pool(processes=mp.cpu_count()) as pool:
     masques = pool.map(get_mask, images)
 
+print(images.shape)
+masques = np.array(masques)
+print(masques.shape)
+
 origin_label = np.concatenate(origin_label, axis=0)
 
 colors_dict = {'deep2':'blue', 'cosmos_d':'red', 'cosmos_ud':'yellow'}
@@ -174,7 +178,7 @@ for s in origin_label :
 
 # COSMOS D ET UD,                                        COSMOS D ET DEEP 2,                           COSMO UD + DEEP2                     DEEP2
 weights_paths = ["./teacher_backbone.weights.h5", "./checkpoints_dino_astro/teacher_backbone.weights.h5", "./checkpoints_dino_color/teacher_backbone.weights.h5"]
-code_w = ['C', 'CD_D2', 'CUD_D2', 'D2']
+code_w = ['Base', 'DA', 'color']
 
 
 
@@ -193,17 +197,18 @@ for i, w in enumerate(weights_paths) :
     k = 0 
     features = []
     while k < images.shape[0] :
+        print("k =", k)
         
             
         if k+200 > images.shape[0] :
             im_to_pred = images[k:] 
             if i>=1 :
-                im_to_pred = np.concatenate([im_to_pred, np.expand_dims(masques[k:], axis=1)]) # batch, 64, 64, 9   batch, 64, 64, +1
+                im_to_pred = np.concatenate([im_to_pred, np.expand_dims(masques[k:], axis=1)], axis=-1) # batch, 64, 64, 9   batch, 64, 64, +1
             f = model.predict(im_to_pred)
         else :
             im_to_pred = images[k:k+200]
             if i>=1 :
-                im_to_pred = np.concatenate([im_to_pred, np.expand_dims(masques[k:k+200], axis=1)])
+                im_to_pred = np.concatenate([im_to_pred, np.expand_dims(masques[k:k+200], axis=1)], axis=-1)
             f = model.predict(images[k:k+200])
         features.append(f) 
         k+=200
