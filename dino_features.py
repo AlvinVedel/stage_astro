@@ -210,7 +210,7 @@ for i, w in enumerate(weights_paths) :
             im_to_pred = images[k:k+200]
             if i>=1 :
                 im_to_pred = np.concatenate([im_to_pred, np.expand_dims(masques[k:k+200], axis=1)], axis=-1)
-            f = model.predict(images[k:k+200])
+            f = model.predict(im_to_pred)
         features.append(f["cls_token"]) 
         k+=200
     #features_cls = [f["cls_token"] for f in features]
