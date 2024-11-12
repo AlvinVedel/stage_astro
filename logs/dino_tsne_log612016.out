@@ -1,0 +1,112 @@
+-----------------------------------------------------------------------------------------------------------------------------------
+IDRIS WARNING: if you encounter performance issues regarding CPU multithreading, please consider loading one the following modules:
+  tensorflow-gpu/py3/2.4.0-noMKL
+  tensorflow-gpu/py3/2.5.0+nccl-2.8.3
+  tensorflow-gpu version >= 2.6.0
+-----------------------------------------------------------------------------------------------------------------------------------
+
+Loading tensorflow-gpu/py3/2.4.1
+  Loading requirement: gcc/8.5.0 cuda/10.2 nccl/2.6.4-1-cuda
+    cudnn/8.0.4.30-cuda-10.2 openmpi/4.0.2-cuda
++ python -u dino_features.py
+2024-11-08 16:54:40.632368: I tensorflow/stream_executor/platform/default/dso_loader.cc:49] Successfully opened dynamic library libcudart.so.10.2
+FILE  0 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0143_phot.npz
+FILE  0 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0103_photo_D.npz
+FILE  0 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0341_photo_UD.npz
+FILE  1 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0258_phot.npz
+FILE  1 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0162_photo_D.npz
+FILE  1 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0299_photo_UD.npz
+FILE  2 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0231_phot.npz
+FILE  2 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0075_photo_D.npz
+FILE  2 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0410_photo_UD.npz
+FILE  3 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0014_phot.npz
+FILE  3 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0027_photo_D.npz
+FILE  3 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0354_photo_UD.npz
+FILE  4 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0188_phot.npz
+FILE  4 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0130_photo_D.npz
+FILE  4 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0219_photo_UD.npz
+FILE  5 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0033_phot.npz
+FILE  5 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0200_photo_D.npz
+FILE  5 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0062_photo_UD.npz
+FILE  6 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0095_phot.npz
+FILE  6 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0157_photo_D.npz
+FILE  6 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0345_photo_UD.npz
+FILE  7 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0035_phot.npz
+FILE  7 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0076_photo_D.npz
+FILE  7 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0375_photo_UD.npz
+FILE  8 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0191_phot.npz
+FILE  8 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0184_photo_D.npz
+FILE  8 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0349_photo_UD.npz
+FILE  9 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0153_phot.npz
+FILE  9 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0156_photo_D.npz
+FILE  9 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0369_photo_UD.npz
+FILE  10 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0089_phot.npz
+FILE  10 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0269_photo_D.npz
+FILE  10 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0304_photo_UD.npz
+FILE  11 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0111_phot.npz
+FILE  11 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0188_photo_D.npz
+FILE  11 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0331_photo_UD.npz
+FILE  12 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0256_phot.npz
+FILE  12 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0111_photo_D.npz
+FILE  12 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0315_photo_UD.npz
+FILE  13 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0127_phot.npz
+FILE  13 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0079_photo_D.npz
+FILE  13 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0318_photo_UD.npz
+FILE  14 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0149_phot.npz
+FILE  14 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0238_photo_D.npz
+FILE  14 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0306_photo_UD.npz
+FILE  15 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0117_phot.npz
+FILE  15 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0234_photo_D.npz
+FILE  15 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0342_photo_UD.npz
+FILE  16 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0171_phot.npz
+FILE  16 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0379_photo_D.npz
+FILE  16 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0128_photo_UD.npz
+FILE  17 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0038_phot.npz
+FILE  17 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0163_photo_D.npz
+FILE  17 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0367_photo_UD.npz
+FILE  18 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0239_phot.npz
+FILE  18 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0105_photo_D.npz
+FILE  18 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0223_photo_UD.npz
+FILE  19 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0233_phot.npz
+FILE  19 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0268_photo_D.npz
+FILE  19 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0224_photo_UD.npz
+FILE  20 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0092_phot.npz
+FILE  20 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0042_photo_D.npz
+FILE  20 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0343_photo_UD.npz
+FILE  21 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0087_phot.npz
+FILE  21 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0083_photo_D.npz
+FILE  21 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0351_photo_UD.npz
+FILE  22 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0056_phot.npz
+FILE  22 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0206_photo_D.npz
+FILE  22 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0296_photo_UD.npz
+FILE  23 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0043_phot.npz
+FILE  23 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0119_photo_D.npz
+FILE  23 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0363_photo_UD.npz
+FILE  24 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0118_phot.npz
+FILE  24 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0061_photo_D.npz
+FILE  24 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0286_photo_UD.npz
+FILE  25 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0065_phot.npz
+FILE  25 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0293_photo_D.npz
+FILE  25 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0079_photo_UD.npz
+FILE  26 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0131_phot.npz
+FILE  26 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0214_photo_D.npz
+FILE  26 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0295_photo_UD.npz
+FILE  27 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0011_phot.npz
+FILE  27 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0155_photo_D.npz
+FILE  27 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0283_photo_UD.npz
+FILE  28 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0181_phot.npz
+FILE  28 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0039_photo_D.npz
+FILE  28 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0225_photo_UD.npz
+FILE  29 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0238_phot.npz
+FILE  29 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0201_photo_D.npz
+FILE  29 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0379_photo_UD.npz
+FILE  30 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0097_phot.npz
+FILE  30 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0110_photo_D.npz
+FILE  30 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0368_photo_UD.npz
+FILE  31 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/DEEP2/DEEP2_v11_ui_0223_phot.npz
+FILE  31 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0284_photo_D.npz
+FILE  31 /lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS/COSMOS_v11_uijk_0316_photo_UD.npz
+Traceback (most recent call last):
+  File "dino_features.py", line 131, in <module>
+    z = np.log(all_metas[:, 3]+1)
+TypeError: list indices must be integers or slices, not tuple
