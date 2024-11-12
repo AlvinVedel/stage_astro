@@ -149,24 +149,25 @@ code_w = ['C', 'CD_D2', 'CUD_D2', 'D2']
 
 
 for i, w in enumerate(weights_paths) :
-    if i == 1 : 
+    if i == 1 or i==2 : 
         model = BackboneAstro()
+        model(np.random.random((32, 64, 64, 10)))
     else :
         model = Backbone()
-    model(np.random.random((32, 64, 64, 9)))
+        model(np.random.random((32, 64, 64, 9)))
 
     model.load_weights(w)
 
     #model.load_weights("./checkpoints_d2/byol_d2_epoch_120.h5")
-    i = 0 
+    k = 0 
     features = []
-    while i < images.shape[0] :
-        if i+200 > images.shape[0] :
-            f = model.predict(images[i:])
+    while k < images.shape[0] :
+        if k+200 > images.shape[0] :
+            f = model.predict(images[k:])
         else :
-            f = model.predict(images[i:i+200])
-        features.append(f)
-        i+=200
+            f = model.predict(images[k:k+200])
+        features.append(f) 
+        k+=200
     features_cls = [f["cls_token"] for f in features]
     features = np.concatenate(features_cls, axis=0)
     #tokens = model.predict(images)  # 
@@ -184,7 +185,7 @@ for i, w in enumerate(weights_paths) :
     plt.figure(figsize=(10, 8))
     scatter = plt.scatter(data_tsne[:, 0], data_tsne[:, 1], c=z, cmap='viridis', alpha=0.6)
     plt.colorbar(scatter, label='Redshift (z)') 
-    plt.title("t-SNE features byol colorées par Z")
+    plt.title("t-SNE features DINO colorées par Z")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
     plt.savefig("plots_dino/tsne_redshift"+code_w[i]+".png")
@@ -195,7 +196,7 @@ for i, w in enumerate(weights_paths) :
     plt.figure(figsize=(10, 8))
     scatter = plt.scatter(data_tsne[:, 0], data_tsne[:, 1], c=ra, cmap='viridis', alpha=0.6)
     plt.colorbar(scatter, label='Ra') 
-    plt.title("t-SNE features byol colorées par RA")
+    plt.title("t-SNE features DINO colorées par RA")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
     plt.savefig("plots_dino/tsne_ra"+code_w[i]+".png")
@@ -204,7 +205,7 @@ for i, w in enumerate(weights_paths) :
     plt.figure(figsize=(10, 8))
     scatter = plt.scatter(data_tsne[:, 0], data_tsne[:, 1], c=dec, cmap='viridis', alpha=0.6)
     plt.colorbar(scatter, label='Dec') 
-    plt.title("t-SNE features byol colorées par DEC")
+    plt.title("t-SNE features DINO colorées par DEC")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
     plt.savefig("plots_dino/tsne_dec"+code_w[i]+".png")
@@ -214,7 +215,7 @@ for i, w in enumerate(weights_paths) :
     plt.figure(figsize=(10, 8))
     scatter = plt.scatter(data_tsne[:, 0], data_tsne[:, 1], c=ebv, cmap='viridis', alpha=0.6)
     plt.colorbar(scatter, label='ebv') 
-    plt.title("t-SNE features byol colorées par EBV")
+    plt.title("t-SNE features DINO colorées par EBV")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
     plt.savefig("plots_dino/tsne_ebv"+code_w[i]+".png")
@@ -225,7 +226,7 @@ for i, w in enumerate(weights_paths) :
     for category, color in colors_dict.items():
         plt.scatter([], [], color=color, label=category)
     plt.legend(title='survey')
-    plt.title("t-SNE features byol colorées par survey")
+    plt.title("t-SNE features DINO colorées par survey")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
     plt.savefig("plots_dino/tsne_survey"+code_w[i]+".png")
