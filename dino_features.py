@@ -130,7 +130,37 @@ dec = metas[:, 1]
 ebv = metas[:, 2]
 z = np.log(metas[:, 3]+1)
 
+import multiprocessing as mp
+from scipy.ndimage import center_of_mass
+from scipy import ndimage
 
+def get_mask(image, threshold=0.2, center_window_fraction=0.6) :
+            mean_image = np.mean(image, axis=-1)
+            #print("dans le get mask")
+            binary_image = mean_image > threshold * np.max(mean_image)        
+            labeled_image, num_labels = ndimage.label(binary_image)        
+            h, w = mean_image.shape
+            center_h, center_w = h // 2, w // 2
+            window_size_h, window_size_w = int(h * center_window_fraction), int(w * center_window_fraction)        
+            min_h, max_h = max(0, center_h - window_size_h // 2), min(h, center_h + window_size_h // 2)
+            min_w, max_w = max(0, center_w - window_size_w // 2), min(w, center_w + window_size_w // 2)
+            best_label = None
+            min_distance = float('inf')
+            for label in range(1, num_labels + 1):
+                mask = labeled_image == label
+                obj_center = center_of_mass(mask)
+                if (min_h <= obj_center[0] <= max_h) and (min_w <= obj_center[1] <= max_w):
+                    distance = np.linalg.norm(np.array(obj_center) - np.array([center_h, center_w]))
+                    if distance < min_distance:
+                        min_distance = distance
+                        best_label = label
+            mask = labeled_image == best_label if best_label is not None else np.zeros_like(mean_image)
+            
+            mask[image.shape[0]//2-2:image.shape[0]//2+2, image.shape[1]//2-2:image.shape[1]//2+2] = np.ones((4, 4))
+            return mask
+
+with mp.Pool(processes=mp.cpu_count()) as pool:
+    masques = pool.map(get_mask, images)
 
 origin_label = np.concatenate(origin_label, axis=0)
 
@@ -150,6 +180,7 @@ code_w = ['C', 'CD_D2', 'CUD_D2', 'D2']
 
 for i, w in enumerate(weights_paths) :
     if i == 1 or i==2 : 
+
         model = BackboneAstro()
         model(np.random.random((32, 64, 64, 10)))
     else :
@@ -162,9 +193,17 @@ for i, w in enumerate(weights_paths) :
     k = 0 
     features = []
     while k < images.shape[0] :
+        
+            
         if k+200 > images.shape[0] :
-            f = model.predict(images[k:])
+            im_to_pred = images[k:] 
+            if i>=1 :
+                im_to_pred = np.concatenate([im_to_pred, np.expand_dims(masques[k:], axis=1)]) # batch, 64, 64, 9   batch, 64, 64, +1
+            f = model.predict(im_to_pred)
         else :
+            im_to_pred = images[k:k+200]
+            if i>=1 :
+                im_to_pred = np.concatenate([im_to_pred, np.expand_dims(masques[k:k+200], axis=1)])
             f = model.predict(images[k:k+200])
         features.append(f) 
         k+=200
