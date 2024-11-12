@@ -56,7 +56,8 @@ def extract_meta(tup) :
     return np.array([tup[1], tup[2], tup[7], max(tup[29], 1e-4), tup[35]])
 
 
-for i in range(20) :
+for i in range(40) :
+    """
     ind = indices[i]
     print("FILE ", i, file_paths[ind])
     data = np.load(file_paths[ind], allow_pickle=True)
@@ -76,7 +77,7 @@ for i in range(20) :
     label = ['deep2' for _ in range(images.shape[0])]
     origin_label.append(label)
     gc.collect()
-
+    """
 
 
     ind = indices2[i]
@@ -100,7 +101,7 @@ for i in range(20) :
     gc.collect()
 
 
-
+    """
     ind = indices3[i]
     print("FILE ", i, file_paths2['ud'][ind])
     data = np.load(file_paths2['ud'][ind], allow_pickle=True)
@@ -120,7 +121,7 @@ for i in range(20) :
     label = ['cosmos_ud' for _ in range(images.shape[0])]
     origin_label.append(label)
     gc.collect()
-
+    """
 images = np.concatenate(all_images, axis=0)
 metas = np.concatenate(all_metas, axis=0)  # 12*20k, 5
 
