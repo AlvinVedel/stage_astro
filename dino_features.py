@@ -56,7 +56,7 @@ def extract_meta(tup) :
     return np.array([tup[1], tup[2], tup[7], max(tup[29], 1e-4), tup[35]])
 
 
-for i in range(32) :
+for i in range(28) :
     ind = indices[i]
     print("FILE ", i, file_paths[ind])
     data = np.load(file_paths[ind], allow_pickle=True)
@@ -128,7 +128,7 @@ metas = np.concatenate(all_metas, axis=0)  # 12*20k, 5
 ra = metas[:, 0]
 dec = metas[:, 1]
 ebv = metas[:, 2]
-z = np.log(all_metas[:, 3]+1)
+z = np.log(metas[:, 3]+1)
 
 
 
