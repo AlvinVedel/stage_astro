@@ -212,10 +212,20 @@ for i, w in enumerate(weights_paths) :
     model.load_weights(w)
 
     #model.load_weights("./checkpoints_d2/byol_d2_epoch_120.h5")
+    if i == 0 : 
+        ind = np.where((origin_label=='cosmos_d' | origin_label=='cosmos_ud'))
+    if i==1 :
+        ind = np.where((origin_label=='cosmos_d' | origin_label=='deep2'))
+    if i==2 :
+        ind = np.where((origin_label=='cosmos_ud' | origin_label=='deep2'))
+    if i==3 :    
+        ind = np.where((origin_label=='deep2'))
+
+    img = images[ind]
 
     extractor = model.online_backbone
 
-    features = extractor.predict(images)
+    features = extractor.predict(img)
     print(features.shape)
 
     tsne = TSNE(n_components=2, random_state=42)
