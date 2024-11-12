@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.manifold import TSNE
 from tensorflow.keras import layers
 import tensorflow.keras as keras
-from vit_layers import Backbone, Head
+from vit_layers import Backbone, BackboneAstro
 import matplotlib.pyplot as plt
 #from scipy.stats import gaussian_kde
 from matplotlib import cm
@@ -146,10 +146,15 @@ for s in origin_label :
 weights_paths = ["./teacher_backbone.weights.h5", "./checkpoints_dino_astro/teacher_backbone.weights.h5", "./checkpoints_dino_color/teacher_backbone.weights.h5"]
 code_w = ['C', 'CD_D2', 'CUD_D2', 'D2']
 
-model = Backbone()
-model(np.random.random((32, 64, 64, 9)))
+
 
 for i, w in enumerate(weights_paths) :
+    if i == 1 : 
+        model = BackboneAstro()
+    else :
+        model = Backbone()
+    model(np.random.random((32, 64, 64, 9)))
+
     model.load_weights(w)
 
     #model.load_weights("./checkpoints_d2/byol_d2_epoch_120.h5")
