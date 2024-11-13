@@ -13,8 +13,8 @@
 
 #SBATCH --hint=nomultithread         # hyperthreading desactive
 #SBATCH --time=100:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
-#SBATCH --output=./logs/dino_color_log%j.out      # nom du fichier de sortie
-#SBATCH --error=./logs/dino_color_log%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
+#SBATCH --output=../logs/dino_astro_log%j.out      # nom du fichier de sortie
+#SBATCH --error=../logs/dino_astro_log%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
 #SBATCH --qos=qos_gpu-t4
  
 module purge
@@ -23,4 +23,4 @@ module load tensorflow-gpu/py3/2.4.1
  
 set -x
 
-python -u dino_jz_astro_color.py
+python -u ../scripts/dino_jz_astro.py

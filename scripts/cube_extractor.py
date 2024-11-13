@@ -73,7 +73,6 @@ metas = np.concatenate(metas, axis=0)
 
 print("data ready to be save")
 
-data = {"cube":images, 'info':metas}
-np.savez("my_cube.npz", data, allow_pickle=True)
+np.savez_compressed("my_cube.npz", cube=images, info=metas)
 
 

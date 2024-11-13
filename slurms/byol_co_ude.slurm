@@ -22,8 +22,8 @@
 # /!\ Attention, "multithread" fait reference à l'hyperthreading dans la terminologie Slurm
 #SBATCH --hint=nomultithread         # hyperthreading desactive
 #SBATCH --time=100:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
-#SBATCH --output=./logs/byol_co_ude_100log%j.out      # nom du fichier de sortie
-#SBATCH --error=./logs/byol_co_ude_100log%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
+#SBATCH --output=../logs/byol_co_ude_100log%j.out      # nom du fichier de sortie
+#SBATCH --error=../logs/byol_co_ude_100log%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
 #SBATCH --qos=qos_gpu-t4
  
 # Nettoyage des modules charges en interactif et herites par defaut
@@ -46,4 +46,4 @@ set -x
 # Pour les partitions "gpu_p5" et "gpu_p6", le code doit etre compile avec les modules compatibles
 # avec la partition choisie
 # Execution du code
-python -u byol_co_ude.py
+python -u ../scripts/byol_co_ude.py

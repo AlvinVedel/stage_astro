@@ -9,8 +9,8 @@
 #SBATCH --cpus-per-task=10           # nombre de CPU par tache (1/4 des CPU du noeud 4-GPU V100)
 #SBATCH --hint=nomultithread         # hyperthreading desactive
 #SBATCH --time=1:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
-#SBATCH --output=./logs/cube_extr%j.out      # nom du fichier de sortie
-#SBATCH --error=./logs/cube_extr%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
+#SBATCH --output=../logs/cube_extr%j.out      # nom du fichier de sortie
+#SBATCH --error=../logs/cube_extr%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
  
 module purge
 
@@ -18,4 +18,4 @@ module load tensorflow-gpu/py3/2.4.1
  
 set -x
  
-python -u cube_extractor.py
+python -u ../scripts/cube_extractor.py
