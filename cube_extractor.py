@@ -52,8 +52,9 @@ im_p_cube = int(50000 / ncubes)
 
 images = []
 metas = []
-
+i = 0
 for file in file_paths :
+     print("je lis le fichier", i, "nom :", file)
      data = np.load(file, allow_pickle=True)
      ind = np.arange(0, len(data["info"]))
      random.shuffle(ind)
@@ -69,6 +70,8 @@ for file in file_paths :
 
 images = np.concatenate(images, axis=0)
 metas = np.concatenate(metas, axis=0)
+
+print("data ready to be save")
 
 data = {"cube":images, 'info':metas}
 np.savez("my_cube.npz", data, allow_pickle=True)
