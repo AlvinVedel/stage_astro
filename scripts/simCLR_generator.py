@@ -16,7 +16,7 @@ class Gen(tf.keras.utils.Sequence):
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.image_size = image_size
-        self.max_images = 50000
+        self.max_images = 30000
         self.extensions = extensions
         self.n_epochs = 0
         self._find_paths(paths)
@@ -46,7 +46,7 @@ class Gen(tf.keras.utils.Sequence):
             images = data["cube"][..., :5]  # on ne prend que les 5 premières bandes
             masks = np.expand_dims(data["cube"][..., 5], axis=-1)
 
-            images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )
+            #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
             images = np.concatenate([images, masks], axis=-1)  # N, 64, 64, 6
             self.images.append(images)
 
@@ -81,7 +81,7 @@ class Gen(tf.keras.utils.Sequence):
 
         masks = tf.tile(tf.expand_dims(masks, axis=-1), (1, 1, 1, tf.shape(images)[-1])) # shape batch, 64, 64, 5
         us = tf.random.uniform((tf.shape(images)[0], tf.shape(images)[-1]), minval=1, maxval=3, dtype=tf.float32)  # shape batch, 5  sample un u par image par channel (1 à 3 fois le bruit médian)
-        new_sigmas = tf.multiply(us, tf.expand_dims(tf.cast(self.mads, dtype=tf.float32), axis=0))   #    batch, 5 * 1, 5     batch, 5  le mads représente le noise scale et les u à quel point ils s'expriment 
+        new_sigmas = tf.multiply(us, tf.expand_dims(self.mads, axis=0))   #    batch, 5 * 1, 5     batch, 5  le mads représente le noise scale et les u à quel point ils s'expriment 
         # on a un sigma par channel par image
 
         noises = tf.random.normal(shape=tf.shape(images), mean=0, stddev=1, dtype=tf.float32) # batch, 64, 64, 5
@@ -118,12 +118,12 @@ class Gen(tf.keras.utils.Sequence):
           
                     
         batch_masks = batch_images[:, :, :, 5]
-        batch_img = batch_images[:, :, :, :5]
+        batch_images = batch_images[:, :, :, :5]
         batch_masks = tf.cast(tf.tile(batch_masks, [2, 1, 1]), dtype=bool)
-        batch_img = tf.cast(tf.tile(batch_img, [2, 1, 1, 1]), dtype=tf.float32)
+        batch_images = tf.cast(tf.tile(batch_images, [2, 1, 1, 1]), dtype=tf.float32)
         
         
-        augmented_images = self.process_batch(batch_img, batch_masks)
+        augmented_images = self.process_batch(batch_images, batch_masks)
         labels = tf.zeros((len(batch_images),), dtype=tf.float32)
         return augmented_images, labels
 
@@ -147,7 +147,7 @@ class AdversarialGen(tf.keras.utils.Sequence):
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.image_size = image_size
-        self.max_images = 50000
+        self.max_images = 30000
         self.extensions = extensions
         self.n_epochs = 0
         self._find_paths(paths)
@@ -175,17 +175,13 @@ class AdversarialGen(tf.keras.utils.Sequence):
             self.path_index = (self.path_index+1)%len(self.paths)
 
             data = np.load(path, allow_pickle=True)
-            images = data["cube"][..., :5]  # on ne prend que les 5 premières bandes
-            masks = np.expand_dims(data["cube"][..., 5], axis=-1)
-
-            images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )
-            images = np.concatenate([images, masks], axis=-1)  # N, 64, 64, 6
-            self.images.append(images)
+    
+            self.images.append(data["cube"])
 
             if "_UD.npz" in path :
-                self.surveys.append(np.ones((len(images))))
+                self.surveys.append(np.ones((len(data["cube"]))))
             elif "_D.npz" in path :
-                self.surveys.append(np.zeros((len(images))))
+                self.surveys.append(np.zeros((len(data["cube"]))))
 
         self.images = np.concatenate(self.images, axis=0)
         if self.n_epochs == 0 :
@@ -219,7 +215,7 @@ class AdversarialGen(tf.keras.utils.Sequence):
 
         masks = tf.tile(tf.expand_dims(masks, axis=-1), (1, 1, 1, tf.shape(images)[-1])) # shape batch, 64, 64, 5
         us = tf.random.uniform((tf.shape(images)[0], tf.shape(images)[-1]), minval=1, maxval=3, dtype=tf.float32)  # shape batch, 5  sample un u par image par channel (1 à 3 fois le bruit médian)
-        new_sigmas = tf.multiply(us, tf.expand_dims(self.mads, axis=0))   #    batch, 5 * 1, 5     batch, 5  le mads représente le noise scale et les u à quel point ils s'expriment 
+        new_sigmas = tf.multiply(us, tf.expand_dims(tf.cast(self.mads, dtype=tf.float32), axis=0))   #    batch, 5 * 1, 5     batch, 5  le mads représente le noise scale et les u à quel point ils s'expriment 
         # on a un sigma par channel par image
 
         noises = tf.random.normal(shape=tf.shape(images), mean=0, stddev=1, dtype=tf.float32) # batch, 64, 64, 5
