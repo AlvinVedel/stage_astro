@@ -16,9 +16,9 @@ for root, dirs, files in os.walk(directory) :
 
 
 n_files = len(files_list)
-n1 = 5000/n_files
-n2 = 10000/n_files
-n3 = 20000/n_files
+n1 = int(5000/n_files)+20
+n2 = int(10000/n_files)+40
+n3 = int(20000/n_files)+80
 
 
 for i in range(2) :
