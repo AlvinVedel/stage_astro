@@ -51,6 +51,11 @@ class Gen(tf.keras.utils.Sequence):
             self.images.append(images)
 
         self.images = np.concatenate(self.images, axis=0)
+        if self.n_epochs == 0 :
+            print("je calcule les mads")
+            medians = np.median(self.images, axis=(0, 1, 2))  # shape (5,) pour chaque channel
+            abs_deviation = np.abs(self.images - medians)  # Déviation absolue
+            self.mads = np.median(abs_deviation, axis=(0, 1, 2))  # Une MAD par channel
  
 
        
