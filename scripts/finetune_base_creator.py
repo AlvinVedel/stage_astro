@@ -21,6 +21,11 @@ n2 = int(10000/n_files)+40
 n3 = int(20000/n_files)+80
 
 
+def extract_meta(tup) :
+    # ORDRE RA   DEC   EB_V    ZPHOT    EBV    SURVEY    ZSPEC    ZFLAG
+    return np.array([tup[1], tup[2], tup[7], tup[29], tup[35], tup[37], tup[40], tup[41]])
+
+
 for i in range(2) :
 
     b1 = []
@@ -47,7 +52,8 @@ for i in range(2) :
         random.shuffle(indices)
         ind_b1 = indices[:n1]
         b1.append(images[ind_b1])
-        m1.append(meta[ind_b1])
+        meta_info = np.array([extract_meta(m) for m in meta[ind_b1]])
+        m1.append(meta_info)
         n1_missing-= min(n1, taille)
 
 
@@ -56,7 +62,8 @@ for i in range(2) :
         random.shuffle(indices)
         ind_b2 = indices[:n2]
         b2.append(images[ind_b2])
-        m2.append(meta[ind_b2])
+        meta_info = np.array([extract_meta(m) for m in meta[ind_b2]])
+        m2.append(meta_info)
         n2_missing -= min(n2, taille)
 
 
@@ -65,7 +72,8 @@ for i in range(2) :
         random.shuffle(indices)
         ind_b3 = indices[:n3]
         b3.append(images[ind_b3])
-        m3.append(meta[ind_b3])
+        meta_info = np.array([extract_meta(m) for m in meta[ind_b3]])
+        m3.append(meta_info)
         n3_missing -= min(n3, taille)
 
     print("N missing", n1_missing, n2_missing, n3_missing)
