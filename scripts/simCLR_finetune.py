@@ -3,8 +3,8 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
 from contrastiv_model import simCLR, ContrastivLoss
-from simCLR_generator import Gen
 import os 
+import matplotlib.pyplot as plt
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 import time
 
@@ -61,14 +61,9 @@ def regression_head(input_shape=1024) :
 
 bn=True
 
-model = simCLR(backbone(bn), mlp(1024))
-model.compile(optimizer=keras.optimizers.Adam(1e-3), loss=ContrastivLoss())
-model(np.random.random((32, 64, 64, 5)))
-model.load_weights("simCLR_cosmos_bnTrue_2900.weights.h5")
+weights_path = "simCLR_cosmos_bnTrue_2900.weights.h5"
+name = "UD"
 
-
-extracteur = model.backbone
-predictor = regression_head(1024)
 
 class FineTuneModel(keras.Model) :
     def __init__(self, back, head, train_back=False) :
@@ -103,6 +98,7 @@ class DataGen(keras.Sequence) :
         self.images = np.concatenate([images, masks], axis=-1)  # N, 64, 64, 6
 
         meta = data["meta"]
+        self.z_values = meta[:, 6]
 
         medians = np.median(self.images[..., :5], axis=(0, 1, 2))  # shape (5,) pour chaque channel
         abs_deviation = np.abs(self.images[..., :5] - medians)  # Déviation absolue
@@ -158,12 +154,14 @@ class DataGen(keras.Sequence) :
 
     def __getitem__(self, index):
         batch_images = self.images[index * self.batch_size:(index + 1) * self.batch_size]
+        batch_z = self.z_values[index * self.batch_size : (index+1)*self.batch_size]
           
 
         if tf.shape(batch_images)[0] < self.batch_size:
             # Compléter le batch avec des images dupliquées ou ignorer (selon ta logique)
             pad_size = self.batch_size - batch_images.shape[0]
             batch_images = tf.concat([batch_images, self.images[:pad_size]], axis=0)  # Compléter avec les premières images
+            batch_z = tf.concat([batch_z, self.z_values[:pad_size]], axis=0)
           
                     
         batch_masks = batch_images[:, :, :, 5]
@@ -173,25 +171,70 @@ class DataGen(keras.Sequence) :
         
         
         augmented_images = self.process_batch(batch_images, batch_masks)
-        labels = tf.zeros((len(batch_images),), dtype=tf.float32)
-        return augmented_images, labels
+        return augmented_images, batch_z
 
     def on_epoch_end(self):
         indices = np.arange(0, self.images.shape[0], dtype=np.int32)
         np.random.shuffle(indices)
         self.images = self.images[indices]
+        self.z_values = self.z_values[indices]
+
+class LearningRateDecay(tf.keras.callbacks.Callback):
+    def __init__(self, decay_factor=0.1):
+        super(LearningRateDecay, self).__init__()
+        self.decay_factor = decay_factor
+
+    def on_epoch_begin(self, epoch, logs=None):
+        if epoch == 30 or epoch == 40 :
+            old_lr = float(tf.keras.backend.get_value(self.model.optimizer.learning_rate))
+            new_lr = old_lr * self.decay_factor
+            tf.keras.backend.set_value(self.model.optimizer.learning_rate, new_lr)
 
 
 
-model1 = FineTuneModel(extracteur, predictor, train_back=False)
+for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1.npz", "b3_2.npz"] :
 
-for base in ["b1_1.npz", "b1_2.npz", "b2_1.npz", "b2_2.npz", "b3_1.npz", "b3_2.npz"] :
+    data_gen = DataGen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz"], batch_size=96)
 
-    data_gen = Gen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base], batch_size=96, extensions=["UD.npz"])
+    # PARTIE 1
+    model = simCLR(backbone(bn), mlp(1024))
+    model.compile(optimizer=keras.optimizers.Adam(1e-3), loss=keras.losses.MSE())
+    model(np.random.random((32, 64, 64, 5)))
+    model.load_weights(weights_path)
 
-iter = 1
-while True :
-    model.fit(data_gen, epochs=100)  # normalement 4mn max par epoch = 400mn 
-    filename = "../model_save/checkpoints_simCLR_UD/simCLR_cosmos_bn"+str(bn)+"_"+str(iter*100)+".weights.h5"
-    model.save_weights(filename)  # 6000 minutes   ==> 15 fois 100 épochs
-    iter+=1
+    extracteur = model.backbone
+    predictor = regression_head(1024)
+
+    model1 = FineTuneModel(extracteur, predictor, train_back=False)
+
+    history = model1.fit(data_gen, epochs=50, callbacks=[LearningRateDecay()])
+    model1.save_weights("simCLR_finetune_HeadOnly_base="+base+"_model="+name+".weights.h5")
+
+    plt.plot(np.arange(1, 51), history["loss"])
+    plt.xlabel("epochs")
+    plt.ylabel("loss (mse)")
+    plt.title("finetuning loss")
+    plt.savefig("simCLR_finetune_HeadOnly_base="+base+"_model="+name+".png")
+
+
+    # PARTIE 2
+    model = simCLR(backbone(bn), mlp(1024))
+    model.compile(optimizer=keras.optimizers.Adam(1e-3), loss=keras.losses.MSE())
+    model(np.random.random((32, 64, 64, 5)))
+    model.load_weights(weights_path)
+
+    extracteur = model.backbone
+    predictor = regression_head(1024)
+
+    model1 = FineTuneModel(extracteur, predictor, train_back=False)
+
+    history = model1.fit(data_gen, epochs=50, callbacks=[LearningRateDecay()])
+    model1.save_weights("simCLR_finetune_ALL_base="+base+"_model="+name+".weights.h5")
+
+    plt.plot(np.arange(1, 51), history["loss"])
+    plt.xlabel("epochs")
+    plt.ylabel("loss (mse)")
+    plt.title("finetuning loss")
+    plt.savefig("simCLR_finetune_ALL_base="+base+"_model="+name+".png")
+
+
