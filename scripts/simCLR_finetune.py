@@ -194,11 +194,11 @@ class LearningRateDecay(tf.keras.callbacks.Callback):
 
 for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1.npz", "b3_2.npz"] :
 
-    data_gen = DataGen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz"], batch_size=96)
+    data_gen = DataGen("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=96)
 
     # PARTIE 1
     model = simCLR(backbone(bn), mlp(1024))
-    model.compile(optimizer=keras.optimizers.Adam(1e-3), loss=keras.losses.MSE())
+    model.compile(optimizer=keras.optimizers.Adam(1e-3), loss="mse")
     model(np.random.random((32, 64, 64, 5)))
     model.load_weights(weights_path)
 
@@ -206,7 +206,7 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1.npz", "b3_2.npz"] :
     predictor = regression_head(1024)
 
     model1 = FineTuneModel(extracteur, predictor, train_back=False)
-
+    model1.compile(optimizer=keras.optimizers.Adam(1e-3), loss="mse")
     history = model1.fit(data_gen, epochs=50, callbacks=[LearningRateDecay()])
     model1.save_weights("simCLR_finetune_HeadOnly_base="+base+"_model="+name+".weights.h5")
 
@@ -219,7 +219,7 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1.npz", "b3_2.npz"] :
 
     # PARTIE 2
     model = simCLR(backbone(bn), mlp(1024))
-    model.compile(optimizer=keras.optimizers.Adam(1e-3), loss=keras.losses.MSE())
+    model.compile(optimizer=keras.optimizers.Adam(1e-3), loss="mse")
     model(np.random.random((32, 64, 64, 5)))
     model.load_weights(weights_path)
 
@@ -227,7 +227,7 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1.npz", "b3_2.npz"] :
     predictor = regression_head(1024)
 
     model1 = FineTuneModel(extracteur, predictor, train_back=False)
-
+    model1.compile(optimizer=keras.optimizers.Adam(1e-3), loss="mse")
     history = model1.fit(data_gen, epochs=50, callbacks=[LearningRateDecay()])
     model1.save_weights("simCLR_finetune_ALL_base="+base+"_model="+name+".weights.h5")
 

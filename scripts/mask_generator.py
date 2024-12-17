@@ -33,6 +33,23 @@ def get_mask(image, threshold=0.2, center_window_fraction=0.6) :
     global_mask[image.shape[0]//2-2:image.shape[0]//2+2, image.shape[1]//2-2:image.shape[1]//2+2] = np.ones((4, 4))
     return global_mask
 
+
+import random
+import matplotlib.pyplot as plt
+
+def plot_some(cube, k) :
+    random.shuffle(cube)
+    sel = cube[:9]
+    fig, axes = plt.subplots(ncols=9, nrows=9, figsize=(12, 12))
+    for i in range(len(sel)) :
+        for j in range(sel.shape[-1]) :
+            axes[i, j].imshow(sel[i, :, :, j])
+            axes[i, j].axis("off")
+            axes[i, j].title("im", i,"c =",j)
+    plt.tight_layout()
+    plt.savefig("plot_cube_"+str(k)+".png")
+
+
 def load_data(filepath, newpath):
     data = np.load(filepath, allow_pickle=True)
     images = data["cube"][..., :5]  # Garder les 5 premières bandes
@@ -49,13 +66,15 @@ def load_data(filepath, newpath):
 
 def process_directory(cube_directory, new_directory):
     os.makedirs(new_directory, exist_ok=True)
-
+    n_processed = 0
     for root, dirs, files in os.walk(cube_directory):
         for file in files:
-            if file.endswith('.npz'):
+            if file.endswith('.npz') and n_processed < 10:
                 filepath = os.path.join(root, file)
                 newpath = os.path.join(new_directory, file)
                 load_data(filepath, newpath)
+                n_processed+=1
+            
 
 cube_directory = "/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/SPEC/COSMOS/"
 new_directory = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/"
