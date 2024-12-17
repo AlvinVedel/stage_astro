@@ -53,7 +53,7 @@ def mlp(input_shape=100):
 
 bn=True
 
-model = simCLR(backbone(bn), mlp(1024), use_triplet=False, triplet_weight=0)
+model = simCLR(backbone(bn), mlp(1024))
 model.compile(optimizer=keras.optimizers.Adam(1e-3), loss=ContrastivLoss())
 model(np.random.random((32, 64, 64, 5)))
 #model.load_weights("simCLR_cosmos100.weights.h5")
