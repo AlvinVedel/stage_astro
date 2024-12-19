@@ -162,7 +162,7 @@ for base in base_names :
     model.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss=[tf.keras.losses.SparseCategoricalCrossentropy(), tf.keras.losses.MeanSquaredError()])
     model.fit(gen, epochs=50, callbacks=[LearningRateScheduler()])
 
-    model.save_weights("treyer_supervised_"+base+".weights.h5")
+    model.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_supervised/treyer_supervised_"+base+".weights.h5")
 
 
 
