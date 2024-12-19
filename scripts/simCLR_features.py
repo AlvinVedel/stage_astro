@@ -185,19 +185,29 @@ for i, w in enumerate(weights_paths) :
     data_tsne = tsne.fit_transform(features)
     print("tsne ended")
 
-    xlimits = (np.min(data_tsne[:, 0]), np.max(data_tsne[:, 0]))
-    ylimits = (np.min(data_tsne[:, 1]), np.max(data_tsne[:, 1]))
+    width_x = np.max(data_tsne[:, 0]) - np.min(data_tsne[:, 0])
+    width_y = np.max(data_tsne[:, 1]) - np.min(data_tsne[:, 1])
+
+
+    xlimits = (np.min(data_tsne[:, 0]) - 0.05*width_x, np.max(data_tsne[:, 0]+ 0.05*width_x))
+    ylimits = (np.min(data_tsne[:, 1])-0.05*width_y, np.max(data_tsne[:, 1])+0.05*width_y)
+    vmin = np.min(z)
+    vmax = np.max(z)
+    ebvvmin = np.min(ebv)
+    ebvvmax = np.max(ebv)
 
     print(data_tsne.shape, z.shape, ra.shape, dec.shape, ebv.shape)
 
+
+    #### Z UD + D
     plt.figure(figsize=(10, 8))
     scatter1 = plt.scatter(
         data_tsne[cat1, 0], data_tsne[cat1, 1], 
-        c=z[cat1], cmap='viridis', marker='^', alpha=0.6, label='D'
+        c=z[cat1], cmap='viridis', marker='^', alpha=0.6, label='D', vmin=vmin, vmax=vmax
     )
     scatter2 = plt.scatter(
         data_tsne[cat2, 0], data_tsne[cat2, 1], 
-        c=z[cat2], cmap='viridis', marker='o', alpha=0.6, label='UD'
+        c=z[cat2], cmap='viridis', marker='o', alpha=0.6, label='UD', vmin=vmin, vmax=vmax
     )
     plt.colorbar(scatter1, label='Redshift (z)')
     plt.legend()
@@ -205,25 +215,101 @@ for i, w in enumerate(weights_paths) :
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
     plt.ylim(ylimits)
-    plt.xlim(xlmits)
+    plt.xlim(xlimits)
     plt.savefig("tsne_redshift_"+code_w[i]+".png")
+    plt.close()
 
 
+
+    ##### Z D
     plt.figure(figsize=(10, 8))
     scatter1 = plt.scatter(
         data_tsne[cat1, 0], data_tsne[cat1, 1], 
-        c=ebv[cat1], cmap='viridis', marker='^', alpha=0.6, label='D'
+        c=z[cat1], cmap='viridis', marker='^', alpha=0.6, label='D', vmin=vmin, vmax=vmax
+    )
+
+    plt.colorbar(scatter1, label='Redshift (z)')
+    plt.legend()
+    plt.title("t-SNE features colorées par Z")
+    plt.xlabel("Dimension 1")
+    plt.ylabel("Dimension 2")
+    plt.ylim(ylimits)
+    plt.xlim(xlimits)
+    plt.savefig("tsne_redshift_D_"+code_w[i]+".png")
+    plt.close()
+
+
+    #### Z UD
+    plt.figure(figsize=(10, 8))
+    scatter2 = plt.scatter(
+        data_tsne[cat2, 0], data_tsne[cat2, 1], 
+        c=z[cat2], cmap='viridis', marker='o', alpha=0.6, label='UD', vmin=vmin, vmax=vmax
+    )
+    plt.colorbar(scatter2, label='Redshift (z)')
+    plt.legend()
+    plt.title("t-SNE features colorées par Z")
+    plt.xlabel("Dimension 1")
+    plt.ylabel("Dimension 2")
+    plt.ylim(ylimits)
+    plt.xlim(xlimits)
+    plt.savefig("tsne_redshift_UD_"+code_w[i]+".png")
+    plt.close()
+
+
+
+
+
+    #### EBV
+    plt.figure(figsize=(10, 8))
+    scatter1 = plt.scatter(
+        data_tsne[cat1, 0], data_tsne[cat1, 1], 
+        c=ebv[cat1], cmap='viridis', marker='^', alpha=0.6, label='D', vmin=ebvvmin, vmax=ebvvmax
     )
     scatter2 = plt.scatter(
         data_tsne[cat2, 0], data_tsne[cat2, 1], 
-        c=ebv[cat2], cmap='viridis', marker='o', alpha=0.6, label='UD'
+        c=ebv[cat2], cmap='viridis', marker='o', alpha=0.6, label='UD', vmin=ebvvmin, vmax=ebvvmax
     )
     plt.colorbar(scatter1, label='EBV')
     plt.legend()
     plt.title("t-SNE features colorées par EBV")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
+    plt.ylim(ylimits)
+    plt.xlim(xlimits)
     plt.savefig("tsne_ebv_"+code_w[i]+".png")
+    plt.close()
+
+    plt.figure(figsize=(10, 8))
+    scatter1 = plt.scatter(
+        data_tsne[cat1, 0], data_tsne[cat1, 1], 
+        c=ebv[cat1], cmap='viridis', marker='^', alpha=0.6, label='D', vmin=ebvvmin, vmax=ebvvmax
+    )
+    plt.colorbar(scatter1, label='EBV')
+    plt.legend()
+    plt.title("t-SNE features colorées par EBV")
+    plt.xlabel("Dimension 1")
+    plt.ylabel("Dimension 2")
+    plt.ylim(ylimits)
+    plt.xlim(xlimits)
+    plt.savefig("tsne_ebv_D_"+code_w[i]+".png")
+    plt.close()
+
+
+    plt.figure(figsize=(10, 8))
+
+    scatter2 = plt.scatter(
+        data_tsne[cat2, 0], data_tsne[cat2, 1], 
+        c=ebv[cat2], cmap='viridis', marker='o', alpha=0.6, label='UD', vmin=ebvvmin, vmax=ebvvmax
+    )
+    plt.colorbar(scatter2, label='EBV')
+    plt.legend()
+    plt.title("t-SNE features colorées par EBV")
+    plt.xlabel("Dimension 1")
+    plt.ylabel("Dimension 2")
+    plt.ylim(ylimits)
+    plt.xlim(xlimits)
+    plt.savefig("tsne_ebv_UD_"+code_w[i]+".png")
+    plt.close()
 
 
 
