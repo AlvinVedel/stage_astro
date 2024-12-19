@@ -174,13 +174,13 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1.npz", "b3_2.npz"] :
     model1 = FineTuneModel(extracteur, predictor, train_back=False)
     model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mse")
     history = model1.fit(data_gen, epochs=50, callbacks=[LearningRateDecay()])
-    model1.save_weights("simCLR_finetune_HeadOnly_base="+base+"_model="+name+".weights.h5")
+    model1.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_HeadOnly_base="+base+"_model="+name+".weights.h5")
 
     plt.plot(np.arange(1, 51), history["loss"])
     plt.xlabel("epochs")
     plt.ylabel("loss (mse)")
     plt.title("finetuning loss")
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_HeadOnly_base="+base+"_model="+name+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune_HeadOnly_base="+base+"_model="+name+".png")
 
 
     # PARTIE 2
@@ -194,12 +194,12 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1.npz", "b3_2.npz"] :
     model1 = FineTuneModel(extracteur, predictor, train_back=False)
     model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mse")
     history = model1.fit(data_gen, epochs=50, callbacks=[LearningRateDecay()])
-    model1.save_weights("simCLR_finetune_ALL_base="+base+"_model="+name+".weights.h5")
+    model1.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_ALL_base="+base+"_model="+name+".weights.h5")
 
     plt.plot(np.arange(1, 51), history["loss"])
     plt.xlabel("epochs")
     plt.ylabel("loss (mse)")
     plt.title("finetuning loss")
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_ALL_base="+base+"_model="+name+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune_ALL_base="+base+"_model="+name+".png")
 
 
