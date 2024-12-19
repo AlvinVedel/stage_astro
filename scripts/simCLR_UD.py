@@ -5,7 +5,7 @@ from tensorflow.keras import layers
 from contrastiv_model import simCLR, ContrastivLoss
 from simCLR_generator import Gen
 import os 
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+os.environ["CUDA_VISIBLE_DEVICES"] = '0, 1'
 import time
 
 
@@ -59,11 +59,13 @@ model(np.random.random((32, 64, 64, 5)))
 #model.load_weights("simCLR_cosmos100.weights.h5")
 
 
-data_gen = Gen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/phot/"], batch_size=96, extensions=["UD.npz"])
+data_gen = Gen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/phot/"], batch_size=256, extensions=["UD.npz"])
 
 iter = 1
-while True :
-    model.fit(data_gen, epochs=100)  # normalement 4mn max par epoch = 400mn 
-    filename = "../model_save/checkpoints_simCLR_UD/simCLR_cosmos_bn"+str(bn)+"_"+str(iter*100)+".weights.h5"
-    model.save_weights(filename)  # 6000 minutes   ==> 15 fois 100 épochs
+while iter <= 100 :
+    model.fit(data_gen, epochs=10)  # normalement 4mn max par epoch = 400mn 
+    data_gen._load_data()
+    if iter % 10 == 0 :
+        filename = "../model_save/checkpoints_simCLR_UD/simCLR_cosmos_bn"+str(bn)+"_"+str(iter*10)+".weights.h5"
+        model.save_weights(filename)  # 6000 minutes   ==> 15 fois 100 épochs
     iter+=1

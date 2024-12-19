@@ -37,7 +37,7 @@ def get_mask(image, threshold=0.2, center_window_fraction=0.6) :
 import random
 import matplotlib.pyplot as plt
 
-def plot_some(cube, k) :
+def plot_some(cube, newpath, k) :
     random.shuffle(cube)
     sel = cube[:9]
     fig, axes = plt.subplots(ncols=9, nrows=9, figsize=(12, 12))
@@ -45,12 +45,12 @@ def plot_some(cube, k) :
         for j in range(sel.shape[-1]) :
             axes[i, j].imshow(sel[i, :, :, j])
             axes[i, j].axis("off")
-            axes[i, j].title("im", i,"c =",j)
+            axes[i, j].set_title("im"+str(i)+" c="+str(j))
     plt.tight_layout()
-    plt.savefig("plot_cube_"+str(k)+".png")
+    plt.savefig(newpath+"plot_cube_"+str(k)+".png")
 
 
-def load_data(filepath, newpath):
+def load_data(filepath, newpath, k):
     data = np.load(filepath, allow_pickle=True)
     images = data["cube"][..., :5]  # Garder les 5 premières bandes
     meta = data["info"]
@@ -63,6 +63,7 @@ def load_data(filepath, newpath):
     masques = np.expand_dims(masques, axis=-1)  # N, 64, 64, 1
     images = np.concatenate([images, masques], axis=-1)  # N, 64, 64, 6
     np.savez_compressed(newpath, cube=images, info=meta)
+    plot_some(data["cube"], newpath, k)
 
 def process_directory(cube_directory, new_directory):
     os.makedirs(new_directory, exist_ok=True)
@@ -72,7 +73,7 @@ def process_directory(cube_directory, new_directory):
             if file.endswith('.npz') and n_processed < 10:
                 filepath = os.path.join(root, file)
                 newpath = os.path.join(new_directory, file)
-                load_data(filepath, newpath)
+                load_data(filepath, newpath, n_processed)
                 n_processed+=1
             
 

@@ -44,7 +44,7 @@ file_paths_dict = {}
 file_paths = []
 
 for file_name in os.listdir(dir_path):
-    if file_name.endswith("_D.npz"):
+    if file_name.endswith(".npz"):
         file_path = os.path.join(dir_path, file_name)
         file_paths_dict[file_path] = {}
         file_paths.append(file_path)

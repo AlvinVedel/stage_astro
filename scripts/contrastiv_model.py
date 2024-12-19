@@ -5,10 +5,11 @@ from tensorflow.keras import layers
 
 
 class simCLR(keras.Model) :
-    def __init__(self, backbone, head) :
+    def __init__(self, backbone, head, temp=0.7) :
         super().__init__()
         self.backbone = backbone
         self.head = head
+        self.temp=temp
 
     def call(self, input, training=True) :
         x = self.backbone(input, training=training)
@@ -30,11 +31,12 @@ class simCLR(keras.Model) :
     
 
 class simCLR_adversarial(keras.Model) :
-    def __init__(self, backbone, head, adversaire) :
+    def __init__(self, backbone, head, adversaire, temp=0.7) :
         super().__init__()
         self.backbone = backbone
         self.head = head
         self.adversaire=adversaire
+        self.temp=temp
         self.flat_vector = tf.constant(tf.ones((1, 2), dtype=tf.float32)/tf.cast(2, dtype=tf.float32))
         self.adverse_accuracy = tf.keras.metrics.BinaryAccuracy(name="survey_accuracy")  # flatten
 

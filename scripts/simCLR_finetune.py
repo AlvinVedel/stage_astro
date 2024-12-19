@@ -86,7 +86,7 @@ def rotate_image(inputs):
     image, rotation = inputs
     return tf.image.rot90(image, rotation)
 
-class DataGen(keras.Sequence) :
+class DataGen(keras.utils.Sequence) :
     def __init__(self, data_path, batch_size) :
         super(DataGen, self).__init__()
         self.batch_size = batch_size
@@ -102,7 +102,7 @@ class DataGen(keras.Sequence) :
         images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
         self.images = np.concatenate([images, masks], axis=-1)  # N, 64, 64, 6
 
-        meta = data["meta"]
+        meta = data["info"]
         self.z_values = meta[:, 6]
 
     def __len__(self):
@@ -159,7 +159,7 @@ weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkp
 name = "UD"
 
 
-for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1.npz", "b3_2.npz"] :
+for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
 
     data_gen = DataGen("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=32)
 
@@ -176,7 +176,7 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1.npz", "b3_2.npz"] :
     history = model1.fit(data_gen, epochs=50, callbacks=[LearningRateDecay()])
     model1.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_HeadOnly_base="+base+"_model="+name+".weights.h5")
 
-    plt.plot(np.arange(1, 51), history["loss"])
+    plt.plot(np.arange(1, 51), history.history["loss"])
     plt.xlabel("epochs")
     plt.ylabel("loss (mse)")
     plt.title("finetuning loss")
@@ -196,7 +196,7 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1.npz", "b3_2.npz"] :
     history = model1.fit(data_gen, epochs=50, callbacks=[LearningRateDecay()])
     model1.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_ALL_base="+base+"_model="+name+".weights.h5")
 
-    plt.plot(np.arange(1, 51), history["loss"])
+    plt.plot(np.arange(1, 51), history.history["loss"])
     plt.xlabel("epochs")
     plt.ylabel("loss (mse)")
     plt.title("finetuning loss")

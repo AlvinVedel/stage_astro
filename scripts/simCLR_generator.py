@@ -16,7 +16,7 @@ class Gen(tf.keras.utils.Sequence):
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.image_size = image_size
-        self.max_images = 30000
+        self.max_images = 80000
         self.extensions = extensions
         self.n_epochs = 0
         self._find_paths(paths)
@@ -36,19 +36,22 @@ class Gen(tf.keras.utils.Sequence):
                         
 
     def _load_data(self):
+        random.shuffle(self.paths)
         self.images = []
         gc.collect()
         while np.sum([len(cube) for cube in self.images]) < self.max_images :
             path = self.paths[self.path_index]
             self.path_index = (self.path_index+1)%len(self.paths)
+            try :
+                data = np.load(path, allow_pickle=True)
+                images = data["cube"][..., :5]  # on ne prend que les 5 premières bandes
+                masks = np.expand_dims(data["cube"][..., 5], axis=-1)
 
-            data = np.load(path, allow_pickle=True)
-            images = data["cube"][..., :5]  # on ne prend que les 5 premières bandes
-            masks = np.expand_dims(data["cube"][..., 5], axis=-1)
-
-            #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
-            images = np.concatenate([images, masks], axis=-1)  # N, 64, 64, 6
-            self.images.append(images)
+                #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
+                images = np.concatenate([images, masks], axis=-1)  # N, 64, 64, 6
+                self.images.append(images)
+            except Exception as e :
+                print("file couldn't be readen", path)
 
         self.images = np.concatenate(self.images, axis=0)
         if self.n_epochs == 0 :
@@ -130,8 +133,6 @@ class Gen(tf.keras.utils.Sequence):
 
     def on_epoch_end(self):
         self.n_epochs+=1
-        if self.n_epochs % 5 == 0 :
-            self._load_data()
         indices = np.arange(0, self.images.shape[0], dtype=np.int32)
         np.random.shuffle(indices)
         self.images = self.images[indices]
@@ -147,7 +148,7 @@ class AdversarialGen(tf.keras.utils.Sequence):
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.image_size = image_size
-        self.max_images = 30000
+        self.max_images = 80000
         self.extensions = extensions
         self.n_epochs = 0
         self._find_paths(paths)
@@ -170,6 +171,7 @@ class AdversarialGen(tf.keras.utils.Sequence):
         self.images = []
         self.surveys = []
         gc.collect()
+        random.shuffle(self.paths)
         while np.sum([len(cube) for cube in self.images]) < self.max_images :
             path = self.paths[self.path_index]
             self.path_index = (self.path_index+1)%len(self.paths)
@@ -257,7 +259,7 @@ class AdversarialGen(tf.keras.utils.Sequence):
         batch_img = batch_images[:, :, :, :5]
         batch_masks = tf.cast(tf.tile(batch_masks, [2, 1, 1]), dtype=bool)
         batch_img = tf.cast(tf.tile(batch_img, [2, 1, 1, 1]), dtype=tf.float32)
-        batch_surveys = tf.cast(tf.tile(batch_surveys, [2, 1]), dtype=tf.float32)
+        batch_surveys = tf.cast(tf.tile(tf.expand_dims(batch_surveys, axis=1), [2, 1]), dtype=tf.float32)
         
         
         augmented_images = self.process_batch(batch_img, batch_masks)
@@ -267,8 +269,6 @@ class AdversarialGen(tf.keras.utils.Sequence):
 
     def on_epoch_end(self):
         self.n_epochs+=1
-        if self.n_epochs % 5 == 0 :
-            self._load_data()
         indices = np.arange(0, self.images.shape[0], dtype=np.int32)
         np.random.shuffle(indices)
         self.images = self.images[indices]

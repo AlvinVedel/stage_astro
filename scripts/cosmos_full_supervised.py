@@ -22,7 +22,7 @@ def inception_block(input):
 
 def create_model(with_ebv=False) :
 
-    input_img = keras.Input((64, 64, 9))
+    input_img = keras.Input((64, 64, 5))
     #input_ebv = keras.Input((1,))
     conv1 = layers.Conv2D(96, kernel_size=5, activation='relu', strides=1, padding='same', name='c1')(input_img)
     conv2 = layers.Conv2D(96, kernel_size=3, activation='tanh', strides=1, padding='same', name='c2')(conv1)
@@ -101,6 +101,11 @@ class DataGen(keras.utils.Sequence) :
                 i+=1
             if flag : 
                 self.z_bins[j] = i
+        print("NAN IMGS :",np.any(np.isnan(self.images)))
+        print("NAN Z :", np.any(np.isnan(self.z_values)), np.any(np.isnan(self.z_bins)))
+        self.z_bins = self.z_bins.astype(np.int32)
+        print(self.z_bins)
+
 
     def __len__(self):
         return int(np.ceil(len(self.images) / self.batch_size))
@@ -157,7 +162,7 @@ base_names = ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"]
 for base in base_names :
 
     model = create_model()
-    gen = DataGen(base_path+base_names+".npz", batch_size=32)
+    gen = DataGen(base_path+base+".npz", batch_size=32)
 
     model.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss=[tf.keras.losses.SparseCategoricalCrossentropy(), tf.keras.losses.MeanSquaredError()])
     model.fit(gen, epochs=50, callbacks=[LearningRateScheduler()])

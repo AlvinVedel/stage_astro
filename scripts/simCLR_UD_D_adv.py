@@ -5,7 +5,7 @@ from tensorflow.keras import layers
 from contrastiv_model import simCLR_adversarial, ContrastivLoss
 from simCLR_generator import AdversarialGen
 import os 
-os.environ["CUDA_VISIBLE_DEVICES"] = '0'
+os.environ["CUDA_VISIBLE_DEVICES"] = '0, 1'
 import time
 
 
@@ -59,8 +59,7 @@ def mlp_adversarial(input_shape=1024) :
     x = layers.Dense(256, activation='relu')(x)
     x = layers.Dropout(0.4)(x)
     x = layers.Dense(2, activation='softmax')(x)
-    return keras.Model(latent_inp, x)
-
+    return keras.Model(latent_inp, x)	
 
 bn=True
 
@@ -71,11 +70,13 @@ model(np.random.random((32, 64, 64, 5)))
 
 
 data_gen = AdversarialGen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/phot/"], 
-               batch_size=96, extensions=["UD.npz", "_D.npz"])
+               batch_size=256, extensions=["UD.npz", "_D.npz"])
 
 iter = 1
-while True :
-    model.fit(data_gen, epochs=100)  # normalement 4mn max par epoch = 400mn 
-    filename = "../model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bn"+str(bn)+"_"+str(iter*100)+".weights.h5"
-    model.save_weights(filename)  # 6000 minutes   ==> 15 fois 100 épochs
+while iter <= 200 :
+    model.fit(data_gen, epochs=10)  # normalement 4mn max par epoch = 400mn 
+    data_gen._load_data()
+    if iter % 10 == 0:
+        filename = "../model_save/checkpoints_simCLR_UD_D_adv/simCLR_cosmos_bn"+str(bn)+"_"+str(iter*10)+".weights.h5"
+        model.save_weights(filename)  # 6000 minutes   ==> 15 fois 100 épochs
     iter+=1

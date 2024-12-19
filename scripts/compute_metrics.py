@@ -118,8 +118,8 @@ path1 = base_path + "data/spec/COSMOS_v11_uijk_0323_spec_UD.npz"
 data = np.load(path1, allow_pickle=True)
 
 print("CONDITION 1 :     UD SPEC     -------------------------------")
-print(data["meta"])
-print(data["meta"].dtype)
+print(data["info"])
+print(data["info"].dtype)
 
 
 path1 = base_path + "data/spec/COSMOS_v11_uijk_0323_cos2020_UD.npz"
@@ -127,8 +127,8 @@ path1 = base_path + "data/spec/COSMOS_v11_uijk_0323_cos2020_UD.npz"
 data = np.load(path1, allow_pickle=True)
 
 print("CONDITION 2 :     UD  COS2020 ---------------------------------")
-print(data["meta"])
-print(data["meta"].dtype)
+print(data["info"])
+print(data["info"].dtype)
 
 
 path1 = base_path + "data/spec/COSMOS_v11_uijk_0237_spec_D.npz"
@@ -136,8 +136,8 @@ path1 = base_path + "data/spec/COSMOS_v11_uijk_0237_spec_D.npz"
 data = np.load(path1, allow_pickle=True)
 
 print("CONDITION 3 :     D  SPEC ---------------------------------")
-print(data["meta"])
-print(data["meta"].dtype)
+print(data["info"])
+print(data["info"].dtype)
 
 
 path1 = base_path + "data/spec/COSMOS_v11_uijk_0236_cos2020_D.npz"
@@ -145,8 +145,8 @@ path1 = base_path + "data/spec/COSMOS_v11_uijk_0236_cos2020_D.npz"
 data = np.load(path1, allow_pickle=True)
 
 print("CONDITION 4 :     D  COS2020 ---------------------------------")
-print(data["meta"])
-print(data["meta"].dtype)
+print(data["info"])
+print(data["info"].dtype)
 
 
 
@@ -156,8 +156,8 @@ path1 = base_path + "data/spec/COSMOS_v11_uijk_0251_photo_D.npz"
 data = np.load(path1, allow_pickle=True)
 
 print("CONDITION 5 :     D  PHOT ---------------------------------")
-print(data["meta"])
-print(data["meta"].dtype)
+print(data["info"])
+print(data["info"].dtype)
 
 
 
@@ -167,8 +167,8 @@ path1 = base_path + "data/spec/COSMOS_v11_uijk_0234_photo_UD.npz"
 data = np.load(path1, allow_pickle=True)
 
 print("CONDITION 6 :     UD  PHOT ---------------------------------")
-print(data["meta"])
-print(data["meta"].dtype)
+print(data["info"])
+print(data["info"].dtype)
 
 toto()
 model = create_model()

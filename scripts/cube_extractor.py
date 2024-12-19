@@ -46,7 +46,7 @@ for file_name in os.listdir(dir_path):
         file_paths.append(file_path)
 
 ncubes = len(file_paths)
-
+print(ncubes)
 im_p_cube = int(50000 / ncubes)
 
 
@@ -61,7 +61,7 @@ for file in file_paths :
      selected = ind[:im_p_cube]
      sel_img = data["cube"][selected]
      sel_met = data["info"][selected]
-
+     i+=1
      images.append(sel_img)
      metas.append(sel_met)
 
@@ -73,6 +73,6 @@ metas = np.concatenate(metas, axis=0)
 
 print("data ready to be save")
 
-np.savez_compressed("my_cube.npz", cube=images, info=metas)
+np.savez_compressed("../my_cube.npz", cube=images, info=metas)
 
 

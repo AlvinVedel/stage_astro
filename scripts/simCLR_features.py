@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.manifold import TSNE
 from tensorflow.keras import layers
 import tensorflow.keras as keras
-from contrastiv_model import simCLR
+from contrastiv_model import simCLR, simCLR_adversarial as simCLR_adv
 import matplotlib.pyplot as plt
 #from scipy.stats import gaussian_kde
 from matplotlib import cm
@@ -43,6 +43,37 @@ def backbone(bn=True) :
 
     return keras.Model(inputs=inp, outputs=l1)
 
+def backbone_adv(bn=True) :
+    inp = keras.Input((64, 64, 5))
+    c1 = layers.Conv2D(96, padding='same', strides=1, kernel_size=3)(inp) # 64
+    c1 = layers.PReLU()(c1)
+    c2 = layers.Conv2D(96, padding='same', kernel_size=3, strides=1, activation='tanh')(c1)  #64
+    p1 = layers.AveragePooling2D((2, 2))(c2)  # 32
+    c3 = layers.Conv2D(128, padding='same', strides=1, kernel_size=3)(p1)
+    c3 = layers.PReLU()(c3)
+    c4 = layers.Conv2D(128, padding='same', kernel_size=3, strides=1)(c3)  #32
+    c4 = layers.PReLU(name='c4')(c4)
+    p2 = layers.AveragePooling2D((2, 2))(c4)  # 16
+    c5 = layers.Conv2D(256, padding='same', strides=1, kernel_size=3)(p2) #16
+    c5 = layers.PReLU()(c5)
+    c6 = layers.Conv2D(256, padding='same', kernel_size=3, strides=1)(c5)  #16
+    c6 = layers.PReLU()(c6)
+    p3 = layers.AveragePooling2D((2, 2))(c6) # 8
+    c7 = layers.Conv2D(256, kernel_size=3, strides=1, padding='valid')(p3) # 6
+    c7 = layers.PReLU()(c7)
+    c8 = layers.Conv2D(256, kernel_size=3, strides=1, padding='valid')(c7) # 4
+    c8 = layers.PReLU()(c8)
+    c9 = layers.Conv2D(256, padding='valid', kernel_size=3, strides=1)(c8) # 2, 2, 256
+    c9 = layers.PReLU()(c9)
+
+    flat = layers.Flatten(name='flatten')(c9) # 2, 2, 256 = 1024
+
+    l1 = layers.Dense(1024)(flat)
+    l1 = layers.PReLU()(l1)
+    if bn :
+        l1 = layers.BatchNormalization()(l1)
+
+    return keras.Model(inputs=inp, outputs=[l1, flat])
 
 def mlp(input_shape=100):
     latent_input = keras.Input((input_shape))
@@ -52,6 +83,15 @@ def mlp(input_shape=100):
     x = layers.Dense(256, activation='linear', kernel_regularizer=tf.keras.regularizers.l2(5e-7), bias_regularizer=tf.keras.regularizers.l2(5e-7))(x)
     return keras.Model(latent_input, x)
 
+def mlp_adv(input_shape=1024) :
+    latent_inp = keras.Input((input_shape))
+    x = layers.BatchNormalization()(latent_inp)
+    x = layers.Dense(256, activation='relu')(x)
+    x = layers.Dropout(0.4)(x)
+    x = layers.Dense(256, activation='relu')(x)
+    x = layers.Dropout(0.4)(x)
+    x = layers.Dense(2, activation='softmax')(x)
+    return keras.Model(latent_inp, x)
 
 bn=True
 
@@ -87,7 +127,7 @@ def extract_meta(tup) :
     # RA   DEC   EB_V   ZPHOT   EBV
     return np.array([tup[1], tup[2], tup[7], max(tup[29], 1e-4), tup[35]])
 
-for i in range(len(indices2)+10-len(indices2)) :
+for i in range(len(indices2)) :
     
 
     ind = indices2[i]
@@ -99,7 +139,7 @@ for i in range(len(indices2)+10-len(indices2)) :
     n = images.shape[0]
     sub_ind = np.arange(n)
     random.shuffle(sub_ind)
-    takes = sub_ind[:(int(n*0.1))]
+    takes = sub_ind[:250]
     images = images[takes]
     meta = meta[takes]
     
@@ -113,7 +153,7 @@ for i in range(len(indices2)+10-len(indices2)) :
 
 
 
-for i in range(len(indices3)+10-len(indices3)) :
+for i in range(len(indices3)) :
 
     ind = indices3[i]
     print("FILE ", i, file_paths2['ud'][ind])
@@ -124,7 +164,7 @@ for i in range(len(indices3)+10-len(indices3)) :
     n = images.shape[0]
     sub_ind = np.arange(n)
     random.shuffle(sub_ind)
-    takes = sub_ind[:(int(n*0.1))]
+    takes = sub_ind[:250]
     images = images[takes]
     meta = meta[takes]
 
@@ -170,6 +210,10 @@ model = simCLR(backbone=backbone(), head=mlp(1024))
 model(np.random.random((32, 64, 64, 5)))
 
 for i, w in enumerate(weights_paths) :
+    if i == 2 :
+        model = simCLR_adv(backbone_adv(), mlp(1024), mlp_adv(1024))
+        model(np.random.random((32, 64, 64, 5)))
+
     model.load_weights(w)
 
     
@@ -216,7 +260,7 @@ for i, w in enumerate(weights_paths) :
     plt.ylabel("Dimension 2")
     plt.ylim(ylimits)
     plt.xlim(xlimits)
-    plt.savefig("../plots/simCLR/tsne_redshift_"+code_w[i]+".png")
+    plt.savefig("../plots/simCLR/tsne_redshift_base"+code_w[i]+".png")
     plt.close()
 
 
@@ -235,7 +279,7 @@ for i, w in enumerate(weights_paths) :
     plt.ylabel("Dimension 2")
     plt.ylim(ylimits)
     plt.xlim(xlimits)
-    plt.savefig("../plots/simCLR/tsne_redshift_D_"+code_w[i]+".png")
+    plt.savefig("../plots/simCLR/tsne_redshift_D_base"+code_w[i]+".png")
     plt.close()
 
 
@@ -252,7 +296,7 @@ for i, w in enumerate(weights_paths) :
     plt.ylabel("Dimension 2")
     plt.ylim(ylimits)
     plt.xlim(xlimits)
-    plt.savefig("../plots/simCLR/tsne_redshift_UD_"+code_w[i]+".png")
+    plt.savefig("../plots/simCLR/tsne_redshift_UD_base"+code_w[i]+".png")
     plt.close()
 
 
@@ -276,7 +320,7 @@ for i, w in enumerate(weights_paths) :
     plt.ylabel("Dimension 2")
     plt.ylim(ylimits)
     plt.xlim(xlimits)
-    plt.savefig("../plots/simCLR/tsne_ebv_"+code_w[i]+".png")
+    plt.savefig("../plots/simCLR/tsne_ebv_base"+code_w[i]+".png")
     plt.close()
 
     plt.figure(figsize=(10, 8))
@@ -291,7 +335,7 @@ for i, w in enumerate(weights_paths) :
     plt.ylabel("Dimension 2")
     plt.ylim(ylimits)
     plt.xlim(xlimits)
-    plt.savefig("../plots/simCLR/tsne_ebv_D_"+code_w[i]+".png")
+    plt.savefig("../plots/simCLR/tsne_ebv_D_base"+code_w[i]+".png")
     plt.close()
 
 
@@ -308,7 +352,7 @@ for i, w in enumerate(weights_paths) :
     plt.ylabel("Dimension 2")
     plt.ylim(ylimits)
     plt.xlim(xlimits)
-    plt.savefig("../plots/simCLR/tsne_ebv_UD_"+code_w[i]+".png")
+    plt.savefig("../plots/simCLR/tsne_ebv_UD_base"+code_w[i]+".png")
     plt.close()
 
 

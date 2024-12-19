@@ -202,7 +202,7 @@ for s in origin_label :
 
 
 # COSMOS D ET UD,                                        COSMOS D ET DEEP 2,                           COSMO UD + DEEP2                     DEEP2
-weights_paths = ["byol_cosmo_100epoch_580.weights.h5", "byol_co_de_100epoch_580.weights.h5", 'byol_co_ude_100epoch_570.weights.h5', 'byol_d2_100epoch_570.weights.h5' ]
+weights_paths = ["../model_save/checkpoints/byol_cosmo_100epoch_580.weights.h5", "../model_save/checkpoints_co_de/byol_co_de_100epoch_580.weights.h5", '../model_save/checkpoints_co_ude/byol_co_ude_100epoch_570.weights.h5', '../model_save/checkpoints_d2/byol_d2_100epoch_570.weights.h5' ]
 code_w = ['C', 'CD_D2', 'CUD_D2', 'D2']
 
 model = BYOL(ResNet50(), ResNet50(), mlp(2048), mlp(2048), mlp(256))
@@ -241,7 +241,7 @@ for i, w in enumerate(weights_paths) :
     plt.title("t-SNE features byol colorées par Z")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
-    plt.savefig("tsne_redshift"+code_w[i]+".png")
+    plt.savefig("../plots/tsne_redshift"+code_w[i]+".png")
     plt.close()
 
 
@@ -252,7 +252,7 @@ for i, w in enumerate(weights_paths) :
     plt.title("t-SNE features byol colorées par RA")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
-    plt.savefig("tsne_ra"+code_w[i]+".png")
+    plt.savefig("../plots/tsne_ra"+code_w[i]+".png")
     plt.close()
 
     plt.figure(figsize=(10, 8))
@@ -261,7 +261,7 @@ for i, w in enumerate(weights_paths) :
     plt.title("t-SNE features byol colorées par DEC")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
-    plt.savefig("tsne_dec"+code_w[i]+".png")
+    plt.savefig("../plots/tsne_dec"+code_w[i]+".png")
     plt.close()
 
 
@@ -271,7 +271,7 @@ for i, w in enumerate(weights_paths) :
     plt.title("t-SNE features byol colorées par EBV")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
-    plt.savefig("tsne_ebv"+code_w[i]+".png")
+    plt.savefig("../plots/tsne_ebv"+code_w[i]+".png")
     plt.close()
 
     plt.figure(figsize=(10, 8))
@@ -282,7 +282,7 @@ for i, w in enumerate(weights_paths) :
     plt.title("t-SNE features byol colorées par survey")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
-    plt.savefig("tsne_survey"+code_w[i]+".png")
+    plt.savefig("../plots/tsne_survey"+code_w[i]+".png")
     plt.close()
 
 
