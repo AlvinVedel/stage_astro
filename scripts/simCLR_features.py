@@ -216,7 +216,7 @@ for i, w in enumerate(weights_paths) :
     plt.ylabel("Dimension 2")
     plt.ylim(ylimits)
     plt.xlim(xlimits)
-    plt.savefig("tsne_redshift_"+code_w[i]+".png")
+    plt.savefig("../plots/simCLR/tsne_redshift_"+code_w[i]+".png")
     plt.close()
 
 
@@ -235,7 +235,7 @@ for i, w in enumerate(weights_paths) :
     plt.ylabel("Dimension 2")
     plt.ylim(ylimits)
     plt.xlim(xlimits)
-    plt.savefig("tsne_redshift_D_"+code_w[i]+".png")
+    plt.savefig("../plots/simCLR/tsne_redshift_D_"+code_w[i]+".png")
     plt.close()
 
 
@@ -252,7 +252,7 @@ for i, w in enumerate(weights_paths) :
     plt.ylabel("Dimension 2")
     plt.ylim(ylimits)
     plt.xlim(xlimits)
-    plt.savefig("tsne_redshift_UD_"+code_w[i]+".png")
+    plt.savefig("../plots/simCLR/tsne_redshift_UD_"+code_w[i]+".png")
     plt.close()
 
 
@@ -276,7 +276,7 @@ for i, w in enumerate(weights_paths) :
     plt.ylabel("Dimension 2")
     plt.ylim(ylimits)
     plt.xlim(xlimits)
-    plt.savefig("tsne_ebv_"+code_w[i]+".png")
+    plt.savefig("../plots/simCLR/tsne_ebv_"+code_w[i]+".png")
     plt.close()
 
     plt.figure(figsize=(10, 8))
@@ -291,7 +291,7 @@ for i, w in enumerate(weights_paths) :
     plt.ylabel("Dimension 2")
     plt.ylim(ylimits)
     plt.xlim(xlimits)
-    plt.savefig("tsne_ebv_D_"+code_w[i]+".png")
+    plt.savefig("../plots/simCLR/tsne_ebv_D_"+code_w[i]+".png")
     plt.close()
 
 
@@ -308,7 +308,7 @@ for i, w in enumerate(weights_paths) :
     plt.ylabel("Dimension 2")
     plt.ylim(ylimits)
     plt.xlim(xlimits)
-    plt.savefig("tsne_ebv_UD_"+code_w[i]+".png")
+    plt.savefig("../plots/simCLR/tsne_ebv_UD_"+code_w[i]+".png")
     plt.close()
 
 

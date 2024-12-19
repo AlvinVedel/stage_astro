@@ -59,6 +59,7 @@ def mlp_adversarial(input_shape=1024) :
     x = layers.Dense(256, activation='relu')(x)
     x = layers.Dropout(0.4)(x)
     x = layers.Dense(2, activation='softmax')(x)
+    return keras.Model(latent_inp, x)
 
 
 bn=True

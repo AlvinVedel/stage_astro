@@ -55,7 +55,7 @@ def create_model(with_ebv=False) :
     l2 = layers.Dense(1024, activation='relu', name='l2')(l1)
     l3 = layers.Dense(512, activation='tanh', name='l3')(l1)
 
-    pdf = layers.Dense(300, activation='softmax', name='pdf')(l2)
+    pdf = layers.Dense(400, activation='softmax', name='pdf')(l2)
     regression = layers.Dense(1, activation='relu', name='reg')(l3)
     if with_ebv :
         model = keras.Model(inputs=[input_img, ebv_input], outputs=[pdf, regression])

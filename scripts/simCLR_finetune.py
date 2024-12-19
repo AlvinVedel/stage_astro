@@ -49,20 +49,25 @@ def mlp(input_shape=100):
     x = layers.Dense(256, activation='linear', kernel_regularizer=tf.keras.regularizers.l2(5e-7), bias_regularizer=tf.keras.regularizers.l2(5e-7))(x)
     return keras.Model(latent_input, x)
 
+def mlp_adversarial(input_shape=1024) :
+    latent_inp = keras.Input((input_shape))
+    x = layers.BatchNormalization()(latent_inp)
+    x = layers.Dense(256, activation='relu')(x)
+    x = layers.Dropout(0.4)(x)
+    x = layers.Dense(256, activation='relu')(x)
+    x = layers.Dropout(0.4)(x)
+    x = layers.Dense(2, activation='softmax')(x)
+    return keras.Model(latent_inp, x)
 
 def regression_head(input_shape=1024) :
     inp = keras.Input((input_shape))
-    l1 = layers.Dense(256)(inp)
+    l1 = layers.Dense(1024)(inp)
     l1 = layers.PReLU()(l1)
-    l2 = layers.Dense(256)(l1)
+    l2 = layers.Dense(1024)(l1)
     l2 = layers.PReLU()(l2)
     reg = layers.Dense(1, activation='linear')(l2)
     return keras.Model(inp, reg)
 
-bn=True
-
-weights_path = "simCLR_cosmos_bnTrue_2900.weights.h5"
-name = "UD"
 
 
 class FineTuneModel(keras.Model) :
@@ -100,55 +105,15 @@ class DataGen(keras.Sequence) :
         meta = data["meta"]
         self.z_values = meta[:, 6]
 
-        medians = np.median(self.images[..., :5], axis=(0, 1, 2))  # shape (5,) pour chaque channel
-        abs_deviation = np.abs(self.images[..., :5] - medians)  # Déviation absolue
-        self.mads = np.median(abs_deviation, axis=(0, 1, 2))  # Une MAD par channel
-
     def __len__(self):
         return int(np.ceil(len(self.images) / self.batch_size))
     
-    def zoom(self, images, masks) :
-        batch_size, height, width = tf.shape(images)[0], tf.shape(images)[1], tf.shape(images)[2]
-        zoom_values = tf.random.uniform((batch_size,), minval=(height//2)-4, maxval=height // 2, dtype=tf.int32)
-        centers_x = height // 2
-        centers_y = width // 2
-
-        crop_boxes = tf.stack([
-            (centers_x - zoom_values) / height,  # y_min
-            (centers_y - zoom_values) / width,   # x_min
-            (centers_x + zoom_values) / height,  # y_max
-            (centers_y + zoom_values) / width    # x_max
-        ], axis=1)
-        images = tf.image.crop_and_resize(tf.cast(images, dtype=tf.float32), tf.cast(crop_boxes, dtype=tf.float32), box_indices=tf.range(batch_size), crop_size=[height, width])
-        return images
-    
-    def gaussian_noise(self, images, masks, apply_prob=0.2) :
-
-        masks = tf.tile(tf.expand_dims(masks, axis=-1), (1, 1, 1, tf.shape(images)[-1])) # shape batch, 64, 64, 5
-        us = tf.random.uniform((tf.shape(images)[0], tf.shape(images)[-1]), minval=1, maxval=3, dtype=tf.float32)  # shape batch, 5  sample un u par image par channel (1 à 3 fois le bruit médian)
-        new_sigmas = tf.multiply(us, tf.expand_dims(tf.cast(self.mads, dtype=tf.float32), axis=0))   #    batch, 5 * 1, 5     batch, 5  le mads représente le noise scale et les u à quel point ils s'expriment 
-        # on a un sigma par channel par image
-
-        noises = tf.random.normal(shape=tf.shape(images), mean=0, stddev=1, dtype=tf.float32) # batch, 64, 64, 5
-        sampled_noises = tf.multiply(noises, tf.expand_dims(tf.expand_dims(tf.math.sqrt(new_sigmas), axis=1), axis=1))  # on multiplie par la racine du sigma pour avoir un bruit 0, sigma
-
-        # Génère un tenseur de probabilités d'application pour chaque image du batch
-        apply_noise = tf.cast(tf.random.uniform((tf.shape(images)[0], 1, 1, 1)) < apply_prob, tf.float32)
-
-        # Applique le bruit uniquement sur les images pour lesquelles apply_noise est 1, et masque les pixels avec `masks`
-        return images + apply_noise * sampled_noises * (1 - tf.cast(masks, dtype=tf.float32))
-        #return images + sampled_noises * (1 - tf.cast(masks, dtype=tf.float32))
-    
     def process_batch(self, images, masks, ebv=None) :
         
-        images = self.gaussian_noise(images, masks)
-        images = self.zoom(images, masks)
-
         images = tf.image.random_flip_left_right(images)
         images = tf.image.random_flip_up_down(images)
         rotations = tf.random.uniform((tf.shape(images)[0],), minval=0, maxval=4, dtype=tf.int32)    
         images = tf.map_fn(rotate_image, (images, rotations), dtype=images.dtype)
-
 
         return images
 
@@ -156,7 +121,6 @@ class DataGen(keras.Sequence) :
         batch_images = self.images[index * self.batch_size:(index + 1) * self.batch_size]
         batch_z = self.z_values[index * self.batch_size : (index+1)*self.batch_size]
           
-
         if tf.shape(batch_images)[0] < self.batch_size:
             # Compléter le batch avec des images dupliquées ou ignorer (selon ta logique)
             pad_size = self.batch_size - batch_images.shape[0]
@@ -166,8 +130,6 @@ class DataGen(keras.Sequence) :
                     
         batch_masks = batch_images[:, :, :, 5]
         batch_images = batch_images[:, :, :, :5]
-        batch_masks = tf.cast(tf.tile(batch_masks, [2, 1, 1]), dtype=bool)
-        batch_images = tf.cast(tf.tile(batch_images, [2, 1, 1, 1]), dtype=tf.float32)
         
         
         augmented_images = self.process_batch(batch_images, batch_masks)
@@ -185,20 +147,24 @@ class LearningRateDecay(tf.keras.callbacks.Callback):
         self.decay_factor = decay_factor
 
     def on_epoch_begin(self, epoch, logs=None):
-        if epoch == 30 or epoch == 40 :
+        if epoch == 35 or epoch == 45 :
             old_lr = float(tf.keras.backend.get_value(self.model.optimizer.learning_rate))
             new_lr = old_lr * self.decay_factor
             tf.keras.backend.set_value(self.model.optimizer.learning_rate, new_lr)
 
 
+bn=True
+
+weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_100.weights.h5"
+name = "UD"
+
 
 for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1.npz", "b3_2.npz"] :
 
-    data_gen = DataGen("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=96)
+    data_gen = DataGen("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=32)
 
     # PARTIE 1
     model = simCLR(backbone(bn), mlp(1024))
-    model.compile(optimizer=keras.optimizers.Adam(1e-3), loss="mse")
     model(np.random.random((32, 64, 64, 5)))
     model.load_weights(weights_path)
 
@@ -206,7 +172,7 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1.npz", "b3_2.npz"] :
     predictor = regression_head(1024)
 
     model1 = FineTuneModel(extracteur, predictor, train_back=False)
-    model1.compile(optimizer=keras.optimizers.Adam(1e-3), loss="mse")
+    model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mse")
     history = model1.fit(data_gen, epochs=50, callbacks=[LearningRateDecay()])
     model1.save_weights("simCLR_finetune_HeadOnly_base="+base+"_model="+name+".weights.h5")
 
@@ -214,12 +180,11 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1.npz", "b3_2.npz"] :
     plt.xlabel("epochs")
     plt.ylabel("loss (mse)")
     plt.title("finetuning loss")
-    plt.savefig("simCLR_finetune_HeadOnly_base="+base+"_model="+name+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_HeadOnly_base="+base+"_model="+name+".png")
 
 
     # PARTIE 2
     model = simCLR(backbone(bn), mlp(1024))
-    model.compile(optimizer=keras.optimizers.Adam(1e-3), loss="mse")
     model(np.random.random((32, 64, 64, 5)))
     model.load_weights(weights_path)
 
@@ -227,7 +192,7 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1.npz", "b3_2.npz"] :
     predictor = regression_head(1024)
 
     model1 = FineTuneModel(extracteur, predictor, train_back=False)
-    model1.compile(optimizer=keras.optimizers.Adam(1e-3), loss="mse")
+    model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mse")
     history = model1.fit(data_gen, epochs=50, callbacks=[LearningRateDecay()])
     model1.save_weights("simCLR_finetune_ALL_base="+base+"_model="+name+".weights.h5")
 
@@ -235,6 +200,6 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1.npz", "b3_2.npz"] :
     plt.xlabel("epochs")
     plt.ylabel("loss (mse)")
     plt.title("finetuning loss")
-    plt.savefig("simCLR_finetune_ALL_base="+base+"_model="+name+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_ALL_base="+base+"_model="+name+".png")
 
 
