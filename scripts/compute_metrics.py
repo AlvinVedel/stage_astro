@@ -96,92 +96,170 @@ def backbone(bn=True) :
 
     return keras.Model(inputs=inp, outputs=l1)
 
+def regression_head(input_shape=1024) :
+    inp = keras.Input((input_shape))
+    l1 = layers.Dense(1024)(inp)
+    l1 = layers.PReLU()(l1)
+    l2 = layers.Dense(1024)(l1)
+    l2 = layers.PReLU()(l2)
+    reg = layers.Dense(1, activation='linear')(l2)
+    return keras.Model(inp, reg)
 
-def mlp(input_shape=100):
-    latent_input = keras.Input((input_shape))
-    x = layers.Dense(512, activation='linear', kernel_regularizer=tf.keras.regularizers.l2(5e-7), bias_regularizer=tf.keras.regularizers.l2(5e-7))(latent_input)
-    x = layers.BatchNormalization()(x)
-    x = layers.PReLU()(x)
-    x = layers.Dense(256, activation='linear', kernel_regularizer=tf.keras.regularizers.l2(5e-7), bias_regularizer=tf.keras.regularizers.l2(5e-7))(x)
-    return keras.Model(latent_input, x)
 
-
+class FineTuneModel(keras.Model) :
+    def __init__(self, back, head, train_back=False) :
+        super(FineTuneModel, self).__init__()
+        self.backbone = back
+        self.head = head
+        self.train_back = train_back
+    
+    def call(self, inputs, training=True) :
+        latent = self.backbone(inputs, training=self.train_back)
+        pred = self.head(latent, training=training)
+        return pred
 
 
 base_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/"
 
 
-##### CHECK DE NIVEAU 1 : structure des données 
-
-path1 = base_path + "data/spec/COSMOS_v11_uijk_0323_spec_UD.npz"
-
-data = np.load(path1, allow_pickle=True)
-
-print("CONDITION 1 :     UD SPEC     -------------------------------")
-print(data["info"])
-print(data["info"].dtype)
-
-
-path1 = base_path + "data/spec/COSMOS_v11_uijk_0323_cos2020_UD.npz"
-
-data = np.load(path1, allow_pickle=True)
-
-print("CONDITION 2 :     UD  COS2020 ---------------------------------")
-print(data["info"])
-print(data["info"].dtype)
-
-
-path1 = base_path + "data/spec/COSMOS_v11_uijk_0237_spec_D.npz"
-
-data = np.load(path1, allow_pickle=True)
-
-print("CONDITION 3 :     D  SPEC ---------------------------------")
-print(data["info"])
-print(data["info"].dtype)
-
-
-path1 = base_path + "data/spec/COSMOS_v11_uijk_0236_cos2020_D.npz"
-
-data = np.load(path1, allow_pickle=True)
-
-print("CONDITION 4 :     D  COS2020 ---------------------------------")
-print(data["info"])
-print(data["info"].dtype)
-
-
-
-
-path1 = base_path + "data/spec/COSMOS_v11_uijk_0251_photo_D.npz"
-
-data = np.load(path1, allow_pickle=True)
-
-print("CONDITION 5 :     D  PHOT ---------------------------------")
-print(data["info"])
-print(data["info"].dtype)
-
-
-
-
-path1 = base_path + "data/spec/COSMOS_v11_uijk_0234_photo_UD.npz"
-
-data = np.load(path1, allow_pickle=True)
-
-print("CONDITION 6 :     UD  PHOT ---------------------------------")
-print(data["info"])
-print(data["info"].dtype)
-
-toto()
+#model = FineTuneModel(backbone(True), head=regression_head(1024))
 model = create_model()
-#model = simCLR(backbone=backbone(), head=mlp(1024))
-
+treyer = True
 model.load_weights(base_path+"model_save/checkpoints_supervised/treyer_supervised_b1_1.weights.h5")
+model_name='treyer_b1_1'
+
+directory = base_path+"data/spec/"
+
+npz_files = [f for f in os.listdir(directory) if f.endswith('spec_UD.npz')]
 
 
 
-#####     CONDITION 1 = UD SPEC
+true_z = []
+pred_z = []
+
+
+def extract_z(tup) :
+    return tup[40]
+
+for file in npz_files :
+    data = np.load(file, allow_pickles=True)
+    images = data["cube"]
+    meta = data["info"]
+    z = np.array([extract_z(m) for m in meta])
+    true_z.append(z)
+    if treyer :
+        probas, reg = model.predict(images)
+
+    else :
+        reg = model.predict(images)
+
+    pred_z.append(reg)
+
+
+true_z = np.concatenate(true_z, axis=0)
+pred_z = np.concatenate(pred_z, axis=0)
+
+#### MATRICE DE CHALEUR
+from scipy.stats import gaussian_kde
+import matplotlib.pyplot as plt
+
+xy = np.vstack([true_z, pred_z])
+density = gaussian_kde(xy)(xy)
+
+plt.scatter(true_z, pred_z, c=density, cmap='hot', s=5)
+plt.colorbar(label='density')
+plt.xlabel("true Z")
+plt.ylabel("pred Z")
+plt.xlim((-1, 6))
+plt.ylim((-1, 6))
+plt.title("prediction density heatmap")
+plt.savefig("density_heatmap_"+model_name+".png")
+plt.close()
+
+
+def delta_z(z_pred, z_spec) :
+    return (z_pred - z_spec) / (1 + z_spec)
+
+#### CALCUL DES METRIQUES ASTRO 
+bigbins_edges = np.linspace(0, 6, 24)
+megabins_edges = np.array([0, 0.6, 2, 4, 6])
+
+deltas_z = (pred_z - true_z) / (1 + true_z) 
+
+### LES PLOTS
+
+bias = np.zeros((len(bigbins_edges)-1))
+smad = np.zeros((len(bigbins_edges)-1))
+outl = np.zeros((len(bigbins_edges)-1))
 
 
 
+for i in range(len(bigbins_edges)-1) :
+    inds = np.where((true_z>=bigbins_edges[i]) & (true_z<bigbins_edges[i+1]))
+
+    selected_deltas = deltas_z[inds]
+
+    bias[i] = np.mean(selected_deltas)
+
+    median_delta_z_norm = np.median(selected_deltas)
+    mad = np.median(np.abs(selected_deltas - median_delta_z_norm))
+    sigma_mad = 1.4826 * mad
+    smad[i] = sigma_mad
+
+    outliers = np.abs(selected_deltas) > 0.05
+    fraction_outliers = np.sum(outliers) / (len(selected_deltas)+1e-6)
+    outl[i] = fraction_outliers
+    
+
+
+bins_centres = (bigbins_edges[1:] + bigbins_edges[:-1])/2
+
+plt.plot(bins_centres, bias)
+plt.xlabel("Z")
+plt.ylabel("prediction bias")
+plt.title("prediction bias for "+model_name)
+plt.savefig(base_path+"plots/simCLR/bias_"+model_name+".png")
+
+plt.plot(bins_centres, smad)
+plt.xlabel("Z")
+plt.ylabel("sMAD")
+plt.title("Sigma MAD for "+model_name)
+plt.savefig(base_path+"plots/simCLR/smad_"+model_name+".png")
+
+plt.plot(bins_centres, outl)
+plt.xlabel("Z")
+plt.ylabel("outlier fraction")
+plt.title("outlier fraction for "+model_name)
+plt.savefig(base_path+"plots/simCLR/outl_"+model_name+".png")
+
+
+
+bias = np.zeros((len(megabins_edges)-1))
+smad = np.zeros((len(megabins_edges)-1))
+outl = np.zeros((len(megabins_edges)-1))
+#### LES VALEURS DE TABLEAU :
+for i in range(len(megabins_edges)-1) :
+    inds = np.where((true_z>=megabins_edges[i]) & (true_z<megabins_edges[i+1]))
+
+    selected_deltas = deltas_z[inds]
+
+    bias[i] = np.mean(selected_deltas)
+
+    median_delta_z_norm = np.median(selected_deltas)
+    mad = np.median(np.abs(selected_deltas - median_delta_z_norm))
+    sigma_mad = 1.4826 * mad
+    smad[i] = sigma_mad
+
+    outliers = np.abs(selected_deltas) > 0.05
+    fraction_outliers = np.sum(outliers) / (len(selected_deltas)+1e-6)
+    outl[i] = fraction_outliers
+
+
+print("RESULTS ON MEGABINS EDGES :")
+print("PLAGES : [0, 0.6]     [0.6, 2]    [2, 4]     [4, 6]")
+print("BIAS :", bias)
+print("SMAD :", smad)
+print("OUTL :", outl)
 #model.backbone.save_weights("sdss_backbone.weights.h5")
 #model.classifier.save_weights("sdss_classifier.weights.h5")
 
