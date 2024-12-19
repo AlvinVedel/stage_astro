@@ -55,9 +55,9 @@ def mlp(input_shape=100):
 
 bn=True
 
-model = simCLR(backbone(bn), mlp(1024), use_triplet=False, triplet_weight=0)
+model = simCLR(backbone(bn), mlp(1024))
 
-folder_path2 = "/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/PHOT/COSMOS"
+folder_path2 = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/"
 
 
 
@@ -87,15 +87,21 @@ def extract_meta(tup) :
     # RA   DEC   EB_V   ZPHOT   EBV
     return np.array([tup[1], tup[2], tup[7], max(tup[29], 1e-4), tup[35]])
 
-for i in range(len(indices2)) :
+for i in range(len(indices2)+10-len(indices2)) :
     
 
     ind = indices2[i]
     print("FILE ", i, file_paths2['d'][ind])
     data = np.load(file_paths2['d'][ind], allow_pickle=True)
-    images = data["cube"]
+    images = data["cube"][..., :5]
     meta = data["info"]
-
+    
+    n = images.shape[0]
+    sub_ind = np.arange(n)
+    random.shuffle(sub_ind)
+    takes = sub_ind[:(int(n*0.1))]
+    images = images[takes]
+    meta = meta[takes]
     
     images = np.sign(images)*(np.sqrt(np.abs(images+1))-1) 
     all_images.append(images)
@@ -107,14 +113,20 @@ for i in range(len(indices2)) :
 
 
 
-for i in range(len(indices3)) :
+for i in range(len(indices3)+10-len(indices3)) :
 
     ind = indices3[i]
     print("FILE ", i, file_paths2['ud'][ind])
     data = np.load(file_paths2['ud'][ind], allow_pickle=True)
-    images = data["cube"]
+    images = data["cube"][..., :5]
     meta = data["info"]
 
+    n = images.shape[0]
+    sub_ind = np.arange(n)
+    random.shuffle(sub_ind)
+    takes = sub_ind[:(int(n*0.1))]
+    images = images[takes]
+    meta = meta[takes]
 
     images = np.sign(images)*(np.sqrt(np.abs(images+1))-1)
     all_images.append(images)
@@ -125,6 +137,7 @@ for i in range(len(indices3)) :
     gc.collect()
 
 
+#print(all_metas)
 images = np.concatenate(all_images, axis=0)
 metas = np.concatenate(all_metas, axis=0)  # 12*20k, 5
 
@@ -150,26 +163,30 @@ for s in origin_label :
     labels.append(s)
 
 
-weights_paths = ["../model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_2900.weights.h5", "../model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_5250.weights.h5", '../model_save/checkpoints_simCLR_UD_D_adv/simCLR_cosmos_bnTrue_4700.weights.h5']
+weights_paths = ["../model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_100.weights.h5", "../model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_100.weights.h5", '../model_save/checkpoints_simCLR_UD_D_adv/simCLR_cosmos_bnTrue_100.weights.h5']
 code_w = ['UD', 'UD_D', 'UD_D_adv']
 
-model = simCLR(backbone=backbone(), head=mlp(2048))
+model = simCLR(backbone=backbone(), head=mlp(1024))
 model(np.random.random((32, 64, 64, 5)))
 
 for i, w in enumerate(weights_paths) :
     model.load_weights(w)
 
     
-    extractor = model.online_backbone
+    extractor = model.backbone
 
     features = extractor.predict(images)
+    if np.isnan(features).any():
+        print("Found NaN values in features, replacing them with 0...")
+        features = np.nan_to_num(features, nan=0.0)
     print(features.shape)
-
+    print(features)
     tsne = TSNE(n_components=2, random_state=42)
     data_tsne = tsne.fit_transform(features)
     print("tsne ended")
 
-
+    xlimits = (np.min(data_tsne[:, 0]), np.max(data_tsne[:, 0]))
+    ylimits = (np.min(data_tsne[:, 1]), np.max(data_tsne[:, 1]))
 
     print(data_tsne.shape, z.shape, ra.shape, dec.shape, ebv.shape)
 
@@ -187,6 +204,8 @@ for i, w in enumerate(weights_paths) :
     plt.title("t-SNE features colorées par Z")
     plt.xlabel("Dimension 1")
     plt.ylabel("Dimension 2")
+    plt.ylim(ylimits)
+    plt.xlim(xlmits)
     plt.savefig("tsne_redshift_"+code_w[i]+".png")
 
 
