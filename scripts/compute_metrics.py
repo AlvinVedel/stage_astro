@@ -111,11 +111,74 @@ def mlp(input_shape=100):
 base_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/"
 
 
+##### CHECK DE NIVEAU 1 : structure des données 
+
+path1 = base_path + "data/spec/COSMOS_v11_uijk_0323_spec_UD.npz"
+
+data = np.load(path1, allow_pickle=True)
+
+print("CONDITION 1 :     UD SPEC     -------------------------------")
+print(data["meta"])
+print(data["meta"].dtype)
+
+
+path1 = base_path + "data/spec/COSMOS_v11_uijk_0323_cos2020_UD.npz"
+
+data = np.load(path1, allow_pickle=True)
+
+print("CONDITION 2 :     UD  COS2020 ---------------------------------")
+print(data["meta"])
+print(data["meta"].dtype)
+
+
+path1 = base_path + "data/spec/COSMOS_v11_uijk_0237_spec_D.npz"
+
+data = np.load(path1, allow_pickle=True)
+
+print("CONDITION 3 :     D  SPEC ---------------------------------")
+print(data["meta"])
+print(data["meta"].dtype)
+
+
+path1 = base_path + "data/spec/COSMOS_v11_uijk_0236_cos2020_D.npz"
+
+data = np.load(path1, allow_pickle=True)
+
+print("CONDITION 4 :     D  COS2020 ---------------------------------")
+print(data["meta"])
+print(data["meta"].dtype)
+
+
+
+
+path1 = base_path + "data/spec/COSMOS_v11_uijk_0251_photo_D.npz"
+
+data = np.load(path1, allow_pickle=True)
+
+print("CONDITION 5 :     D  PHOT ---------------------------------")
+print(data["meta"])
+print(data["meta"].dtype)
+
+
+
+
+path1 = base_path + "data/spec/COSMOS_v11_uijk_0234_photo_UD.npz"
+
+data = np.load(path1, allow_pickle=True)
+
+print("CONDITION 6 :     UD  PHOT ---------------------------------")
+print(data["meta"])
+print(data["meta"].dtype)
+
+toto()
 model = create_model()
 #model = simCLR(backbone=backbone(), head=mlp(1024))
 
 model.load_weights(base_path+"model_save/checkpoints_supervised/treyer_supervised_b1_1.weights.h5")
 
+
+
+#####     CONDITION 1 = UD SPEC
 
 
 
