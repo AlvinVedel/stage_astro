@@ -155,8 +155,7 @@ class LearningRateDecay(tf.keras.callbacks.Callback):
 
 bn=True
 
-weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD
-/simCLR_cosmos_bnTrue_400.weights.h5"
+weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_400.weights.h5"
 name = "UD"
 
 
