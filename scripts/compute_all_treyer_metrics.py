@@ -126,8 +126,8 @@ class FineTuneModel(keras.Model) :
 base_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/"
 
 
-model = FineTuneModel(backbone(True), head=regression_head(1024))
-#model = create_model()
+#model = FineTuneModel(backbone(True), head=regression_head(1024))
+model = create_model()
 model(np.random.random((32, 64, 64, 5)))
 
 
@@ -136,38 +136,28 @@ data_frame = {"name":[], "bias1":[], "bias2":[], 'bias3':[], 'bias4':[],
                "smad1":[], "smad2":[], 'smad3':[], 'smad4':[],
                "oult1":[], "oult2":[], 'oult3':[], 'oult4':[]}
 
-
-directory = base_path+"data/spec/"
-
-def z_med(probas, bin_central_values) :
-    cdf = np.cumsum(probas)
-    index = np.argmax(cdf>=0.5)
-    return bin_central_values[index]
-
-
 for inf_base in ["spec_UD", "cos2020_UD", "spec_D", "cos2020_D"] :
-
-    npz_files = [f for f in os.listdir(directory) if f.endswith(inf_base+'.npz')]
-    
 
     for finetune_base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
 
-        for cond in ["HeadOnly", "ALL"] :
-
-            for sim_base in ["UD", "UD_D", "UD_D_adv"] :
-                model_name = 'sim_'+sim_base+"_"+cond+"_"+finetune_base
-                try : 
-                    model.load_weights(base_path+"model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5")
+            model_name = "treyer_tune="+finetune_base+"_inf="+inf_base
+            try : 
+                    #model.load_weights(base_path+"model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5")
                     #model.load_weights(base_path+"model_save/checkpoints_supervised/treyer_supervised_b3_1.weights.h5")
                     #model_name='simCLR_Head_UD_b1_1'
-                    model_name = 'sim_'+sim_base+"_"+cond+"_"+finetune_base
 
+                    directory = base_path+"data/spec/"
+
+                    npz_files = [f for f in os.listdir(directory) if f.endswith(inf_base+'.npz')]
 
                     true_z = []
                     pred_z = []
-                    
 
-                   
+                    def z_med(probas, bin_central_values) :
+                        cdf = np.cumsum(probas)
+                        index = np.argmax(cdf>=0.5)
+                        return bin_central_values[index]
+
                     bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
                     bins_centres = (bins_edges[1:] + bins_edges[:-1])/2
 
@@ -326,14 +316,14 @@ for inf_base in ["spec_UD", "cos2020_UD", "spec_D", "cos2020_D"] :
                     data_frame["oult4"].append(outl[3])
 
 
-                except Exception as e :
+            except Exception as e :
                     print("file not found for ", model_name)
 
 
 import pandas as pd
 
 df = pd.DataFrame(data_frame)
-df.to_csv("metrics_simCLR.csv", index=False)
+df.to_csv("metrics_treyer.csv", index=False)
 
 
 
