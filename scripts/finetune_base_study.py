@@ -36,11 +36,39 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
 
     z_bins = z_bins / np.sum(z_bins)
 
-    plt.plot(bins_centres, z_bins)
+    plt.hist(bins_centres, z_bins)
+    plt.xlabel("Z SPEC")
+    plt.ylabel("density")
+    plt.title("N samples = "+len(z_values))
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/bin_split_base="+base+".png")
+    plt.close()
+
+
+
+    bins_edges = np.linspace(0, 7, 41)
+    bins_centres = (bins_edges[1:] + bins_edges[:-1])/2
+
+    z_bins = np.zeros((40))
+    for z in z_values :
+        i = 0
+        flag = True
+        while flag and i < len(bins_edges)-1 :
+            if z >= bins_edges[i] and z < bins_edges[i+1] :
+                z_bins[i] += 1
+                flag = False
+            i+=1
+        if flag :
+            z_bins[i-1] +=1
+
+
+    z_bins = z_bins / np.sum(z_bins)
+
+    plt.hist(bins_centres, z_bins)
     plt.xlabel("Z SPEC")
     plt.ylabel("density")
     plt.title("N samples = "+len(z_values))
     plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/z_distr_base="+base+".png")
+    plt.close()
 
 
 
