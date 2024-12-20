@@ -1,15 +1,16 @@
+
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
-from contrastiv_model import simCLR, ContrastivLoss
+from contrastiv_model import simCLR, ContrastivLoss, simCLR_adversarial
 import os 
 import matplotlib.pyplot as plt
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 import time
 
 
-def backbone(bn=True) :
+def backbone(bn=True, adv=False) :
     inp = keras.Input((64, 64, 5))
     c1 = layers.Conv2D(96, padding='same', strides=1, kernel_size=3)(inp) # 64
     c1 = layers.PReLU()(c1) 
@@ -38,8 +39,10 @@ def backbone(bn=True) :
     l1 = layers.PReLU()(l1)
     if bn :
         l1 = layers.BatchNormalization()(l1)
-
-    return keras.Model(inputs=inp, outputs=l1)
+    if adv :
+        return keras.Model(inputs=inp, outputs=[l1, flat])
+    else :
+        return keras.Model(inputs=inp, outputs=l1)
 
 def mlp(input_shape=100):
     latent_input = keras.Input((input_shape))
@@ -71,14 +74,18 @@ def regression_head(input_shape=1024) :
 
 
 class FineTuneModel(keras.Model) :
-    def __init__(self, back, head, train_back=False) :
+    def __init__(self, back, head, train_back=False, adv=False) :
         super(FineTuneModel, self).__init__()
         self.backbone = back
         self.head = head
+        self.adv = adv
         self.train_back = train_back
     
     def call(self, inputs, training=True) :
-        latent = self.backbone(inputs, training=self.train_back)
+        if self.adv :
+            latent, flat = self.backbone(inputs, training=self.train_back)
+        else :
+            latent = self.backbone(inputs, training=self.train_back)
         pred = self.head(latent, training=training)
         return pred
     
@@ -164,6 +171,7 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
     data_gen = DataGen("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=32)
 
     # PARTIE 1
+    #model = simCLR_adversarial(backbone(bn, adv=True), mlp(1024), mlp_adversarial(1024))
     model = simCLR(backbone(bn), mlp(1024))
     model(np.random.random((32, 64, 64, 5)))
     model.load_weights(weights_path)
@@ -171,19 +179,20 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
     extracteur = model.backbone
     predictor = regression_head(1024)
 
-    model1 = FineTuneModel(extracteur, predictor, train_back=False)
+    model1 = FineTuneModel(extracteur, predictor, train_back=False, adv=False)
     model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mae")
     history = model1.fit(data_gen, epochs=50, callbacks=[LearningRateDecay()])
     model1.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_HeadOnly_base="+base+"_model="+name+".weights.h5")
 
     plt.plot(np.arange(1, 51), history.history["loss"])
     plt.xlabel("epochs")
-    plt.ylabel("loss (mse)")
+    plt.ylabel("loss (mae)")
     plt.title("finetuning loss")
     plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune_HeadOnly_base="+base+"_model="+name+".png")
-
+    plt.close()
 
     # PARTIE 2
+    #model = simCLR_adversarial(backbone(bn, adv=True), mlp(1024), mlp_adversarial(1024))
     model = simCLR(backbone(bn), mlp(1024))
     model(np.random.random((32, 64, 64, 5)))
     model.load_weights(weights_path)
@@ -191,15 +200,15 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
     extracteur = model.backbone
     predictor = regression_head(1024)
 
-    model1 = FineTuneModel(extracteur, predictor, train_back=False)
-    model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mse")
+    model1 = FineTuneModel(extracteur, predictor, train_back=True, adv=False)
+    model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mae")
     history = model1.fit(data_gen, epochs=50, callbacks=[LearningRateDecay()])
     model1.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_ALL_base="+base+"_model="+name+".weights.h5")
 
     plt.plot(np.arange(1, 51), history.history["loss"])
     plt.xlabel("epochs")
-    plt.ylabel("loss (mse)")
+    plt.ylabel("loss (mae)")
     plt.title("finetuning loss")
     plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune_ALL_base="+base+"_model="+name+".png")
-
+    plt.close()
 

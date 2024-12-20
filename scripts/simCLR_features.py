@@ -126,7 +126,7 @@ all_metas = []
 origin_label = []
 
 def extract_meta(tup) :
-    # RA   DEC   EB_V   ZPHOT   EBV
+    #                  RA      DEC    EB_V         ZPHOT          EBV
     return np.array([tup[1], tup[2], tup[7], max(tup[40], 1e-5), tup[35]])
 
 for i in range(len(indices2)) :
@@ -186,8 +186,8 @@ metas = np.concatenate(all_metas, axis=0)  # 12*20k, 5
 ra = metas[:, 0]
 dec = metas[:, 1]
 ebv = metas[:, 2]
-z = np.log(metas[:, 3]+1)
-
+z = np.log((metas[:, 3]/10)+1)
+print(np.max(z), np.min(z), np.max(metas[:, 3]), np.min(metas[:, 3]))
 
 print("IL Y A", len(images), "IMAGES DANS COSMO UD ET D")
 

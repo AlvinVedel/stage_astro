@@ -100,7 +100,8 @@ class DataGen(keras.utils.Sequence) :
                     flag = False
                 i+=1
             if flag : 
-                self.z_bins[j] = i
+                self.z_bins[j] = i-1
+        print(np.max(self.z_bins), np.min(self.z_bins))
         print("NAN IMGS :",np.any(np.isnan(self.images)))
         print("NAN Z :", np.any(np.isnan(self.z_values)), np.any(np.isnan(self.z_bins)))
         self.z_bins = self.z_bins.astype(np.int32)

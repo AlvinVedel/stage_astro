@@ -107,14 +107,18 @@ def regression_head(input_shape=1024) :
 
 
 class FineTuneModel(keras.Model) :
-    def __init__(self, back, head, train_back=False) :
+    def __init__(self, back, head, train_back=False, adv=False) :
         super(FineTuneModel, self).__init__()
         self.backbone = back
         self.head = head
+        self.adv = adv
         self.train_back = train_back
-    
+
     def call(self, inputs, training=True) :
-        latent = self.backbone(inputs, training=self.train_back)
+        if self.adv :
+            latent, flat = self.backbone(inputs, training=self.train_back)
+        else :
+            latent = self.backbone(inputs, training=self.train_back)
         pred = self.head(latent, training=training)
         return pred
 
@@ -122,11 +126,13 @@ class FineTuneModel(keras.Model) :
 base_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/"
 
 
-#model = FineTuneModel(backbone(True), head=regression_head(1024))
-model = create_model()
-treyer = True
-model.load_weights(base_path+"model_save/checkpoints_supervised/treyer_supervised_b2_1.weights.h5")
-model_name='treyer_b2_1'
+model = FineTuneModel(backbone(True), head=regression_head(1024))
+#model = create_model()
+model(np.random.random((32, 64, 64, 5)))
+treyer = False
+model.load_weights(base_path+"model_save/checkpoints_simCLR_finetune/simCLR_finetune_HeadOnly_base=b1_1_model=UD.weights.h5")
+#model.load_weights(base_path+"model_save/checkpoints_supervised/treyer_supervised_b3_1.weights.h5")
+model_name='simCLR_Head_UD_b1_1'
 
 directory = base_path+"data/spec/"
 
@@ -137,6 +143,14 @@ npz_files = [f for f in os.listdir(directory) if f.endswith('spec_UD.npz')]
 true_z = []
 pred_z = []
 
+
+def z_med(probas, bin_central_values) :
+    cdf = np.cumsum(probas)
+    index = np.argmax(cdf>=0.5)
+    return bin_central_values[index]
+
+bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
+bins_centres = (bins_edges[1:] + bins_edges[:-1])/2
 
 def extract_z(tup) :
     return tup[40]
@@ -151,11 +165,12 @@ for file in npz_files :
     if treyer :
         probas, reg = model.predict(images)
         #print(reg.shape)
-        reg = reg[:, 0]
+        z_meds = np.array([z_med(p, bins_centres) for p in probas])
+        reg = z_meds
         #print(reg.shape)
     else :
         reg = model.predict(images)
-    
+        reg = reg[:, 0]
     pred_z.append(reg)
     counter+=1
     
