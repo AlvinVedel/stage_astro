@@ -23,7 +23,7 @@ def inception_block(input):
 
 def create_model(with_ebv=False) :
 
-    input_img = keras.Input((64, 64, 9))
+    input_img = keras.Input((64, 64, 5))
     #input_ebv = keras.Input((1,))
     conv1 = layers.Conv2D(96, kernel_size=5, activation='relu', strides=1, padding='same', name='c1')(input_img)
     conv2 = layers.Conv2D(96, kernel_size=3, activation='tanh', strides=1, padding='same', name='c2')(conv1)
@@ -56,7 +56,7 @@ def create_model(with_ebv=False) :
     l2 = layers.Dense(1024, activation='relu', name='l2')(l1)
     l3 = layers.Dense(512, activation='tanh', name='l3')(l1)
 
-    pdf = layers.Dense(300, activation='softmax', name='pdf')(l2)
+    pdf = layers.Dense(400, activation='softmax', name='pdf')(l2)
     regression = layers.Dense(1, activation='relu', name='reg')(l3)
     if with_ebv :
         model = keras.Model(inputs=[input_img, ebv_input], outputs=[pdf, regression])
@@ -125,8 +125,8 @@ base_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/"
 #model = FineTuneModel(backbone(True), head=regression_head(1024))
 model = create_model()
 treyer = True
-model.load_weights(base_path+"model_save/checkpoints_supervised/treyer_supervised_b1_1.weights.h5")
-model_name='treyer_b1_1'
+model.load_weights(base_path+"model_save/checkpoints_supervised/treyer_supervised_b2_1.weights.h5")
+model_name='treyer_b2_1'
 
 directory = base_path+"data/spec/"
 
@@ -140,21 +140,27 @@ pred_z = []
 
 def extract_z(tup) :
     return tup[40]
-
+counter = 0
 for file in npz_files :
-    data = np.load(file, allow_pickles=True)
-    images = data["cube"]
+    data = np.load(base_path+"data/spec/"+file, allow_pickle=True)
+    images = data["cube"][..., :5]
     meta = data["info"]
     z = np.array([extract_z(m) for m in meta])
+    #print(z.shape)
     true_z.append(z)
     if treyer :
         probas, reg = model.predict(images)
-
+        #print(reg.shape)
+        reg = reg[:, 0]
+        #print(reg.shape)
     else :
         reg = model.predict(images)
-
+    
     pred_z.append(reg)
-
+    counter+=1
+    
+#print(true_z)
+#print(pred_z)
 
 true_z = np.concatenate(true_z, axis=0)
 pred_z = np.concatenate(pred_z, axis=0)
@@ -173,7 +179,7 @@ plt.ylabel("pred Z")
 plt.xlim((-1, 6))
 plt.ylim((-1, 6))
 plt.title("prediction density heatmap")
-plt.savefig("density_heatmap_"+model_name+".png")
+plt.savefig(base_path+"plots/simCLR/density_heatmap_"+model_name+".png")
 plt.close()
 
 
@@ -219,19 +225,21 @@ plt.xlabel("Z")
 plt.ylabel("prediction bias")
 plt.title("prediction bias for "+model_name)
 plt.savefig(base_path+"plots/simCLR/bias_"+model_name+".png")
+plt.close()
 
 plt.plot(bins_centres, smad)
 plt.xlabel("Z")
 plt.ylabel("sMAD")
 plt.title("Sigma MAD for "+model_name)
 plt.savefig(base_path+"plots/simCLR/smad_"+model_name+".png")
+plt.close()
 
 plt.plot(bins_centres, outl)
 plt.xlabel("Z")
 plt.ylabel("outlier fraction")
 plt.title("outlier fraction for "+model_name)
 plt.savefig(base_path+"plots/simCLR/outl_"+model_name+".png")
-
+plt.close()
 
 
 bias = np.zeros((len(megabins_edges)-1))

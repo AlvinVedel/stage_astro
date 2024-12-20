@@ -66,7 +66,7 @@ bn=True
 model = simCLR_adversarial(backbone(bn), mlp(1024), adversaire=mlp_adversarial())
 model.compile(optimizer=keras.optimizers.Adam(1e-3), loss=ContrastivLoss())
 model(np.random.random((32, 64, 64, 5)))
-#model.load_weights("simCLR_cosmos100.weights.h5")
+model.load_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD_D_adv/simCLR_cosmos_bnTrue_400.weights.h5")
 
 
 data_gen = AdversarialGen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/phot/"], 

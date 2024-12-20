@@ -81,7 +81,7 @@ class DataGen(keras.utils.Sequence) :
         images = data["cube"][..., :5]  # on ne prend que les 5 premières bandes
         masks = np.expand_dims(data["cube"][..., 5], axis=-1)
 
-        images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
+        #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
         self.images = np.concatenate([images, masks], axis=-1).astype(np.float32)  # N, 64, 64, 6
 
         meta = data["info"]
@@ -89,7 +89,7 @@ class DataGen(keras.utils.Sequence) :
         self.z_values = self.z_values.astype("float32")
         print("Z VALS", self.z_values)
         
-        bins_edges = np.concatenate([np.linspace(0, 4, 380), np.linspace(4, 6, 21)[1:]], axis=0)
+        bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
         self.z_bins = np.zeros((len(self.z_values)))
         for j, z in enumerate(self.z_values) :
             i = 0
@@ -164,7 +164,7 @@ for base in base_names :
     model = create_model()
     gen = DataGen(base_path+base+".npz", batch_size=32)
 
-    model.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss=[tf.keras.losses.SparseCategoricalCrossentropy(), tf.keras.losses.MeanSquaredError()])
+    model.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss=[tf.keras.losses.SparseCategoricalCrossentropy(), tf.keras.losses.MeanAbsoluteError()])
     model.fit(gen, epochs=50, callbacks=[LearningRateScheduler()])
 
     model.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_supervised/treyer_supervised_"+base+".weights.h5")

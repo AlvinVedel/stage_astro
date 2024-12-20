@@ -99,12 +99,12 @@ class DataGen(keras.utils.Sequence) :
         images = data["cube"][..., :5]  # on ne prend que les 5 premières bandes
         masks = np.expand_dims(data["cube"][..., 5], axis=-1)
 
-        images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
+        #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
         self.images = np.concatenate([images, masks], axis=-1)  # N, 64, 64, 6
 
         meta = data["info"]
         self.z_values = meta[:, 6]
-
+        self.z_values = self.z_values.astype(np.float32)
     def __len__(self):
         return int(np.ceil(len(self.images) / self.batch_size))
     
@@ -155,7 +155,8 @@ class LearningRateDecay(tf.keras.callbacks.Callback):
 
 bn=True
 
-weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_100.weights.h5"
+weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD
+/simCLR_cosmos_bnTrue_400.weights.h5"
 name = "UD"
 
 
@@ -172,7 +173,7 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
     predictor = regression_head(1024)
 
     model1 = FineTuneModel(extracteur, predictor, train_back=False)
-    model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mse")
+    model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mae")
     history = model1.fit(data_gen, epochs=50, callbacks=[LearningRateDecay()])
     model1.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_HeadOnly_base="+base+"_model="+name+".weights.h5")
 

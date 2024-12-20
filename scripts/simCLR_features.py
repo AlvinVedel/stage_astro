@@ -95,7 +95,9 @@ def mlp_adv(input_shape=1024) :
 
 bn=True
 
+
 model = simCLR(backbone(bn), mlp(1024))
+
 
 folder_path2 = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/"
 
@@ -125,7 +127,7 @@ origin_label = []
 
 def extract_meta(tup) :
     # RA   DEC   EB_V   ZPHOT   EBV
-    return np.array([tup[1], tup[2], tup[7], max(tup[29], 1e-4), tup[35]])
+    return np.array([tup[1], tup[2], tup[7], max(tup[40], 1e-5), tup[35]])
 
 for i in range(len(indices2)) :
     
@@ -203,8 +205,8 @@ for s in origin_label :
     labels.append(s)
 
 
-weights_paths = ["../model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_100.weights.h5", "../model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_100.weights.h5", '../model_save/checkpoints_simCLR_UD_D_adv/simCLR_cosmos_bnTrue_100.weights.h5']
-code_w = ['UD', 'UD_D', 'UD_D_adv']
+weights_paths = ["../model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_400.weights.h5", "../model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_400.weights.h5", '../model_save/checkpoints_simCLR_UD_D_adv/simCLR_cosmos_bnTrue_400.weights.h5']
+code_w = ['UD400', 'UD_D400', 'UD_D_adv400']
 
 model = simCLR(backbone=backbone(), head=mlp(1024))
 model(np.random.random((32, 64, 64, 5)))
@@ -218,8 +220,10 @@ for i, w in enumerate(weights_paths) :
 
     
     extractor = model.backbone
-
-    features = extractor.predict(images)
+    if i ==2 :
+        features, flatten = extractor.predict(images)
+    else :
+        features = extractor.predict(images)
     if np.isnan(features).any():
         print("Found NaN values in features, replacing them with 0...")
         features = np.nan_to_num(features, nan=0.0)
