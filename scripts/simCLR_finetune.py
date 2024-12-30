@@ -5,6 +5,7 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers
 from contrastiv_model import simCLR, ContrastivLoss, simCLR_adversarial
 import os 
+from astro_metrics import Bias, SigmaMAD, OutlierFraction
 import matplotlib.pyplot as plt
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 import time
@@ -162,13 +163,13 @@ class LearningRateDecay(tf.keras.callbacks.Callback):
 
 bn=True
 
-weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_400.weights.h5"
-name = "UD"
+weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_400.weights.h5"
+name = "UD_D"
 
 
 for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
 
-    data_gen = DataGen("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=32)
+    data_gen = DataGen("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+"_v2.npz", batch_size=32)
 
     # PARTIE 1
     #model = simCLR_adversarial(backbone(bn, adv=True), mlp(1024), mlp_adversarial(1024))
@@ -180,15 +181,56 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
     predictor = regression_head(1024)
 
     model1 = FineTuneModel(extracteur, predictor, train_back=False, adv=False)
-    model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mae")
-    history = model1.fit(data_gen, epochs=50, callbacks=[LearningRateDecay()])
+    model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mae", metrics=[Bias(name='global_bias'), SigmaMAD(name='global_smad'), OutlierFraction(name='global_outl'),
+                                                                               Bias(inf=0, sup=0.4, name='bias1'), Bias(inf=0.4, sup=2, name='bias2'), Bias(inf=2, sup=4, name='bias3'), Bias(inf=4, sup=6, name='bias4'), 
+                                                                               SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'),
+                                                                               OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='oult3'), OutlierFraction(inf=4, sup=6, name='outl4')])
+    n_epochs = 50
+    history = model1.fit(data_gen, epochs=n_epochs, callbacks=[LearningRateDecay()])
     model1.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_HeadOnly_base="+base+"_model="+name+".weights.h5")
 
-    plt.plot(np.arange(1, 51), history.history["loss"])
+    plt.plot(np.arange(1, n_epochs+1), history.history["loss"])
     plt.xlabel("epochs")
     plt.ylabel("loss (mae)")
     plt.title("finetuning loss")
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune_HeadOnly_base="+base+"_model="+name+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/loss_HeadOnly_base="+base+"_model="+name+".png")
+    plt.close()
+
+    plt.plot(np.arange(1, n_epochs+1), history.history["global_bias"], label='biais moyen')
+    plt.plot(np.arange(1, n_epochs+1), history.history["bias1"], label='[0, 0.4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["bias2"], label='[0.4, 2[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["bias3"], label='[2, 4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["bias4"], label='[4, 6[')
+    plt.xlabel("epochs")
+    plt.ylabel("Bias")
+    plt.legend()
+    plt.title("finetuning bias")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/bias_HeadOnly_base="+base+"_model="+name+".png")
+    plt.close()
+
+    plt.plot(np.arange(1, n_epochs+1), history.history["global_smad"], label='smad moyen')
+    plt.plot(np.arange(1, n_epochs+1), history.history["smad1"], label='[0, 0.4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["smad2"], label='[0.4, 2[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["smad3"], label='[2, 4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["smad4"], label='[4, 6[')
+    plt.xlabel("epochs")
+    plt.ylabel("Sigma MAD")
+    plt.legend()
+    plt.title("finetuning smad")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/smad_HeadOnly_base="+base+"_model="+name+".png")
+    plt.close()
+
+
+    plt.plot(np.arange(1, n_epochs+1), history.history["global_outl"], label='outl moyen')
+    plt.plot(np.arange(1, n_epochs+1), history.history["outl1"], label='[0, 0.4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["outl2"], label='[0.4, 2[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["outl3"], label='[2, 4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["outl4"], label='[4, 6[')
+    plt.xlabel("epochs")
+    plt.ylabel("Outlier Fraction")
+    plt.legend()
+    plt.title("finetuning outl")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/outl_HeadOnly_base="+base+"_model="+name+".png")
     plt.close()
 
     # PARTIE 2
@@ -202,13 +244,52 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
 
     model1 = FineTuneModel(extracteur, predictor, train_back=True, adv=False)
     model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mae")
-    history = model1.fit(data_gen, epochs=50, callbacks=[LearningRateDecay()])
+    history = model1.fit(data_gen, epochs=n_epochs, callbacks=[LearningRateDecay()])
     model1.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_ALL_base="+base+"_model="+name+".weights.h5")
 
-    plt.plot(np.arange(1, 51), history.history["loss"])
+    plt.plot(np.arange(1, n_epochs+1), history.history["loss"])
     plt.xlabel("epochs")
     plt.ylabel("loss (mae)")
     plt.title("finetuning loss")
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune_ALL_base="+base+"_model="+name+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/loss_ALL_base="+base+"_model="+name+".png")
+    plt.close()
+
+
+
+    plt.plot(np.arange(1, n_epochs+1), history.history["global_bias"], label='biais moyen')
+    plt.plot(np.arange(1, n_epochs+1), history.history["bias1"], label='[0, 0.4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["bias2"], label='[0.4, 2[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["bias3"], label='[2, 4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["bias4"], label='[4, 6[')
+    plt.xlabel("epochs")
+    plt.ylabel("Bias")
+    plt.legend()
+    plt.title("finetuning bias")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/bias_HeadOnly_base="+base+"_model="+name+".png")
+    plt.close()
+
+    plt.plot(np.arange(1, n_epochs+1), history.history["global_smad"], label='smad moyen')
+    plt.plot(np.arange(1, n_epochs+1), history.history["smad1"], label='[0, 0.4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["smad2"], label='[0.4, 2[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["smad3"], label='[2, 4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["smad4"], label='[4, 6[')
+    plt.xlabel("epochs")
+    plt.ylabel("Sigma MAD")
+    plt.legend()
+    plt.title("finetuning smad")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/smad_HeadOnly_base="+base+"_model="+name+".png")
+    plt.close()
+
+
+    plt.plot(np.arange(1, n_epochs+1), history.history["global_outl"], label='outl moyen')
+    plt.plot(np.arange(1, n_epochs+1), history.history["outl1"], label='[0, 0.4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["outl2"], label='[0.4, 2[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["outl3"], label='[2, 4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["outl4"], label='[4, 6[')
+    plt.xlabel("epochs")
+    plt.ylabel("Outlier Fraction")
+    plt.legend()
+    plt.title("finetuning outl")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/outl_HeadOnly_base="+base+"_model="+name+".png")
     plt.close()
 
