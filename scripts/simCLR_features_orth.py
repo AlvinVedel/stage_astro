@@ -53,10 +53,12 @@ model.load_weights("simCLR_final_cosmos.weights.h5")
 
 extracteur = model.backbone
 
-all_layer_model = keras.Model(extracteur.input, [extracteur.get_layer("p_re_lu").output, extracteur.get_layer("conv2d_1").output, extracteur.get_layer("p_re_lu_1").output, 
+
+outputs = [extracteur.get_layer("p_re_lu").output, extracteur.get_layer("conv2d_1").output, extracteur.get_layer("p_re_lu_1").output, 
                                                  extracteur.get_layer("c4").output, extracteur.get_layer("p_re_lu_2").output, extracteur.get_layer("p_re_lu_3").output,
                                                  extracteur.get_layer("p_re_lu_4").output, extracteur.get_layer("p_re_lu_5").output, extracteur.get_layer("p_re_lu_6").output,
-                                                 extracteur.get_layer("flatten").output, extracteur.get_layer("p_re_lu_7").output,])
+                                                 extracteur.get_layer("flatten").output, extracteur.get_layer("p_re_lu_7").output]
+
 
 
 
@@ -75,162 +77,171 @@ for dire in dir_path :
                         paths.append(filepath)
 
 
-all_cosine_sim = []
-all_z_vals = []
-for path in paths :
+for l, out in enumerate(outputs) :
 
-    data = np.load("my_cube.npz", allow_pickle=True)
-    images = data["cube"][:, :, :, :5]
-    meta = data["info"]
-    z_vals = np.array([m[40] for m in meta])
-    all_z_vals.append(z_vals)
-    images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )
+    all_layer_model = keras.Model(extracteur.input, out)    
 
-    o1s, o2s, o3s, o4s, o5s, o6s, o7s, o8s, o9s, o10s, o11s = [], [], [], [], [], [], [], [], [], [], []
+    all_cosine_sim = []
+    all_directions = []
+    all_z_vals = []
 
-    i=0
-    inf_batch = 128
-    while i < len(images) :
-        if i +inf_batch < len(images) :
-            o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11 = all_layer_model(images[i:i+inf_batch])
-        else : 
-            o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11 = all_layer_model(images[i:])
-        #print(o1)
-        print(i)
-        i+=inf_batch
-        o1s.append(o1.numpy())
-        o2s.append(o2.numpy())
-        o3s.append(o3.numpy())
-        o4s.append(o4.numpy())
-        o5s.append(o5.numpy())
-        o6s.append(o6.numpy())
-        o7s.append(o7.numpy())
-        o8s.append(o8.numpy())
-        o9s.append(o9.numpy())
-        o10s.append(o10.numpy())
-        o11s.append(o11.numpy())
+    average_vecs = []
+    nb_samples = []
 
-        del o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11
-        gc.collect()
+    for path in paths :
 
-        #gc.collect()
+        data = np.load(path, allow_pickle=True)
+        images = data["cube"][:, :, :, :5]
+        meta = data["info"]
+        z_vals = np.array([m[40] for m in meta])
+        all_z_vals.append(z_vals)
+        images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )
 
-    o1 = np.concatenate(o1s, axis=0)
-    o2 = np.concatenate(o2s, axis=0)
-    o3 = np.concatenate(o3s, axis=0)
-    o4 = np.concatenate(o4s, axis=0)
-    o5 = np.concatenate(o5s, axis=0)
-    o6 = np.concatenate(o6s, axis=0)
-    o7 = np.concatenate(o7s, axis=0)
-    o8 = np.concatenate(o8s, axis=0)
-    o9 = np.concatenate(o9s, axis=0)
-    o10 = np.concatenate(o10s, axis=0)
-    o11 = np.concatenate(o11s, axis=0)
+        outs = []
+        i=0
+        inf_batch = 64
+        while i < len(images) :
+            
+            if i +inf_batch < len(images) :
+                o= all_layer_model(images[i:i+inf_batch])
+                
+            else : 
+                o = all_layer_model(images[i:])
+
+            outs.append(o.numpy())
+            i+=inf_batch
+            print(i)
+                
+            del o
+            gc.collect()
 
 
-    
+        o = np.concatenate(outs, axis=0)
 
-    outputs = [o1, o2, o3, o4, o5, o6, o7, o8, o9, o10, o11]
-
-    def cosine_similarity(a, b) :
-        dp = a @ b
-        norm_a = np.linalg.norm(a, axis=1)
-        norm_b = np.linalg.norm(b, axis=1) 
-
-    for l, o in enumerate(outputs) :
-        print(o.shape)
         o = np.reshape(o, (o.shape[0], -1))  # B, X  ==> des grands vecteurs de dimension x
         average_o = np.mean(o, axis=0)
-        print(o.shape)
-
-        #o = tf.convert_to_tensor(o)
-        #average_o = tf.convert_to_tensor(average_o)
+        
+        average_vecs.append(average_o)
+        nb_samples.append(len(o))        
+        
+        
         coss = []
+        directions = []
         
         i = 0
-        inf_batch = 128
+        inf_batch = 64
+        
         while i < o.shape[0] :
             if i + inf_batch < o.shape[0] :
                 batch = o[i:i+inf_batch]
             else :
                 batch = o[i:]
 
+            angle_ref = np.ones((batch.shape[0], batch.shape[1]))
+            angle_ref[-1] = 0 # 1 1 1 1 1 1 1 0
+            direction_ref = np.zeros((batch.shape[0], batch.shape[1]))
+            direction_ref[:, -1] = 1 ###  0 0 0 0 0 0 0 0  1
 
-            average_o_expanded = np.tile(average_o, (batch.shape[0], 1))
-            cosine_sim = np.sum(average_o_expanded * batch, axis=1) / (
-                np.linalg.norm(average_o_expanded, axis=1) * np.linalg.norm(batch, axis=1) + 1e-8
+
+            cosine_sim = np.sum(angle_ref * batch, axis=1) / (
+                np.linalg.norm(angle_ref, axis=1) * np.linalg.norm(batch, axis=1) + 1e-8
             )
-            #print(cosine_sim)
+
+            signe_ref_sim = np.sum(direction_ref * batch, axis=1) / (
+                np.linalg.norm(direction_ref, axis=1) * np.linalg.norm(batch, axis=1) + 1e-8
+            )
+
+        
             coss.append(cosine_sim)
+            direc = np.sign(signe_ref_sim)
+            #print(direc)
+            directions.append(direc)
             i+=inf_batch
+            print(i)
+
+
+            del batch, direc, signe_ref_sim#, vec_prod, ref_vec
+            gc.collect()
+
+        
         
         cosine_sim = np.concatenate(coss, axis=0)
+        direction = np.concatenate(directions, axis=0)
+        print(cosine_sim)
+
+        angles = np.arccos(cosine_sim) 
+        print(angles)
+        print("ANGLE SHAPE :",angles.shape)
         all_cosine_sim.append(cosine_sim)
-    #print(cosine_sim)
+        all_directions.append(direction)
 
-cosine_sim = np.concatenate(all_cosine_sim, axis=0)
-z_vals = np.concatenate(all_z_vals, axis=0)
 
-angles = np.arccos(cosine_sim)
-print("ANGLE SHAPE :",angles.shape)
+    average_o = np.sum([average_vecs[i] * nb_samples[i] for i in range(len(nb_samples))]) / np.sum(nb_samples)
+
+    average_sim = np.sum(angle_ref[0] * average_o) / (
+                np.linalg.norm(angle_ref[0]) * np.linalg.norm(average_o) + 1e-8
+        )
+    average_sign = np.sign(np.sum(direction_ref[0] * average_o) / (
+                np.linalg.norm(direction_ref[0]) * np.linalg.norm(average_o) + 1e-8
+            ))
 
     # Calcul des coordonnées x, y pour chaque point sur le cercle
-x = np.cos(angles)
-y = np.sin(angles)
+    x = np.cos(angles)
+    y = np.sin(angles) * direction
 
-origin_angle = 0  # L'angle du point de référence (origine)
-origin_x = np.cos(origin_angle)
-origin_y = np.sin(origin_angle)
+    origin_angle = np.arccos(average_sim)   # L'angle du point de référence (origine)
+    origin_x = np.cos(origin_angle)
+    origin_y = np.sin(origin_angle) * average_sign
     # Tracé du cercle unitaire
-theta = np.linspace(0, 2 * np.pi, 100)
-circle_x = np.cos(theta)
-circle_y = np.sin(theta)
+    theta = np.linspace(0, 2 * np.pi, 100)
+    circle_x = np.cos(theta)
+    circle_y = np.sin(theta)
 
-kde = gaussian_kde(np.vstack([x, y]))
-densities = kde(np.vstack([x, y]))
-
-    # Tracé de la distribution des points
-plt.figure(figsize=(8, 8))
-plt.plot(circle_x, circle_y, 'k--', label='Cercle unitaire')  # Cercle
-sc = plt.scatter(x, y, c=densities, cmap='viridis', label='Représentations', s=30)  # Points colorés
-plt.scatter(origin_x, origin_y, color='red', label='Point origine', s=50, edgecolors='black', marker='X')
-plt.axhline(0, color='gray', linestyle='--', linewidth=0.5)
-plt.axvline(0, color='gray', linestyle='--', linewidth=0.5)
-
-    # Personnalisation
-plt.title("Distribution des angles sur le cercle unitaire")
-plt.xlabel("cos(θ)")
-plt.ylabel("sin(θ)")
-plt.axis('equal')
-plt.legend()
-plt.colorbar(sc, label='Densité')
-plt.grid(True)
-
-    # Afficher
-plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/orthog_simCLR_"+str(l+1)+".png")
-plt.close()
-
-
+    kde = gaussian_kde(np.vstack([x, y]))
+    densities = kde(np.vstack([x, y]))
 
     # Tracé de la distribution des points
-plt.figure(figsize=(8, 8))
-plt.plot(circle_x, circle_y, 'k--', label='Cercle unitaire')  # Cercle
-sc = plt.scatter(x, y, c=z_vals, cmap='viridis', label='Représentations', s=30)  # Points colorés
-plt.axhline(0, color='gray', linestyle='--', linewidth=0.5)
-plt.axvline(0, color='gray', linestyle='--', linewidth=0.5)
+    plt.figure(figsize=(8, 8))
+    plt.plot(circle_x, circle_y, 'k--', label='Cercle unitaire')  # Cercle
+    sc = plt.scatter(x, y, c=densities, cmap='viridis', label='Représentations', s=100)  # Points colorés
+    plt.scatter(origin_x, origin_y, color='red', label='Vecteur moyen', s=100, edgecolors='black', marker='X')
+    plt.axhline(0, color='gray', linestyle='--', linewidth=0.5)
+    plt.axvline(0, color='gray', linestyle='--', linewidth=0.5)
 
     # Personnalisation
-plt.title("Distribution des angles sur le cercle unitaire")
-plt.xlabel("cos(θ)")
-plt.ylabel("sin(θ)")
-plt.axis('equal')
-plt.legend()
-plt.colorbar(sc, label='Redshift (Z)')
-plt.grid(True)
+    plt.title("Distribution des angles sur le cercle unitaire")
+    plt.xlabel("cos(θ)")
+    plt.ylabel("sin(θ)")
+    plt.axis('equal')
+    plt.legend()
+    plt.colorbar(sc, label='Densité')
+    plt.grid(True)
 
     # Afficher
-plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/orthog_simCLR_"+str(l+1)+"z.png")
-plt.close()
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/orthog_simCLR_"+str(l+1)+".png")
+    plt.close()
+
+
+
+    # Tracé de la distribution des points
+    plt.figure(figsize=(8, 8))
+    plt.plot(circle_x, circle_y, 'k--', label='Cercle unitaire')  # Cercle
+    sc = plt.scatter(x, y, c=z_vals, cmap='viridis', label='Représentations', s=100)  # Points colorés
+    plt.axhline(0, color='gray', linestyle='--', linewidth=0.5)
+    plt.axvline(0, color='gray', linestyle='--', linewidth=0.5)
+
+    # Personnalisation
+    plt.title("Distribution des angles sur le cercle unitaire")
+    plt.xlabel("cos(θ)")
+    plt.ylabel("sin(θ)")
+    plt.axis('equal')
+    plt.legend()
+    plt.colorbar(sc, label='Redshift (Z)')
+    plt.grid(True)
+
+    # Afficher
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/orthog_simCLR_"+str(l+1)+"z.png")
+    plt.close()
 
 
 
