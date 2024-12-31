@@ -51,6 +51,7 @@ for j, file in enumerate(paths) :
 
     data = np.load(file, allow_pickle=True)
     meta = data["info"]
+    print(meta)
     z_values = meta[:, 6]
     z_values = z_values.astype(np.float32)
     partial_find_bin = partial(find_bin, bins_edges=bins_edges)
