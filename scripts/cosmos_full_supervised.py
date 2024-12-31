@@ -2,6 +2,9 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
+from astro_metrics import Bias, SigmaMAD, OutlierFraction
+import matplotlib.pyplot as plt
+
 
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]='0'
@@ -164,11 +167,60 @@ for base in base_names :
 
     model = create_model()
     gen = DataGen(base_path+base+".npz", batch_size=32)
-
-    model.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss=[tf.keras.losses.SparseCategoricalCrossentropy(), tf.keras.losses.MeanAbsoluteError()])
-    model.fit(gen, epochs=50, callbacks=[LearningRateScheduler()])
+    n_epochs = 50
+    model.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss={"pdf" : tf.keras.losses.SparseCategoricalCrossentropy(), "reg":tf.keras.losses.MeanAbsoluteError()}, 
+                  metrics= {"pdf":["accuracy"], "reg" :[Bias(name='global_bias'), SigmaMAD(name='global_smad'), OutlierFraction(name='global_outl'),Bias(inf=0, sup=0.4, name='bias1'), Bias(inf=0.4, sup=2, name='bias2'), Bias(inf=2, sup=4, name='bias3'), Bias(inf=4, sup=6, name='bias4'), 
+                  SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'), OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='oult3'), OutlierFraction(inf=4, sup=6, name='outl4')]})
+    history = model.fit(gen, epochs=n_epochs, callbacks=[LearningRateScheduler()])
 
     model.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_supervised/treyer_supervised_"+base+".weights.h5")
+
+    print("history keys :", history.history.keys())
+
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_loss"])
+    plt.xlabel("epochs")
+    plt.ylabel("loss (mae)")
+    plt.title("supervised loss")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/loss_Treyer_base="+base+".png")
+    plt.close()
+
+
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_global_bias"], label='biais moyen')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_bias1"], label='[0, 0.4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_bias2"], label='[0.4, 2[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_bias3"], label='[2, 4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_bias4"], label='[4, 6[')
+    plt.xlabel("epochs")
+    plt.ylabel("Bias")
+    plt.legend()
+    plt.title("supervised bias")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/bias_Treyer_base="+base+".png")
+    plt.close()
+
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_global_smad"], label='smad moyen')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_smad1"], label='[0, 0.4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_smad2"], label='[0.4, 2[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_smad3"], label='[2, 4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_smad4"], label='[4, 6[')
+    plt.xlabel("epochs")
+    plt.ylabel("Sigma MAD")
+    plt.legend()
+    plt.title("supervised smad")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/smad_Treyer_base="+base+".png")
+    plt.close()
+
+
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_global_outl"], label='outl moyen')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_outl1"], label='[0, 0.4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_outl2"], label='[0.4, 2[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_outl3"], label='[2, 4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_outl4"], label='[4, 6[')
+    plt.xlabel("epochs")
+    plt.ylabel("Outlier Fraction")
+    plt.legend()
+    plt.title("supervised outl")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/outl_Treyer_base="+base+".png")
+    plt.close()
 
 
 

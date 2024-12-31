@@ -6,18 +6,13 @@ os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 import time
 
 
-dir_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/"
-name='spec_UD'
+from pathlib import Path
+
+dir_path = Path("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/")
 extension = "spec_UD.npz"
 
-paths = []
-
-for dire in dir_path :
-    for root, dirs, files in os.walk(dire):
-                for file in files:
-                    if file.endswith(tuple(extension)):
-                        filepath = os.path.join(root, file)
-                        paths.append(filepath)
+# Utilisation de pathlib pour simplifier et filtrer les fichiers
+paths = [file for file in dir_path.rglob(f"*{extension}")]
 
 
 bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
@@ -51,7 +46,7 @@ density2 = np.zeros((len(density_bins)))
 total_obs = 0
 
 
-for file in paths :
+for j, file in enumerate(paths) :
 
 
     data = np.load(file, allow_pickle=True)
@@ -69,6 +64,7 @@ for file in paths :
     density2 += np.sum(vecs)
 
     total_obs+=len(z_values)
+    print("ive seen", total_obs,"obs, file ", j, "/", len(paths))
 
 
 density2 = density2/np.sum(density2)
