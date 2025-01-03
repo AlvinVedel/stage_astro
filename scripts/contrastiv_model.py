@@ -30,6 +30,83 @@ class simCLR(keras.Model) :
         return {"contrastiv_loss":contrastiv_loss}
     
 
+class simCLRcolor1(keras.Model) :
+    def __init__(self, backbone, head, mlp, temp=0.7) :
+        super().__init__()
+        self.backbone = backbone
+        self.head = head
+        self.mlp=mlp
+        self.temp=temp
+        self.lam = 0.1
+
+    def call(self, input, training=True) :
+        x = self.backbone(input, training=training)
+        z = self.head(x, training=training)
+        c = self.mlp(x, training=True)
+        return z, c
+
+    def train_step(self, data) : 
+        images, labels = data
+
+        with tf.GradientTape(persistent=True) as tape :
+            z, c = self(images)
+
+            contrastiv_loss = self.loss(z, self.temp)
+            color_loss = self.lam * tf.keras.losses.MSE(labels, c)
+
+  
+        gradients = tape.gradient(contrastiv_loss, self.backbone.trainable_variables + self.head.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
+
+        gradients = tape.gradient(color_loss, self.backbone.trainable_variables + self.mlp.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.mlp.trainable_variables))
+
+        del tape
+        return {"contrastiv_loss":contrastiv_loss, "mse_color_loss":color_loss}
+    
+
+class simCLRcolor2(keras.Model) :
+    def __init__(self, backbone, head, temp=0.7) :
+        super().__init__()
+        self.backbone = backbone
+        self.head = head
+        self.temp=temp
+        self.lam = 0.1
+
+    def call(self, input, training=True) :
+        x = self.backbone(input, training=training)
+        z = self.head(x, training=training)
+        return z, x
+
+    def train_step(self, data) : 
+        images, labels = data
+
+        with tf.GradientTape(persistent=True) as tape :
+            z, x = self(images)
+
+            contrastiv_loss = self.loss(z, self.temp)
+
+            pairwise_cosine = tf.keras.losses.cosine_similarity(x, x) ## cosine similarity entre tous les éléments : on vise orthogonalité donc minimiser somme de la matrice
+            # résultat entre -1 et 1  
+
+            color_cosine_dist = 1 - tf.keras.losses.cosine_distance(labels, labels)  # distance cosinus dans l'espace couleur entre tous les éléments
+            ## Résultat entre 0 et 2 : 0 = vecteurs proches dans l'espace couleur    2 = vecteurs opposés  ==> si proche on diminue pénalité pour l'orthogonalité recherchée
+
+            weighted_pairwise_cosine = tf.multiply(pairwise_cosine, color_cosine_dist)
+            cosine_loss = tf.reduce_sum(weighted_pairwise_cosine) * self.lam
+
+
+  
+        gradients = tape.gradient(contrastiv_loss, self.backbone.trainable_variables + self.head.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
+
+        gradients = tape.gradient(cosine_loss, self.backbone.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables))
+
+        del tape
+        return {"contrastiv_loss":contrastiv_loss, "cosine_loss":cosine_loss}
+    
+
 class simCLR_adversarial(keras.Model) :
     def __init__(self, backbone, head, adversaire, temp=0.7) :
         super().__init__()
