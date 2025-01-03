@@ -58,15 +58,15 @@ model.compile(optimizer=keras.optimizers.Adam(1e-3), loss=ContrastivLoss())
 model(np.random.random((32, 64, 64, 5)))
 #model.load_weights("simCLR_cosmos100.weights.h5")
 
-
+batch_size=512
 data_gen = Gen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/phot/"], 
-               batch_size=256, extensions=["UD.npz", "_D.npz"])
+               batch_size=batch_size, extensions=["UD.npz", "_D.npz"])
 
 iter = 1
 while iter <= 200 :
     model.fit(data_gen, epochs=10)  # normalement 4mn max par epoch = 400mn 
     data_gen._load_data()
     if iter % 10 == 0 :
-        filename = "../model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bn"+str(bn)+"_"+str(iter*10)+".weights.h5"
+        filename = "../model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_batch"+str(batch_size)+"_bn"+str(bn)+"_"+str(iter*10)+".weights.h5"
         model.save_weights(filename)  # 6000 minutes   ==> 15 fois 100 épochs
     iter+=1

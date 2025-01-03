@@ -9,7 +9,7 @@ from scipy.stats import gaussian_kde
 import matplotlib.pyplot as plt
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
-def backbone() :
+def backbone(bn=True) :
     inp = keras.Input((64, 64, 5))
     c1 = layers.Conv2D(96, padding='same', strides=1, kernel_size=3)(inp) # 64
     c1 = layers.PReLU()(c1) 
@@ -36,6 +36,8 @@ def backbone() :
 
     l1 = layers.Dense(1024)(flat) 
     l1 = layers.PReLU()(l1)
+    if bn :
+        l1 = layers.BatchNormalization()(l1)
 
     return keras.Model(inputs=inp, outputs=l1)
 
@@ -65,15 +67,15 @@ outputs = [extracteur.get_layer("p_re_lu").output, extracteur.get_layer("conv2d_
 
 
 
-fig1, ax1 = plt.subplots(nrows=3, ncols=3, figsize=(10, 10)) ## DENSITY
-fig2, ax2 = plt.subplots(nrows=3, ncols=3, figsize=(10, 10)) ## REDSHIFT
-fig3, ax3 = plt.subplots(nrows=3, ncols=3, figsize=(10, 10)) ## REDSHIFT
+fig1, ax1 = plt.subplots(nrows=4, ncols=3, figsize=(10, 10)) ## DENSITY
+fig2, ax2 = plt.subplots(nrows=4, ncols=3, figsize=(10, 10)) ## REDSHIFT
+fig3, ax3 = plt.subplots(nrows=4, ncols=3, figsize=(10, 10)) ## REDSHIFT
 
 
 for l, out in enumerate(outputs) :
 
-    row = l % 3
-    col = l // 3
+    row = l // 4
+    col = l % 3
 
     all_layer_model = keras.Model(extracteur.input, out)    
 
@@ -98,7 +100,7 @@ for l, out in enumerate(outputs) :
             data = np.load(path, allow_pickle=True)
             images = data["cube"][:, :, :, :5]
             meta = data["info"]
-            z_vals = np.array([m[40] for m in meta])
+            z_vals = np.log(np.array([m[40] for m in meta])+1)
             all_z_vals.append(z_vals)
             images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )
 
@@ -195,6 +197,7 @@ for l, out in enumerate(outputs) :
     angles = np.concatenate(all_angles, axis=0)
     direction = np.concatenate(all_directions, axis=0)
     surveys = np.concatenate(all_surveys, axis=0)
+    z_vals = np.concatenate(all_z_vals, axis=0)
     
     x = np.cos(angles)
     y = np.sin(angles) * direction
@@ -219,7 +222,7 @@ for l, out in enumerate(outputs) :
 
     ax1[row, col].set_xlabel("cos(θ)")
     ax1[row, col].set_ylabel("sin(θ)")
-    ax1[row, col].set_axis('equal')
+    ax1[row, col].set_aspect('equal')
     ax1[row, col].grid(False)
 
 
@@ -232,9 +235,7 @@ for l, out in enumerate(outputs) :
 
     ax2[row, col].set_xlabel("cos(θ)")
     ax2[row, col].set_ylabel("sin(θ)")
-    ax2[row, col].set_axis('equal')
-    if row == 0 and col == 0 : 
-        ax2[0, 0].colorbar(sc, label='Redshift (Z)')
+    ax2[row, col].set_aspect('equal')
     ax2[row, col].grid(False)
 
 
@@ -249,9 +250,9 @@ for l, out in enumerate(outputs) :
 
     ax3[row, col].set_xlabel("cos(θ)")
     ax3[row, col].set_ylabel("sin(θ)")
-    ax3[row, col].set_axis('equal')
-    if row == 0 and col == 0 : 
-        ax3[0, 0].legend()
+    ax3[row, col].set_aspect('equal')
+    #if row == 0 and col == 0 : 
+    #    ax3[0, 0].legend()
     ax3[row, col].grid(False)
 
         # Afficher

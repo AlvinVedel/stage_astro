@@ -82,6 +82,62 @@ class simCLR_adversarial(keras.Model) :
                 "survey accuracy":self.adverse_accuracy.result(), 
                 "adversarial_kl":adversarial_loss,
                 "adversarial_crossent":survey_classif}
+
+
+class simCLR_adversarial2(keras.Model) :
+    def __init__(self, backbone, head, adversaire, temp=0.7) :
+        super().__init__()
+        self.backbone = backbone
+        self.head = head
+        self.adversaire=adversaire
+        self.temp=temp
+        #self.flat_vector = tf.constant(tf.ones((1, 2), dtype=tf.float32)/tf.cast(2, dtype=tf.float32))
+        self.adverse_accuracy = tf.keras.metrics.BinaryAccuracy(name="survey_accuracy")  # flatten
+
+        self.adversarial_layers = []
+        for i, lay in enumerate(self.backbone.layers) :
+            if lay.name == 'flatten' :
+                self.adversarial_layers.append(lay)
+                break
+            else :
+                self.adversarial_layers.append(lay)
+        self.adversarial_variables = [var for layer in self.adversarial_layers for var in layer.trainable_variables]
+
+    def call(self, input, training=True) :
+        x, flat = self.backbone(input, training=training)
+        survey_predictions = self.adversaire(flat, training=training)
+        z = self.head(x, training=training)
+        return z, survey_predictions
+
+    def train_step(self, data) :
+        images, true_survey = data
+        with tf.GradientTape(persistent=True) as tape :
+            z, surv = self(images)
+
+            contrastiv_loss = self.loss(z, self.temp)
+            #flat_distr = tf.tile(self.flat_vector, [tf.shape(images)[0], 1])
+            #adversarial_loss = tf.keras.losses.kl_divergence(flat_distr, surv)  # KL divergence entre distribution flat et prédiction de l'adverse
+            # on pénalise backbone si la classif est facile pour la tête
+            survey_classif = tf.keras.losses.binary_crossentropy(true_survey, surv)  # crossentropy pour MLP de classif sur le survey
+            adversarial_loss = -survey_classif
+            self.adverse_accuracy.update_state(true_survey, surv)
+
+        gradients = tape.gradient(contrastiv_loss, self.backbone.trainable_variables + self.head.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
+
+        gradients = tape.gradient(survey_classif, self.adversaire.trainable_variables)  # MAJ DU CLASSIFIER SUR SURVEY
+        self.optimizer.apply_gradients(zip(gradients, self.adversaire.trainable_variables))
+
+        gradients = tape.gradient(adversarial_loss, self.adversarial_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.adversarial_variables))
+
+        del tape
+        return {"contrastiv_loss":contrastiv_loss,
+                "survey accuracy":self.adverse_accuracy.result(),
+                "adversarial_kl":adversarial_loss,
+                "adversarial_crossent":survey_classif}
+
+
             
 class ContrastivLoss(keras.losses.Loss) :
     def __init__(self) :

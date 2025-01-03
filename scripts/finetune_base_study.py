@@ -14,10 +14,10 @@ bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]],
 bins_centres = (bins_edges[1:] + bins_edges[:-1])/2
 print(bins_edges.shape, bins_centres.shape)
 
-for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
+for base in ["b1_1", "b2_1", "b3_1"] :
 
 
-    data = np.load("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz")
+    data = np.load("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+"_v2.npz")
     meta = data["info"]
     z_values = meta[:, 6]
     z_values = z_values.astype(np.float32)
@@ -41,7 +41,7 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
     plt.xlabel("Z SPEC")
     plt.ylabel("nb obs")
     plt.title("Total = "+str(len(z_values)))
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/bin_split_base="+base+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/bin_split_base="+base+"_v2.png")
     plt.close()
 
 
@@ -68,7 +68,7 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
     plt.xlabel("Z SPEC")
     plt.ylabel("density")
     plt.title("N samples = "+str(len(z_values)))
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/z_distr_base="+base+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/z_distr_base="+base+"_v2.png")
     plt.close()
 
 

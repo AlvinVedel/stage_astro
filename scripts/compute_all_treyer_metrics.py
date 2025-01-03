@@ -138,12 +138,12 @@ data_frame = {"name":[], "bias1":[], "bias2":[], 'bias3':[], 'bias4':[],
 
 for inf_base in ["spec_UD", "cos2020_UD", "spec_D", "cos2020_D"] :
 
-    for finetune_base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
+    for finetune_base in ["b1_1", "b2_1", "b3_1"] :
 
             model_name = "treyer_tune="+finetune_base+"_inf="+inf_base
             try : 
                     #model.load_weights(base_path+"model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5")
-                    #model.load_weights(base_path+"model_save/checkpoints_supervised/treyer_supervised_b3_1.weights.h5")
+                    model.load_weights(base_path+"model_save/checkpoints_supervised/treyer_supervised_"+finetune_base+".weights.h5")
                     #model_name='simCLR_Head_UD_b1_1'
 
                     directory = base_path+"data/spec/"
@@ -172,19 +172,19 @@ for inf_base in ["spec_UD", "cos2020_UD", "spec_D", "cos2020_D"] :
                         z = np.array([extract_z(m) for m in meta])
                         #print(z.shape)
                         true_z.append(z)
-                        """
-                        if treyer :
-                            probas, reg = model.predict(images)
+                        
+                        #if treyer :
+                        probas, reg = model.predict(images)
                             #print(reg.shape)
-                            z_meds = np.array([z_med(p, bins_centres) for p in probas])
-                            reg = z_meds
+                        z_meds = np.array([z_med(p, bins_centres) for p in probas])
+                        reg = z_meds
                             #print(reg.shape)
-                        else :
-                            reg = model.predict(images)
-                            reg = reg[:, 0]
-                        """
-                        reg = model.predict(images)
-                        reg = reg[:, 0]
+                        #else :
+                        #    reg = model.predict(images)
+                        #    reg = reg[:, 0]
+                        #"""
+                        #reg = model.predict(images)
+                        #reg = reg[:, 0]
                         pred_z.append(reg)
                         counter+=1
                         
@@ -318,6 +318,7 @@ for inf_base in ["spec_UD", "cos2020_UD", "spec_D", "cos2020_D"] :
 
             except Exception as e :
                     print("file not found for ", model_name)
+                    print(e)
 
 
 import pandas as pd

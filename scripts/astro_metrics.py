@@ -1,8 +1,24 @@
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
-import tensorflow_probability as tfp
+#import tensorflow_probability as tfp
 
+
+def compute_median(values):
+    # Trier les valeurs
+    sorted_values = tf.sort(values)
+    n = tf.shape(sorted_values)[0]
+
+    # Vérifier si le nombre d'éléments est pair ou impair
+    is_odd = tf.math.floormod(n, 2) == 1
+
+    # Si impair, prendre l'élément du milieu
+    median = tf.cond(
+        is_odd,
+        lambda: tf.gather(sorted_values, n // 2),
+        lambda: (tf.gather(sorted_values, n // 2 - 1) + tf.gather(sorted_values, n // 2)) / 2.0
+    )
+    return median
 
 
 class Bias(tf.keras.metrics.Metric):
@@ -54,8 +70,10 @@ class SigmaMAD(tf.keras.metrics.Metric):
         # Vérifier s'il y a des valeurs dans la plage
         if tf.reduce_sum(tf.cast(mask, tf.float32)) > 0:
             deltas_z = (y_pred_filtered - y_true_filtered) / (1 + y_true_filtered)
-            median_delta_z_norm = tfp.stats.percentile(deltas_z, 50.0)  # Médiane
-            mad = tfp.stats.percentile(tf.abs(deltas_z - median_delta_z_norm), 50.0)
+            #median_delta_z_norm = tfp.stats.percentile(deltas_z, 50.0)  # Médiane
+            median_delta_z_norm = compute_median(deltas_z)
+            #mad = tfp.stats.percentile(tf.abs(deltas_z - median_delta_z_norm), 50.0)
+            mad = compute_median(tf.abs(deltas_z - median_delta_z_norm))
             smad = 1.4826 * mad
 
             # Mise à jour des métriques

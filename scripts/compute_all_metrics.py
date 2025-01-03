@@ -3,6 +3,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
 from contrastiv_model import simCLR
+import matplotlib.pyplot as plt
 
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]='0'
@@ -143,27 +144,40 @@ def z_med(probas, bin_central_values) :
     return bin_central_values[index]
 
 
+path_memory = {}
 
-for i, finetune_base in enumerate(["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"]) :   #### POUR CHAQUE CONDITION D ENTRAINEMENT ON VA AVOIR UN SUBPLOT
+for i, finetune_base in enumerate(["b2_1", "b3_1", "b3_1"]) :   #### POUR CHAQUE CONDITION D ENTRAINEMENT ON VA AVOIR UN SUBPLOT
     base_liste = ["spec_UD", "cos2020_UD", "spec_D", "cos2020_D"]
+    print("finetune base", finetune_base)
 
-
-    fig1, ax1 = plt.subplots(nrow=len(base_liste), ncol=7, figsize=(20, 20)) # pour 1 treyer + 3 simCLR dans 2 conditions modèles   ==>   heatmap
-    fig2, ax2 = plt.subplots(nrow=len(base_liste), ncol=7, figsize=(20, 20)) # ===> BIAS
-    fig3, ax3 = plt.subplots(nrow=len(base_liste), ncol=7, figsize=(20, 20)) # ===> SMAD
-    fig4, ax4 = plt.subplots(nrow=len(base_liste), ncol=7, figsize=(20, 20)) # ===> OUTL
+    fig1, ax1 = plt.subplots(nrows=len(base_liste), ncols=7, figsize=(20, 20)) # pour 1 treyer + 3 simCLR dans 2 conditions modèles   ==>   heatmap
+    fig2, ax2 = plt.subplots(nrows=len(base_liste), ncols=7, figsize=(20, 20)) # ===> BIAS
+    fig3, ax3 = plt.subplots(nrows=len(base_liste), ncols=7, figsize=(20, 20)) # ===> SMAD
+    fig4, ax4 = plt.subplots(nrows=len(base_liste), ncols=7, figsize=(20, 20)) # ===> OUTL
 
 
 
     for j, inf_base in enumerate(base_liste):
+        print("inf base", inf_base)
+        if i == 0 :
+            from pathlib import Path
 
-        npz_files = [f for f in os.listdir(directory) if f.endswith(inf_base+'.npz')]   ## Récupère les fichiers sur lesquels inférer
+            dir_path = Path("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/")
+            extension = inf_base+'.npz'
+            npz_files = [file for file in dir_path.rglob(f"*{extension}")]
+            path_memory[inf_base] = npz_files
+
+        else :
+            npz_files = path_memory[inf_base]
+
+        #npz_files = [f for f in os.listdir(directory) if f.endswith(inf_base+'.npz')]   ## Récupère les fichiers sur lesquels inférer
 
         simbases = ["UD", "UD_D", "UD_D_adv"]
-        model_liste = ["simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"]
+        #model_liste = ["simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"]
         for k in range(7) :
             if k == 0 :
-                model_name = base_path+"model_save/checkpoints_supervised/treyer_supervised_"+finetune_base+".weights.h5"
+                #model_name = base_path+"model_save/checkpoints_supervised/treyer_supervised_"+finetune_base+".weights.h5"
+                model_name = "../model_save/checkpoints_supervised/treyer_supervised_"+finetune_base+".weights.h5"
                 tag_name = "treyer"
                 treyer = True
 
@@ -173,13 +187,16 @@ for i, finetune_base in enumerate(["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2
             else :
                 cond = "HeadOnly" if k%2==0 else "ALL"
                 sim_base = simbases[(k-1)%3]
-                model_name = base_path+"model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
+                #model_name = base_path+"model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
+                model_name = "../model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
                 tag_name = 'sim_'+sim_base+"_"+cond
                 treyer = False
 
                 model = FineTuneModel(backbone(True), head=regression_head(1024))
-                model(np.random.random((32, 64, 64, 5)))
-
+                model(np.random.random((32, 64, 64, 5)))  
+            #print("the model name isss :", model_name)
+            #print(os.getcwd())
+            print(tag_name)
             try : 
                     model.load_weights(model_name)
                 
@@ -197,7 +214,8 @@ for i, finetune_base in enumerate(["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2
                     
                     counter = 0
                     for file in npz_files :
-                        data = np.load(base_path+"data/spec/"+file, allow_pickle=True)
+                        #data = np.load(str(base_path)+"data/spec/"+str(file), allow_pickle=True)
+                        data = np.load(str(file), allow_pickle=True)
                         images = data["cube"][..., :5]
                         meta = data["info"]
                         z = np.array([extract_z(m) for m in meta])
@@ -273,21 +291,21 @@ for i, finetune_base in enumerate(["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2
 
 
 
-                    for i in range(len(bigbins_edges)-1) :
-                        inds = np.where((true_z>=bigbins_edges[i]) & (true_z<bigbins_edges[i+1]))
+                    for ij in range(len(bigbins_edges)-1) :
+                        inds = np.where((true_z>=bigbins_edges[ij]) & (true_z<bigbins_edges[ij+1]))
 
                         selected_deltas = deltas_z[inds]
 
-                        bias[i] = np.mean(selected_deltas)
+                        bias[ij] = np.mean(selected_deltas)
 
                         median_delta_z_norm = np.median(selected_deltas)
                         mad = np.median(np.abs(selected_deltas - median_delta_z_norm))
                         sigma_mad = 1.4826 * mad
-                        smad[i] = sigma_mad
+                        smad[ij] = sigma_mad
 
                         outliers = np.abs(selected_deltas) > 0.05
                         fraction_outliers = np.sum(outliers) / (len(selected_deltas)+1e-6)
-                        outl[i] = fraction_outliers
+                        outl[ij] = fraction_outliers
                         
 
 
@@ -357,21 +375,21 @@ for i, finetune_base in enumerate(["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2
                     smad = np.zeros((len(megabins_edges)-1))
                     outl = np.zeros((len(megabins_edges)-1))
                     #### LES VALEURS DE TABLEAU :
-                    for i in range(len(megabins_edges)-1) :
-                        inds = np.where((true_z>=megabins_edges[i]) & (true_z<megabins_edges[i+1]))
+                    for ij in range(len(megabins_edges)-1) :
+                        inds = np.where((true_z>=megabins_edges[ij]) & (true_z<megabins_edges[ij+1]))
 
                         selected_deltas = deltas_z[inds]
 
-                        bias[i] = np.mean(selected_deltas)
+                        bias[ij] = np.mean(selected_deltas)
 
                         median_delta_z_norm = np.median(selected_deltas)
                         mad = np.median(np.abs(selected_deltas - median_delta_z_norm))
                         sigma_mad = 1.4826 * mad
-                        smad[i] = sigma_mad
+                        smad[ij] = sigma_mad
 
                         outliers = np.abs(selected_deltas) > 0.05
                         fraction_outliers = np.sum(outliers) / (len(selected_deltas)+1e-6)
-                        outl[i] = fraction_outliers
+                        outl[ij] = fraction_outliers
 
                     print(" ------------------   MODEL = ", tag_name, finetune_base, " --------------")
                     print("RESULTS ON MEGABINS EDGES :")
@@ -401,6 +419,7 @@ for i, finetune_base in enumerate(["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2
 
 
             except Exception as e :
+                    print(e)
                     print("file not found for ", model_name)
 
 

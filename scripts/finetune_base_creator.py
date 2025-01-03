@@ -4,7 +4,7 @@ import random
 import gc
 
 
-
+"""
 directory = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/"
 
 files_list = []
@@ -13,7 +13,14 @@ for root, dirs, files in os.walk(directory) :
         if file.endswith("spec_UD.npz") :
             filepath = os.path.join(root, file)
             files_list.append(filepath)
+"""
+from pathlib import Path
 
+dir_path = Path("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/")
+extension = "spec_UD.npz"
+
+# Utilisation de pathlib pour simplifier et filtrer les fichiers
+files_list = [file for file in dir_path.rglob(f"*{extension}")]
 
 n_files = len(files_list)
 n1 = int(5000/n_files)+5
@@ -53,8 +60,9 @@ for file in files_list :
         images = data["cube"]
         meta = data["info"]
         meta_info = np.array([extract_meta(m) for m in meta])
+        meta_info[:, 6] = meta_info[:, 6].astype(np.float32)
 
-        inds = np.where((meta_info[:, 6]>=0 & meta_info[:, 6]<=6))
+        inds = np.where((meta_info[:, 6].astype(np.float32)>=0) & (meta_info[:, 6].astype(np.float32)<=6))
         images = images[inds]
         meta_info = meta_info[inds]
 
@@ -179,8 +187,27 @@ for file in files_list :
             n3_missing += (n3 - int(taille//2))
 
 
+b1_1 = np.concatenate(b1_1, axis=0)
+m1_1 = np.concatenate(m1_1, axis=0)
+
+b2_1 = np.concatenate(b2_1, axis=0)
+m2_1 = np.concatenate(m2_1, axis=0)
+
+b3_1 = np.concatenate(b3_1, axis=0)
+m3_1 = np.concatenate(m3_1, axis=0)
 
 
+b1_2 = np.concatenate(b1_2, axis=0)
+m1_2 = np.concatenate(m1_2, axis=0)
+
+b2_2 = np.concatenate(b2_2, axis=0)
+m2_2 = np.concatenate(m2_2, axis=0)
+
+b3_2 = np.concatenate(b3_2, axis=0)
+m3_2 = np.concatenate(m3_2, axis=0)
+
+
+print(len(b1_1), len(b1_2), len(b2_1), len(b2_2), len(b3_1), len(b3_2))
 if len(b1_1) > 5000 :
     inds = np.arange(0, len(b1_1))
     random.shuffle(inds)
@@ -229,7 +256,7 @@ if len(b3_2) > 20000 :
 
 
 
-
+"""
 b1_1 = np.concatenate(b1_1, axis=0)
 m1_1 = np.concatenate(m1_1, axis=0)
 
@@ -248,7 +275,7 @@ m2_2 = np.concatenate(m2_2, axis=0)
 
 b3_2 = np.concatenate(b3_2, axis=0)
 m3_2 = np.concatenate(m3_2, axis=0)
-
+"""
 
 
 

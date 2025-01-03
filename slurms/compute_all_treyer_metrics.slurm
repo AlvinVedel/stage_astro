@@ -8,7 +8,7 @@
 #SBATCH --gres=gpu:1                 # nombre de GPU par noeud (max 8 avec gpu_p2, gpu_p5)
 #SBATCH --cpus-per-task=10           # nombre de CPU par tache (1/4 des CPU du noeud 4-GPU V100)
 #SBATCH --hint=nomultithread         # hyperthreading desactive
-#SBATCH --time=1:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
+#SBATCH --time=12:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
 #SBATCH --output=../logs/compute_all_treyer_metrics_%j.out      # nom du fichier de sortie
 #SBATCH --error=../logs/compute_all_treyer_metrics_%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
  

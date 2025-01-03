@@ -9,7 +9,8 @@ import time
 from pathlib import Path
 
 dir_path = Path("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/")
-extension = "spec_UD.npz"
+extension = "cos2020_D.npz"
+name= "cos2020_D"
 
 # Utilisation de pathlib pour simplifier et filtrer les fichiers
 paths = [file for file in dir_path.rglob(f"*{extension}")]
@@ -23,10 +24,25 @@ print(bins_edges.shape, bins_centres.shape)
 density_bins = np.linspace(0, 10, 1001)
 density_centres = (density_bins[1:] + density_bins[:-1])/2
 
-def find_bin(bins_edges, value) :
+def find_bin1(value) :
+    bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
     flag= True
     i= 0
-    vec = np.zeros((len(bins_edges)))
+    vec = np.zeros((len(bins_edges)-1))
+    while i < len(bins_edges)-1 and flag :
+        if value < bins_edges[i+1] and value >= bins_edges[i] :
+            flag=False
+            vec[i] = 1
+            return vec
+        i+=1
+    vec[i-1] = 1
+    return vec
+
+def find_bin2(value) :
+    bins_edges = np.linspace(0, 10, 1001)
+    flag= True
+    i= 0
+    vec = np.zeros((len(bins_edges)-1))
     while i < len(bins_edges)-1 and flag :
         if value < bins_edges[i+1] and value >= bins_edges[i] :
             flag=False
@@ -41,28 +57,31 @@ import multiprocessing as mp
 from functools import partial
 
 
-density1 = np.zeros((len(bins_edges)))
-density2 = np.zeros((len(density_bins)))
+density1 = np.zeros((len(bins_edges)-1))
+density2 = np.zeros((len(density_bins)-1))
 total_obs = 0
 
+def extract_meta(tup) :
+    #                  RA      DEC    EB_V         ZPHOT          EBV
+    return np.array([tup[1], tup[2], tup[7], tup[40], tup[35]])
 
 for j, file in enumerate(paths) :
 
 
     data = np.load(file, allow_pickle=True)
     meta = data["info"]
-    print(meta)
-    z_values = meta[:, 6]
+    #print(meta)
+    meta = np.array([extract_meta(m) for m in meta])
+    z_values = meta[:, 3]
     z_values = z_values.astype(np.float32)
-    partial_find_bin = partial(find_bin, bins_edges=bins_edges)
-    with mp.Pool() as pool:
-        vecs = pool.map(partial_find_bin, z_values)
-    density1 += np.sum(vecs)
 
-    partial_find_bin = partial(find_bin, bins_edges=density_bins)
     with mp.Pool() as pool:
-        vecs = pool.map(partial_find_bin, z_values)
-    density2 += np.sum(vecs)
+        vecs1 = pool.map(find_bin1, z_values)
+    density1 += np.sum(vecs1, axis=0)
+
+    with mp.Pool() as pool:
+        vecs2 = pool.map(find_bin2, z_values)
+    density2 += np.sum(vecs2, axis=0)
 
     total_obs+=len(z_values)
     print("ive seen", total_obs,"obs, file ", j, "/", len(paths))
@@ -76,14 +95,14 @@ plt.bar(bins_centres, density1)
 plt.xlabel("Z SPEC")
 plt.ylabel("nb obs")
 plt.title("Total = "+str(total_obs))
-plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/inferencebase"+name+"_binsplit.png")
+plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/binsplit_inferencebase_"+name+".png")
 plt.close()
 
-plt.bar(density_centres, density2)
+plt.plot(density_centres, density2)
 plt.xlabel("Z SPEC")
 plt.ylabel("density")
 plt.title("Total = "+str(total_obs))
-plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/inferencebase"+name+"_density.png")
+plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/z_distr_inferencebase_"+name+".png")
 plt.close()
 
 

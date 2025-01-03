@@ -163,28 +163,28 @@ class LearningRateDecay(tf.keras.callbacks.Callback):
 
 bn=True
 
-weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_400.weights.h5"
-name = "UD_D"
+weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD_D_adv/simCLR_cosmos_bnTrue_400.weights.h5"
+name = "UD_D_adv"
 
 
-for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
+for base in ["b1_1", "b2_1", "b3_1"] :
 
     data_gen = DataGen("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+"_v2.npz", batch_size=32)
 
     # PARTIE 1
-    #model = simCLR_adversarial(backbone(bn, adv=True), mlp(1024), mlp_adversarial(1024))
-    model = simCLR(backbone(bn), mlp(1024))
+    model = simCLR_adversarial(backbone(bn, adv=True), mlp(1024), mlp_adversarial(1024))
+    #model = simCLR(backbone(bn), mlp(1024))
     model(np.random.random((32, 64, 64, 5)))
     model.load_weights(weights_path)
 
     extracteur = model.backbone
     predictor = regression_head(1024)
 
-    model1 = FineTuneModel(extracteur, predictor, train_back=False, adv=False)
+    model1 = FineTuneModel(extracteur, predictor, train_back=False, adv=True)
     model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mae", metrics=[Bias(name='global_bias'), SigmaMAD(name='global_smad'), OutlierFraction(name='global_outl'),
                                                                                Bias(inf=0, sup=0.4, name='bias1'), Bias(inf=0.4, sup=2, name='bias2'), Bias(inf=2, sup=4, name='bias3'), Bias(inf=4, sup=6, name='bias4'), 
                                                                                SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'),
-                                                                               OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='oult3'), OutlierFraction(inf=4, sup=6, name='outl4')])
+                                                                               OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='outl3'), OutlierFraction(inf=4, sup=6, name='outl4')])
     n_epochs = 50
     history = model1.fit(data_gen, epochs=n_epochs, callbacks=[LearningRateDecay()])
     model1.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_HeadOnly_base="+base+"_model="+name+".weights.h5")
@@ -234,16 +234,19 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
     plt.close()
 
     # PARTIE 2
-    #model = simCLR_adversarial(backbone(bn, adv=True), mlp(1024), mlp_adversarial(1024))
-    model = simCLR(backbone(bn), mlp(1024))
+    model = simCLR_adversarial(backbone(bn, adv=True), mlp(1024), mlp_adversarial(1024))
+    #model = simCLR(backbone(bn), mlp(1024))
     model(np.random.random((32, 64, 64, 5)))
     model.load_weights(weights_path)
 
     extracteur = model.backbone
     predictor = regression_head(1024)
 
-    model1 = FineTuneModel(extracteur, predictor, train_back=True, adv=False)
-    model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mae")
+    model1 = FineTuneModel(extracteur, predictor, train_back=True, adv=True)
+    model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mae", metrics=[Bias(name='global_bias'), SigmaMAD(name='global_smad'), OutlierFraction(name='global_outl'),
+                                                                               Bias(inf=0, sup=0.4, name='bias1'), Bias(inf=0.4, sup=2, name='bias2'), Bias(inf=2, sup=4, name='bias3'), Bias(inf=4, sup=6, name='bias4'),
+                                                                               SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'),
+                                                                               OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='outl3'), OutlierFraction(inf=4, sup=6, name='outl4')])
     history = model1.fit(data_gen, epochs=n_epochs, callbacks=[LearningRateDecay()])
     model1.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_ALL_base="+base+"_model="+name+".weights.h5")
 
@@ -265,7 +268,7 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
     plt.ylabel("Bias")
     plt.legend()
     plt.title("finetuning bias")
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/bias_HeadOnly_base="+base+"_model="+name+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/bias_ALL_base="+base+"_model="+name+".png")
     plt.close()
 
     plt.plot(np.arange(1, n_epochs+1), history.history["global_smad"], label='smad moyen')
@@ -277,7 +280,7 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
     plt.ylabel("Sigma MAD")
     plt.legend()
     plt.title("finetuning smad")
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/smad_HeadOnly_base="+base+"_model="+name+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/smad_ALL_base="+base+"_model="+name+".png")
     plt.close()
 
 
@@ -290,6 +293,6 @@ for base in ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"] :
     plt.ylabel("Outlier Fraction")
     plt.legend()
     plt.title("finetuning outl")
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/outl_HeadOnly_base="+base+"_model="+name+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/outl_ALL_base="+base+"_model="+name+".png")
     plt.close()
 

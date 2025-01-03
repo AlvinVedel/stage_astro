@@ -127,7 +127,7 @@ origin_label = []
 
 def extract_meta(tup) :
     #                  RA      DEC    EB_V         ZPHOT          EBV
-    return np.array([tup[1], tup[2], tup[7], max(tup[40], 1e-5), tup[35]])
+    return np.array([tup[1], tup[2], tup[7], min(max(tup[40], 1e-5), 7), tup[35]])
 
 for i in range(len(indices2)) :
     
@@ -186,7 +186,7 @@ metas = np.concatenate(all_metas, axis=0)  # 12*20k, 5
 ra = metas[:, 0]
 dec = metas[:, 1]
 ebv = metas[:, 2]
-z = np.log((metas[:, 3]/10)+1)
+z = np.log(metas[:, 3]+1)
 print(np.max(z), np.min(z), np.max(metas[:, 3]), np.min(metas[:, 3]))
 
 print("IL Y A", len(images), "IMAGES DANS COSMO UD ET D")
@@ -205,8 +205,8 @@ for s in origin_label :
     labels.append(s)
 
 
-weights_paths = ["../model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_400.weights.h5", "../model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_400.weights.h5", '../model_save/checkpoints_simCLR_UD_D_adv/simCLR_cosmos_bnTrue_400.weights.h5']
-code_w = ['UD400', 'UD_D400', 'UD_D_adv400']
+weights_paths = ["../model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_800.weights.h5", "../model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_800.weights.h5", '../model_save/checkpoints_simCLR_UD_D_adv/simCLR_cosmos_bnTrue_800.weights.h5']
+code_w = ['UD800', 'UD_D800', 'UD_D_adv800']
 
 model = simCLR(backbone=backbone(), head=mlp(1024))
 model(np.random.random((32, 64, 64, 5)))

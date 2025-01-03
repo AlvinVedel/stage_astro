@@ -161,16 +161,16 @@ class LearningRateScheduler(tf.keras.callbacks.Callback):
             print(f"\nEpoch {epoch+1}: Learning rate is reduced to {new_lr}")
 
 base_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"
-base_names = ["b1_1", "b1_2", "b2_1", "b2_2", "b3_1", "b3_2"]
+base_names = ["b1_1", "b2_1", "b3_1"]
 
 for base in base_names :
 
     model = create_model()
-    gen = DataGen(base_path+base+".npz", batch_size=32)
+    gen = DataGen(base_path+base+"_v2.npz", batch_size=32)
     n_epochs = 50
     model.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss={"pdf" : tf.keras.losses.SparseCategoricalCrossentropy(), "reg":tf.keras.losses.MeanAbsoluteError()}, 
                   metrics= {"pdf":["accuracy"], "reg" :[Bias(name='global_bias'), SigmaMAD(name='global_smad'), OutlierFraction(name='global_outl'),Bias(inf=0, sup=0.4, name='bias1'), Bias(inf=0.4, sup=2, name='bias2'), Bias(inf=2, sup=4, name='bias3'), Bias(inf=4, sup=6, name='bias4'), 
-                  SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'), OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='oult3'), OutlierFraction(inf=4, sup=6, name='outl4')]})
+                  SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'), OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='outl3'), OutlierFraction(inf=4, sup=6, name='outl4')]})
     history = model.fit(gen, epochs=n_epochs, callbacks=[LearningRateScheduler()])
 
     model.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_supervised/treyer_supervised_"+base+".weights.h5")
