@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.manifold import TSNE
 from tensorflow.keras import layers
 import tensorflow.keras as keras
-from contrastiv_model import simCLR, simCLR_adversarial as simCLR_adv
+from contrastiv_model import simCLR, simCLR_adversarial as simCLR_adv, simCLRcolor1, simCLRcolor2
 import matplotlib.pyplot as plt
 #from scipy.stats import gaussian_kde
 from matplotlib import cm
@@ -92,6 +92,15 @@ def mlp_adv(input_shape=1024) :
     x = layers.Dropout(0.4)(x)
     x = layers.Dense(2, activation='softmax')(x)
     return keras.Model(latent_inp, x)
+
+def color_mlp(input_shape=1024) :
+    latent_inp = keras.Input((input_shape))
+    x = layers.Dense(256)(latent_inp)
+    x = layers.PReLU()(x)
+    x = layers.Dense(256)(x)
+    x = layers.PReLU()(x)
+    out = layers.Dense(4, activation='linear')(x)
+    return keras.Model(latent_inp, out)
 
 bn=True
 
@@ -205,8 +214,8 @@ for s in origin_label :
     labels.append(s)
 
 
-weights_paths = ["../model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_800.weights.h5", "../model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_800.weights.h5", '../model_save/checkpoints_simCLR_UD_D_adv/simCLR_cosmos_bnTrue_800.weights.h5']
-code_w = ['UD800', 'UD_D800', 'UD_D_adv800']
+weights_paths = ["../model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_400_ColorHead.weights.h5", "../model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_400_ColorCosine.weights.h5"]
+code_w = ['UD400_colorHead', 'UD_400ColorCosine']
 
 model = simCLR(backbone=backbone(), head=mlp(1024))
 model(np.random.random((32, 64, 64, 5)))
@@ -215,7 +224,12 @@ for i, w in enumerate(weights_paths) :
     if i == 2 :
         model = simCLR_adv(backbone_adv(), mlp(1024), mlp_adv(1024))
         model(np.random.random((32, 64, 64, 5)))
-
+    if i == 0 :
+        model = simCLRcolor1(backbone(), mlp(1024), color_mlp(1024))
+        model(np.random.random((32, 64, 64, 5)))
+    if i == 1 :
+        model = simCLRcolor2(backbone(), mlp(1024))
+        model(np.random.random((32, 64, 64, 5)))
     model.load_weights(w)
 
     

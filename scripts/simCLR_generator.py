@@ -324,6 +324,7 @@ class ColorGen(tf.keras.utils.Sequence):
     def _load_data(self):
         random.shuffle(self.paths)
         self.images = []
+
         gc.collect()
         while np.sum([len(cube) for cube in self.images]) < self.max_images :
             path = self.paths[self.path_index]
@@ -346,7 +347,7 @@ class ColorGen(tf.keras.utils.Sequence):
             abs_deviation = np.abs(self.images[..., :5] - medians)  # Déviation absolue
             self.mads = np.median(abs_deviation, axis=(0, 1, 2))  # Une MAD par channel
         with mp.Pool() as pool :
-            colors = pool.map(compute_target, images)
+            colors = pool.map(compute_target, self.images)
         self.colors = np.array(colors)
         if self.mean is None and self.std is None :
             self.mean = np.mean(self.colors, axis=0)
@@ -410,24 +411,25 @@ class ColorGen(tf.keras.utils.Sequence):
 
     def __getitem__(self, index):
         batch_images = self.images[index * self.batch_size:(index + 1) * self.batch_size]
-          
+        batch_colors = self.colors[index * self.batch_size:(index + 1) * self.batch_size]
 
         if tf.shape(batch_images)[0] < self.batch_size:
             # Compléter le batch avec des images dupliquées ou ignorer (selon ta logique)
             pad_size = self.batch_size - batch_images.shape[0]
             batch_images = tf.concat([batch_images, self.images[:pad_size]], axis=0)  # Compléter avec les premières images
-          
-                    
+            batch_colors = tf.concat([batch_colors, self.colors[:pad_size]], axis=0)
+
         batch_masks = batch_images[:, :, :, 5]
         batch_images = batch_images[:, :, :, :5]
         batch_masks = tf.cast(tf.tile(batch_masks, [2, 1, 1]), dtype=bool)
         batch_images = tf.cast(tf.tile(batch_images, [2, 1, 1, 1]), dtype=tf.float32)
+        batch_colors = tf.cast(tf.tile(batch_colors, [2, 1]), dtype=tf.float32)
         
         
         augmented_images = self.process_batch(batch_images, batch_masks)
         #labels = tf.zeros((len(batch_images),), dtype=tf.float32)
-        labels = tf.cast(tf.tile(self.colors, [2, 1]), dtype=tf.float32)  # batch*2, 4
-        return augmented_images, labels
+        #labels = tf.cast(tf.tile(self.colors[index*self.batch_size:(index+1)*self.batch_size], [2, 1]), dtype=tf.float32)  # batch*2, 4
+        return augmented_images, batch_colors
 
 
     def on_epoch_end(self):

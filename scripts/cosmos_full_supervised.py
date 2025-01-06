@@ -66,6 +66,53 @@ def create_model(with_ebv=False) :
         model = keras.Model(inputs=[input_img], outputs=[pdf, regression])
     return model
 
+
+
+
+def backbone(bn=True) :
+    inp = keras.Input((64, 64, 5))
+    c1 = layers.Conv2D(96, padding='same', strides=1, kernel_size=3)(inp) # 64
+    c1 = layers.PReLU()(c1)
+    c2 = layers.Conv2D(96, padding='same', kernel_size=3, strides=1, activation='tanh')(c1)  #64
+    p1 = layers.AveragePooling2D((2, 2))(c2)  # 32
+    c3 = layers.Conv2D(128, padding='same', strides=1, kernel_size=3)(p1)
+    c3 = layers.PReLU()(c3)
+    c4 = layers.Conv2D(128, padding='same', kernel_size=3, strides=1)(c3)  #32
+    c4 = layers.PReLU(name='c4')(c4)
+    p2 = layers.AveragePooling2D((2, 2))(c4)  # 16
+    c5 = layers.Conv2D(256, padding='same', strides=1, kernel_size=3)(p2) #16
+    c5 = layers.PReLU()(c5)
+    c6 = layers.Conv2D(256, padding='same', kernel_size=3, strides=1)(c5)  #16
+    c6 = layers.PReLU()(c6)
+    p3 = layers.AveragePooling2D((2, 2))(c6) # 8
+    c7 = layers.Conv2D(256, kernel_size=3, strides=1, padding='valid')(p3) # 6
+    c7 = layers.PReLU()(c7)
+    c8 = layers.Conv2D(256, kernel_size=3, strides=1, padding='valid')(c7) # 4
+    c8 = layers.PReLU()(c8)
+    c9 = layers.Conv2D(256, padding='valid', kernel_size=3, strides=1)(c8) # 2, 2, 256
+    c9 = layers.PReLU()(c9)
+
+    flat = layers.Flatten(name='flatten')(c9) # 2, 2, 256 = 1024
+
+    l1 = layers.Dense(1024)(flat)
+    l1 = layers.PReLU()(l1)
+    if bn :
+        l1 = layers.BatchNormalization()(l1)
+
+    l2 = layers.Dense(1024)(l1)
+    l2 = layers.PReLU()(l2)
+    l3 = layers.Dense(1024)(l2)
+    l3 = layers.PReLU()(l3)
+    pdf = layers.Dense(400, activation='softmax', name='pdf')(l3)
+    l3b = layers.Dense(512, activation='tanh')(l2)
+    reg = layers.Dense(1, activation='linear', name='reg')(l3b)
+
+    return keras.Model(inputs=inp, outputs=[pdf, reg])
+
+
+
+
+
 def rotate_image(inputs):
     image, rotation = inputs
     return tf.image.rot90(image, rotation)
@@ -165,7 +212,7 @@ base_names = ["b1_1", "b2_1", "b3_1"]
 
 for base in base_names :
 
-    model = create_model()
+    model = backbone()
     gen = DataGen(base_path+base+"_v2.npz", batch_size=32)
     n_epochs = 50
     model.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss={"pdf" : tf.keras.losses.SparseCategoricalCrossentropy(), "reg":tf.keras.losses.MeanAbsoluteError()}, 
@@ -173,7 +220,7 @@ for base in base_names :
                   SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'), OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='outl3'), OutlierFraction(inf=4, sup=6, name='outl4')]})
     history = model.fit(gen, epochs=n_epochs, callbacks=[LearningRateScheduler()])
 
-    model.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_supervised/treyer_supervised_"+base+".weights.h5")
+    model.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_supervised/backbone_supervised_"+base+".weights.h5")
 
     print("history keys :", history.history.keys())
 
@@ -181,7 +228,7 @@ for base in base_names :
     plt.xlabel("epochs")
     plt.ylabel("loss (mae)")
     plt.title("supervised loss")
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/loss_Treyer_base="+base+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/loss_backbone_base="+base+".png")
     plt.close()
 
 
@@ -194,7 +241,7 @@ for base in base_names :
     plt.ylabel("Bias")
     plt.legend()
     plt.title("supervised bias")
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/bias_Treyer_base="+base+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/bias_backbone_base="+base+".png")
     plt.close()
 
     plt.plot(np.arange(1, n_epochs+1), history.history["reg_global_smad"], label='smad moyen')
@@ -206,7 +253,7 @@ for base in base_names :
     plt.ylabel("Sigma MAD")
     plt.legend()
     plt.title("supervised smad")
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/smad_Treyer_base="+base+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/smad_backbone_base="+base+".png")
     plt.close()
 
 
@@ -219,7 +266,7 @@ for base in base_names :
     plt.ylabel("Outlier Fraction")
     plt.legend()
     plt.title("supervised outl")
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/outl_Treyer_base="+base+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/outl_backbone_base="+base+".png")
     plt.close()
 
 

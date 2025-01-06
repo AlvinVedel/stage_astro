@@ -146,7 +146,7 @@ def z_med(probas, bin_central_values) :
 
 path_memory = {}
 
-for i, finetune_base in enumerate(["b2_1", "b3_1", "b3_1"]) :   #### POUR CHAQUE CONDITION D ENTRAINEMENT ON VA AVOIR UN SUBPLOT
+for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE CONDITION D ENTRAINEMENT ON VA AVOIR UN SUBPLOT
     base_liste = ["spec_UD", "cos2020_UD", "spec_D", "cos2020_D"]
     print("finetune base", finetune_base)
 
@@ -172,10 +172,10 @@ for i, finetune_base in enumerate(["b2_1", "b3_1", "b3_1"]) :   #### POUR CHAQUE
 
         #npz_files = [f for f in os.listdir(directory) if f.endswith(inf_base+'.npz')]   ## Récupère les fichiers sur lesquels inférer
 
-        simbases = ["UD", "UD_D", "UD_D_adv"]
+        simbases = ["UD_ColorHead400", "UD_ColorCosine400"]
         #model_liste = ["simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"]
-        for k in range(7) :
-            if k == 0 :
+        for k in range(len(simbases)*2) :
+            if k == -1 :
                 #model_name = base_path+"model_save/checkpoints_supervised/treyer_supervised_"+finetune_base+".weights.h5"
                 model_name = "../model_save/checkpoints_supervised/treyer_supervised_"+finetune_base+".weights.h5"
                 tag_name = "treyer"
@@ -186,7 +186,7 @@ for i, finetune_base in enumerate(["b2_1", "b3_1", "b3_1"]) :   #### POUR CHAQUE
 
             else :
                 cond = "HeadOnly" if k%2==0 else "ALL"
-                sim_base = simbases[(k-1)%3]
+                sim_base = simbases[k//2]
                 #model_name = base_path+"model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
                 model_name = "../model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
                 tag_name = 'sim_'+sim_base+"_"+cond
@@ -424,26 +424,26 @@ for i, finetune_base in enumerate(["b2_1", "b3_1", "b3_1"]) :   #### POUR CHAQUE
 
 
     fig1.suptitle("redshift estimation heatmap")
-    fig1.savefig(base_path+"plots/simCLR/all_heatmaps_"+finetune_base+".png")
+    fig1.savefig(base_path+"plots/simCLR/all_heatmaps2_"+finetune_base+".png")
     plt.close(fig1)
 
     fig2.suptitle("prediction bias")
-    fig2.savefig(base_path+"plots/simCLR/all_bias_"+finetune_base+".png")
+    fig2.savefig(base_path+"plots/simCLR/all_bias2_"+finetune_base+".png")
     plt.close(fig2)
 
     fig3.suptitle("sigma MAD")
-    fig3.savefig(base_path+"plots/simCLR/all_smad_"+finetune_base+".png")
+    fig3.savefig(base_path+"plots/simCLR/all_smad2_"+finetune_base+".png")
     plt.close(fig3)
 
     fig4.suptitle("outlier fraction")
-    fig4.savefig(base_path+"plots/simCLR/all_outl_"+finetune_base+".png")
+    fig4.savefig(base_path+"plots/simCLR/all_outl2_"+finetune_base+".png")
     plt.close(fig4)
 
 
 import pandas as pd
 
 df = pd.DataFrame(data_frame)
-df.to_csv("all_metrics.csv", index=False)
+df.to_csv("all_metrics2.csv", index=False)
 
 
 

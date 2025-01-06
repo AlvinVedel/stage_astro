@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
-from contrastiv_model import simCLRcolor1, ContrastivLoss
+from contrastiv_model import simCLRcolor1, ContrastivLoss, simCLRcolor2
 from simCLR_generator import ColorGen
 import os 
 os.environ["CUDA_VISIBLE_DEVICES"] = '0, 1'
@@ -61,9 +61,10 @@ def color_head(input_shape=1024) :
 
 
 bn=True
-kind="ColorHead"
+kind="ColorCosine"
 
-model = simCLRcolor1(backbone(bn), mlp(1024), color_head(1024))
+#model = simCLRcolor1(backbone(bn), mlp(1024), color_head(1024))
+model = simCLRcolor2(backbone(bn), mlp(1024))
 model.compile(optimizer=keras.optimizers.Adam(1e-3), loss=ContrastivLoss())
 model(np.random.random((32, 64, 64, 5)))
 #model.load_weights("simCLR_cosmos100.weights.h5")

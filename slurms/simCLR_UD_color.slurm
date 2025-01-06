@@ -21,7 +21,7 @@
 ##SBATCH --cpus-per-task=24           # nombre de CPU par tache pour gpu_p6 (1/4 des CPU du noeud 4-GPU H100)
 # /!\ Attention, "multithread" fait reference à l'hyperthreading dans la terminologie Slurm
 #SBATCH --hint=nomultithread         # hyperthreading desactive
-#SBATCH --time=100:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
+#SBATCH --time=50:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
 #SBATCH --output=../logs/simCLR_UDwColor_log%j.out      # nom du fichier de sortie
 #SBATCH --error=../logs/simCLR_UDwColor_log%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
 #SBATCH --qos=qos_gpu-t4

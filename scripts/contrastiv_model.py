@@ -71,7 +71,7 @@ class simCLRcolor2(keras.Model) :
         self.backbone = backbone
         self.head = head
         self.temp=temp
-        self.lam = 0.1
+        self.lam = 0.05
 
     def call(self, input, training=True) :
         x = self.backbone(input, training=training)
@@ -89,7 +89,7 @@ class simCLRcolor2(keras.Model) :
             pairwise_cosine = tf.keras.losses.cosine_similarity(x, x) ## cosine similarity entre tous les éléments : on vise orthogonalité donc minimiser somme de la matrice
             # résultat entre -1 et 1  
 
-            color_cosine_dist = 1 - tf.keras.losses.cosine_distance(labels, labels)  # distance cosinus dans l'espace couleur entre tous les éléments
+            color_cosine_dist = 1 - tf.keras.losses.cosine_similarity(labels, labels)  # distance cosinus dans l'espace couleur entre tous les éléments
             ## Résultat entre 0 et 2 : 0 = vecteurs proches dans l'espace couleur    2 = vecteurs opposés  ==> si proche on diminue pénalité pour l'orthogonalité recherchée
 
             weighted_pairwise_cosine = tf.multiply(pairwise_cosine, color_cosine_dist)

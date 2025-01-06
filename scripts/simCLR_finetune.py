@@ -3,7 +3,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
-from contrastiv_model import simCLR, ContrastivLoss, simCLR_adversarial
+from contrastiv_model import simCLR, ContrastivLoss, simCLR_adversarial, simCLRcolor1, simCLRcolor1, simCLRcolor2
 import os 
 from astro_metrics import Bias, SigmaMAD, OutlierFraction
 import matplotlib.pyplot as plt
@@ -72,6 +72,14 @@ def regression_head(input_shape=1024) :
     reg = layers.Dense(1, activation='linear')(l2)
     return keras.Model(inp, reg)
 
+def color_mlp():
+    inp = keras.Input((1024))
+    x = layers.Dense(256)(inp)
+    x = layers.PReLU()(x)
+    x = layers.Dense(256)(x)
+    x = layers.PReLU()(x)
+    out = layers.Dense(4, activation='linear')(x)
+    return keras.Model(inp, out)
 
 
 class FineTuneModel(keras.Model) :
@@ -163,8 +171,8 @@ class LearningRateDecay(tf.keras.callbacks.Callback):
 
 bn=True
 
-weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD_D_adv/simCLR_cosmos_bnTrue_400.weights.h5"
-name = "UD_D_adv"
+weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_400_ColorCosine.weights.h5"
+name = "UD_ColorCosine400"
 
 
 for base in ["b1_1", "b2_1", "b3_1"] :
@@ -172,15 +180,16 @@ for base in ["b1_1", "b2_1", "b3_1"] :
     data_gen = DataGen("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+"_v2.npz", batch_size=32)
 
     # PARTIE 1
-    model = simCLR_adversarial(backbone(bn, adv=True), mlp(1024), mlp_adversarial(1024))
-    #model = simCLR(backbone(bn), mlp(1024))
+    #model = simCLR_adversarial(backbone(bn, adv=True), mlp(1024), mlp_adversarial(1024))
+    model = simCLRcolor2(backbone(bn), mlp(1024))
+    #model = simCLRcolor1(backbone(bn), mlp(1024), color_mlp())
     model(np.random.random((32, 64, 64, 5)))
     model.load_weights(weights_path)
 
     extracteur = model.backbone
     predictor = regression_head(1024)
 
-    model1 = FineTuneModel(extracteur, predictor, train_back=False, adv=True)
+    model1 = FineTuneModel(extracteur, predictor, train_back=False, adv=False)
     model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mae", metrics=[Bias(name='global_bias'), SigmaMAD(name='global_smad'), OutlierFraction(name='global_outl'),
                                                                                Bias(inf=0, sup=0.4, name='bias1'), Bias(inf=0.4, sup=2, name='bias2'), Bias(inf=2, sup=4, name='bias3'), Bias(inf=4, sup=6, name='bias4'), 
                                                                                SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'),
@@ -234,15 +243,16 @@ for base in ["b1_1", "b2_1", "b3_1"] :
     plt.close()
 
     # PARTIE 2
-    model = simCLR_adversarial(backbone(bn, adv=True), mlp(1024), mlp_adversarial(1024))
-    #model = simCLR(backbone(bn), mlp(1024))
+    #model = simCLR_adversarial(backbone(bn, adv=True), mlp(1024), mlp_adversarial(1024))
+    model = simCLRcolor2(backbone(bn), mlp(1024))
+    #model = simCLRcolor1(backbone(bn), mlp(1024), color_mlp())
     model(np.random.random((32, 64, 64, 5)))
     model.load_weights(weights_path)
 
     extracteur = model.backbone
     predictor = regression_head(1024)
 
-    model1 = FineTuneModel(extracteur, predictor, train_back=True, adv=True)
+    model1 = FineTuneModel(extracteur, predictor, train_back=True, adv=False)
     model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mae", metrics=[Bias(name='global_bias'), SigmaMAD(name='global_smad'), OutlierFraction(name='global_outl'),
                                                                                Bias(inf=0, sup=0.4, name='bias1'), Bias(inf=0.4, sup=2, name='bias2'), Bias(inf=2, sup=4, name='bias3'), Bias(inf=4, sup=6, name='bias4'),
                                                                                SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'),
