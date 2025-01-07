@@ -8,6 +8,18 @@ import matplotlib.pyplot as plt
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]='0'
 
+
+data = np.load("../data/spec/COSMOS_v11_uijk_0237_cos2020_D.npz", allow_pickle=True)
+meta = data["info"]
+print(meta.dtype)
+print(meta[0])
+print("--------")
+
+data = np.load("../data/spec/COSMOS_v11_uijk_0247_photo_D.npz", allow_pickle=True)
+meta = data["info"]
+print(meta.dtype)
+print(meta[0])
+
 def inception_block(input):
     c1 = layers.Conv2D(101, activation='relu', kernel_size=1, strides=1, padding='same')(input)
     c2 = layers.Conv2D(101, activation='relu', kernel_size=1, strides=1, padding='same')(input)
@@ -106,6 +118,17 @@ def regression_head(input_shape=1024) :
     reg = layers.Dense(1, activation='linear')(l2)
     return keras.Model(inp, reg)
 
+def output_head(input_shape=1024) :
+    inp = keras.Input((input_shape))
+    l1 = layers.Dense(1024)(inp)
+    l1 = layers.PReLU()(l1)
+    l2 = layers.Dense(1024)(l1)
+    l2 = layers.PReLU()(l2)
+    pdf = layers.Dense(400, activation='linear', name='pdf')(l2)
+    l3 = layers.Dense(512, activation='tanh')(l2)
+    reg = layers.Dense(1, activation='linear')(l3)
+    return keras.Model(inp, [pdf, reg])
+
 
 class FineTuneModel(keras.Model) :
     def __init__(self, back, head, train_back=False, adv=False) :
@@ -173,12 +196,12 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
 
         #npz_files = [f for f in os.listdir(directory) if f.endswith(inf_base+'.npz')]   ## Récupère les fichiers sur lesquels inférer
 
-        simbases = ["UD_ColorHead400", "UD_ColorCosine400"]
+        simbases = ["fullsupervised", "UD800_classif","UD_D800_classif", "UD_D800_colorhead_classif"]
         #model_liste = ["simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"]
         for k in range(len(simbases)*2) :
-            if k == -1 :
+            if k % 4 == 0 :
                 #model_name = base_path+"model_save/checkpoints_supervised/treyer_supervised_"+finetune_base+".weights.h5"
-                model_name = "../model_save/checkpoints_supervised/treyer_supervised_"+finetune_base+".weights.h5"
+                model_name = "../model_save/checkpoints_supervised/backbone_supervised_"+inf_base+".weights.h5"
                 tag_name = "treyer"
                 treyer = True
 
@@ -191,9 +214,9 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
                 #model_name = base_path+"model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
                 model_name = "../model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
                 tag_name = 'sim_'+sim_base+"_"+cond
-                treyer = False
+                treyer = True
 
-                model = FineTuneModel(backbone(True), head=regression_head(1024))
+                model = FineTuneModel(backbone(True), head=output_head(1024))
                 model(np.random.random((32, 64, 64, 5)))  
             #print("the model name isss :", model_name)
             #print(os.getcwd())
@@ -427,26 +450,26 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
 
 
     fig1.suptitle("redshift estimation heatmap")
-    fig1.savefig(base_path+"plots/simCLR/all_heatmaps2_"+finetune_base+".png")
+    fig1.savefig(base_path+"plots/simCLR/all_heatmaps_classif_"+finetune_base+".png")
     plt.close(fig1)
 
     fig2.suptitle("prediction bias")
-    fig2.savefig(base_path+"plots/simCLR/all_bias2_"+finetune_base+".png")
+    fig2.savefig(base_path+"plots/simCLR/all_bias_classif_"+finetune_base+".png")
     plt.close(fig2)
 
     fig3.suptitle("sigma MAD")
-    fig3.savefig(base_path+"plots/simCLR/all_smad2_"+finetune_base+".png")
+    fig3.savefig(base_path+"plots/simCLR/all_smad_classif_"+finetune_base+".png")
     plt.close(fig3)
 
     fig4.suptitle("outlier fraction")
-    fig4.savefig(base_path+"plots/simCLR/all_outl2_"+finetune_base+".png")
+    fig4.savefig(base_path+"plots/simCLR/all_outl_classif_"+finetune_base+".png")
     plt.close(fig4)
 
 
 import pandas as pd
 
 df = pd.DataFrame(data_frame)
-df.to_csv("all_metrics2.csv", index=False)
+df.to_csv("metrics_inference_v2.csv", index=False)
 
 
 
