@@ -131,9 +131,10 @@ base_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/"
 
 
 
-data_frame = {"name":[], "bias1":[], "bias2":[], 'bias3':[], 'bias4':[],
-               "smad1":[], "smad2":[], 'smad3':[], 'smad4':[],
-               "oult1":[], "oult2":[], 'oult3':[], 'oult4':[]}
+data_frame = {"name":[], "inf base":[], "finetune base" : [],
+               "bias [0, 0.6[":[], "bias [0.6, 2[":[], 'bias [2, 4[':[], 'bias [4, 6[':[],
+               "smad [0, 0.6[":[], "smad [0.6, 2[":[], 'smad [2, 4[':[], 'smad [4, 6[':[],
+               "oult [0, 0.6[":[], "oult [0.6, 2[":[], 'oult [2, 4[':[], 'oult [4, 6[':[]}
 
 
 directory = base_path+"data/spec/"
@@ -401,21 +402,23 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
                     print("END RESULTS FOR", model_name)
                     #model.backbone.save_weights("sdss_backbone.weights.h5")
                     #model.classifier.save_weights("sdss_classifier.weights.h5")
-                    data_frame["name"].append(tag_name+"_"+finetune_base)
-                    data_frame['bias1'].append(bias[0])
-                    data_frame['bias2'].append(bias[1])
-                    data_frame['bias3'].append(bias[2])
-                    data_frame['bias4'].append(bias[3])
+                    data_frame["name"].append(tag_name)
+                    data_frame["finetune base"].append(finetune_base)
+                    data_frame['inf base'].append(inf_base)
+                    data_frame['bias [0, 0.6['].append(bias[0])
+                    data_frame['bias [0.6, 2['].append(bias[1])
+                    data_frame['bias [2, 4['].append(bias[2])
+                    data_frame['bias [4, 6['].append(bias[3])
 
-                    data_frame['smad1'].append(smad[0])
-                    data_frame['smad2'].append(smad[1])
-                    data_frame['smad3'].append(smad[2])
-                    data_frame['smad4'].append(smad[3])
+                    data_frame['smad [0, 0.6['].append(smad[0])
+                    data_frame['smad [0.6, 2['].append(smad[1])
+                    data_frame['smad [2, 4['].append(smad[2])
+                    data_frame['smad [4, 6['].append(smad[3])
 
-                    data_frame["oult1"].append(outl[0])
-                    data_frame["oult2"].append(outl[1])
-                    data_frame["oult3"].append(outl[2])
-                    data_frame["oult4"].append(outl[3])
+                    data_frame["oult [0, 0.6["].append(outl[0])
+                    data_frame["oult [0.6, 2["].append(outl[1])
+                    data_frame["oult [2, 4["].append(outl[2])
+                    data_frame["oult [4, 6["].append(outl[3])
 
 
             except Exception as e :

@@ -105,7 +105,116 @@ class simCLRcolor2(keras.Model) :
 
         del tape
         return {"contrastiv_loss":contrastiv_loss, "cosine_loss":cosine_loss}
+
+import random
+
+class simCLRcolor3(keras.Model) :
+    def __init__(self, backbone, head, temp=0.7) :
+        super().__init__()
+        self.backbone = backbone
+        self.head = head
+        self.temp=temp
+        self.lam = 0.05
+
+    def call(self, input, training=True) :
+        x = self.backbone(input, training=training)
+        z = self.head(x, training=training)
+        return z, x
     
+    def kmeans(self, data, k, num_iterations=10):
+        centroids = tf.Variable(tf.gather(data, tf.random.shuffle(tf.range(tf.shape(data)[0]))[:k]))
+
+        for i in range(num_iterations):
+            # Calcul des distances (Euclidiennes)
+            expanded_data = tf.expand_dims(data, 1)  # Shape: (512, 1, 1024)
+            expanded_centroids = tf.expand_dims(centroids, 0)  # Shape: (1, k, 1024)
+            distances = tf.reduce_sum(tf.square(expanded_data - expanded_centroids), axis=2)  # Shape: (512, k)
+
+            # Assignation des clusters
+            cluster_assignments = tf.argmin(distances, axis=1)  # Shape: (512,)
+
+            # Mise à jour des centroides (vectorisée)
+            mask = tf.one_hot(cluster_assignments, k)  # Shape: (512, k)
+            cluster_sums = tf.matmul(mask, data, transpose_a=True)  # Shape: (k, 1024)
+            cluster_counts = tf.reduce_sum(mask, axis=0)  # Shape: (k,)
+            new_centroids = cluster_sums / tf.expand_dims(cluster_counts + 1e-8, axis=1)
+
+            centroids.assign(new_centroids)
+
+        return centroids, cluster_assignments
+
+    def train_step(self, data) : 
+        images, labels = data
+
+        with tf.GradientTape(persistent=True) as tape :
+            z, x = self(images)
+
+            contrastiv_loss = self.loss(z, self.temp)
+
+            centroids, clusters = self.kmeans(tf.nn.l2_normalize(x, axis=1), k=random.randint(5, 20))
+
+            mask = tf.one_hot(clusters, len(centroids))  # Shape: (512, k)
+            #cluster_data = tf.matmul(mask, x, transpose_a=True)  # Agrégation des données par cluster
+            cluster_labels = tf.matmul(mask, tf.cast(labels, tf.float32), transpose_a=True)
+
+            var_intra = tf.reduce_sum(
+                tf.math.reduce_variance(cluster_labels, axis=1)
+            ) * self.lam
+
+
+
+  
+        gradients = tape.gradient(contrastiv_loss, self.backbone.trainable_variables + self.head.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
+
+        gradients = tape.gradient(var_intra, self.backbone.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables))
+
+        del tape
+        return {"contrastiv_loss":contrastiv_loss, "var intra":var_intra}
+
+
+class simCLRmultitask(keras.Model) :
+    def __init__(self, backbone, head, regressors, aux_losses_names, aux_losses, temp=0.7) :
+        super().__init__()
+        self.backbone = backbone
+        self.head = head
+        self.regressors = regressors
+        self.aux_losses_names = aux_losses_names
+        self.aux_losses = aux_losses
+        self.temp=temp
+        self.lam = 0.1
+
+    def call(self, input, training=True) :
+        x = self.backbone(input, training=training)
+        z = self.head(x, training=training)
+        outs = [pred(x, training=True) for pred in self.regressor]
+        return z, outs
+
+    def train_step(self, data) : 
+        images, labels = data
+
+        with tf.GradientTape(persistent=True) as tape :
+            z, outs = self(images)
+
+            contrastiv_loss = self.loss(z, self.temp)
+
+            aux_losses = []
+            for i, out in enumerate(outs) :
+                aux_losses.append(self.lam * self.aux_losses[i](labels[i], out))
+
+
+        loss_dict = {"contrastiv_loss":contrastiv_loss}
+        gradients = tape.gradient(contrastiv_loss, self.backbone.trainable_variables + self.head.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
+
+        for i, aux in enumerate(aux_losses) :
+            gradients = tape.gradient(aux, self.backbone.trainable_variables + self.regressors[i].trainable_variables)
+            self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.regressors[i].trainable_variables))
+            loss_dict[self.aux_losses_names[i]] = aux
+
+        del tape
+        return loss_dict
 
 class simCLR_adversarial(keras.Model) :
     def __init__(self, backbone, head, adversaire, temp=0.7) :
@@ -245,6 +354,11 @@ class ContrastivLoss(keras.losses.Loss) :
 
         return loss
     
+
+
+class COIN(keras.Model) :
+    def __init__(self, backbone, head)
+
 
 
 

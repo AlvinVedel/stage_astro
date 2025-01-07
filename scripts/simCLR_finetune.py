@@ -63,14 +63,17 @@ def mlp_adversarial(input_shape=1024) :
     x = layers.Dense(2, activation='softmax')(x)
     return keras.Model(latent_inp, x)
 
-def regression_head(input_shape=1024) :
+def output_head(input_shape=1024) :
     inp = keras.Input((input_shape))
     l1 = layers.Dense(1024)(inp)
     l1 = layers.PReLU()(l1)
     l2 = layers.Dense(1024)(l1)
     l2 = layers.PReLU()(l2)
-    reg = layers.Dense(1, activation='linear')(l2)
-    return keras.Model(inp, reg)
+    pdf = layers.Dense(400, activation='linear', name='pdf')(l2)
+    l3 = layers.Dense(512, activation='tanh')(l2)
+    reg = layers.Dense(1, activation='linear')(l3)
+    return keras.Model(inp, [pdf, reg])
+
 
 def color_mlp():
     inp = keras.Input((1024))
@@ -95,67 +98,95 @@ class FineTuneModel(keras.Model) :
             latent, flat = self.backbone(inputs, training=self.train_back)
         else :
             latent = self.backbone(inputs, training=self.train_back)
-        pred = self.head(latent, training=training)
-        return pred
+        bins_prob, reg = self.head(latent, training=training)
+        return bins_prob, reg
     
 def rotate_image(inputs):
     image, rotation = inputs
     return tf.image.rot90(image, rotation)
 
 class DataGen(keras.utils.Sequence) :
-    def __init__(self, data_path, batch_size) :
+    def __init__(self, data_path, batch_size, nbins=150) :
         super(DataGen, self).__init__()
         self.batch_size = batch_size
         self.data_path = data_path
+        self.nbins=nbins
         self.load_data()
         self.on_epoch_end()
-    
+
     def load_data(self) :
         data = np.load(self.data_path, allow_pickle=True)
         images = data["cube"][..., :5]  # on ne prend que les 5 premières bandes
         masks = np.expand_dims(data["cube"][..., 5], axis=-1)
 
         #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
-        self.images = np.concatenate([images, masks], axis=-1)  # N, 64, 64, 6
+        self.images = np.concatenate([images, masks], axis=-1).astype(np.float32)  # N, 64, 64, 6
 
         meta = data["info"]
         self.z_values = meta[:, 6]
-        self.z_values = self.z_values.astype(np.float32)
+        self.z_values = self.z_values.astype("float32")
+        print("Z VALS", self.z_values)
+        
+        bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
+        self.z_bins = np.zeros((len(self.z_values)))
+        for j, z in enumerate(self.z_values) :
+            i = 0
+            flag = True
+            while flag and i < len(bins_edges)-1 :
+                if z >= bins_edges[i] and z < bins_edges[i+1] :
+                    self.z_bins[j] = i
+                    flag = False
+                i+=1
+            if flag : 
+                self.z_bins[j] = i-1
+        print(np.max(self.z_bins), np.min(self.z_bins))
+        print("NAN IMGS :",np.any(np.isnan(self.images)))
+        print("NAN Z :", np.any(np.isnan(self.z_values)), np.any(np.isnan(self.z_bins)))
+        self.z_bins = self.z_bins.astype(np.int32)
+        print(self.z_bins)
+
     def __len__(self):
         return int(np.ceil(len(self.images) / self.batch_size))
-    
+
     def process_batch(self, images, masks, ebv=None) :
-        
+
         images = tf.image.random_flip_left_right(images)
         images = tf.image.random_flip_up_down(images)
-        rotations = tf.random.uniform((tf.shape(images)[0],), minval=0, maxval=4, dtype=tf.int32)    
+        rotations = tf.random.uniform((tf.shape(images)[0],), minval=0, maxval=4, dtype=tf.int32)
         images = tf.map_fn(rotate_image, (images, rotations), dtype=images.dtype)
+
 
         return images
 
     def __getitem__(self, index):
-        batch_images = self.images[index * self.batch_size:(index + 1) * self.batch_size]
-        batch_z = self.z_values[index * self.batch_size : (index+1)*self.batch_size]
-          
+        batch_images = self.images[index*self.batch_size : (index+1)*self.batch_size]
+        batch_z = self.z_bins[index*self.batch_size : (index+1)*self.batch_size]
+        batch_z2 = self.z_values[index*self.batch_size : (index+1)*self.batch_size]
+
+
         if tf.shape(batch_images)[0] < self.batch_size:
             # Compléter le batch avec des images dupliquées ou ignorer (selon ta logique)
             pad_size = self.batch_size - batch_images.shape[0]
             batch_images = tf.concat([batch_images, self.images[:pad_size]], axis=0)  # Compléter avec les premières images
-            batch_z = tf.concat([batch_z, self.z_values[:pad_size]], axis=0)
-          
-                    
+            batch_z = tf.concat([batch_z, self.z_bins[:pad_size]], axis=0)
+            batch_z2 = tf.concat([batch_z2, self.z_values[:pad_size]], axis=0)
+
+
         batch_masks = batch_images[:, :, :, 5]
         batch_images = batch_images[:, :, :, :5]
-        
-        
+
         augmented_images = self.process_batch(batch_images, batch_masks)
-        return augmented_images, batch_z
+        return augmented_images, (batch_z, batch_z2)
 
     def on_epoch_end(self):
         indices = np.arange(0, self.images.shape[0], dtype=np.int32)
         np.random.shuffle(indices)
         self.images = self.images[indices]
         self.z_values = self.z_values[indices]
+        self.z_bins = self.z_bins[indices]
+    
+
+
 
 class LearningRateDecay(tf.keras.callbacks.Callback):
     def __init__(self, decay_factor=0.1):
@@ -171,8 +202,8 @@ class LearningRateDecay(tf.keras.callbacks.Callback):
 
 bn=True
 
-weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_400_ColorCosine.weights.h5"
-name = "UD_ColorCosine400"
+weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_800.weights.h5"
+name = "UD_D800_classif"
 
 
 for base in ["b1_1", "b2_1", "b3_1"] :
@@ -181,19 +212,18 @@ for base in ["b1_1", "b2_1", "b3_1"] :
 
     # PARTIE 1
     #model = simCLR_adversarial(backbone(bn, adv=True), mlp(1024), mlp_adversarial(1024))
-    model = simCLRcolor2(backbone(bn), mlp(1024))
+    #model = simCLRcolor2(backbone(bn), mlp(1024))
+    model = simCLR(backbone(bn), mlp(1024))
     #model = simCLRcolor1(backbone(bn), mlp(1024), color_mlp())
     model(np.random.random((32, 64, 64, 5)))
     model.load_weights(weights_path)
 
     extracteur = model.backbone
-    predictor = regression_head(1024)
+    predictor = output_head(1024)
 
     model1 = FineTuneModel(extracteur, predictor, train_back=False, adv=False)
-    model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mae", metrics=[Bias(name='global_bias'), SigmaMAD(name='global_smad'), OutlierFraction(name='global_outl'),
-                                                                               Bias(inf=0, sup=0.4, name='bias1'), Bias(inf=0.4, sup=2, name='bias2'), Bias(inf=2, sup=4, name='bias3'), Bias(inf=4, sup=6, name='bias4'), 
-                                                                               SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'),
-                                                                               OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='outl3'), OutlierFraction(inf=4, sup=6, name='outl4')])
+    model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss={"pdf" : tf.keras.losses.SparseCategoricalCrossentropy(), "reg":tf.keras.losses.MeanAbsoluteError()}, metrics= {"pdf":["accuracy"], "reg" :[Bias(name='global_bias'), SigmaMAD(name='global_smad'), OutlierFraction(name='global_outl'),Bias(inf=0, sup=0.4, name='bias1'), Bias(inf=0.4, sup=2, name='bias2'), Bias(inf=2, sup=4, name='bias3'), Bias(inf=4, sup=6, name='bias4'), 
+                  SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'), OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='outl3'), OutlierFraction(inf=4, sup=6, name='outl4')]})
     n_epochs = 50
     history = model1.fit(data_gen, epochs=n_epochs, callbacks=[LearningRateDecay()])
     model1.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_HeadOnly_base="+base+"_model="+name+".weights.h5")
@@ -244,19 +274,19 @@ for base in ["b1_1", "b2_1", "b3_1"] :
 
     # PARTIE 2
     #model = simCLR_adversarial(backbone(bn, adv=True), mlp(1024), mlp_adversarial(1024))
-    model = simCLRcolor2(backbone(bn), mlp(1024))
+    #model = simCLRcolor2(backbone(bn), mlp(1024))
     #model = simCLRcolor1(backbone(bn), mlp(1024), color_mlp())
+    model = simCLR(backbone(bn), mlp(1024))
     model(np.random.random((32, 64, 64, 5)))
     model.load_weights(weights_path)
 
     extracteur = model.backbone
-    predictor = regression_head(1024)
+    predictor = output_head(1024)
 
     model1 = FineTuneModel(extracteur, predictor, train_back=True, adv=False)
-    model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss="mae", metrics=[Bias(name='global_bias'), SigmaMAD(name='global_smad'), OutlierFraction(name='global_outl'),
-                                                                               Bias(inf=0, sup=0.4, name='bias1'), Bias(inf=0.4, sup=2, name='bias2'), Bias(inf=2, sup=4, name='bias3'), Bias(inf=4, sup=6, name='bias4'),
-                                                                               SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'),
-                                                                               OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='outl3'), OutlierFraction(inf=4, sup=6, name='outl4')])
+    model1.compile(optimizer=keras.optimizers.Adam(1e-4), loss={"pdf" : tf.keras.losses.SparseCategoricalCrossentropy(), "reg":tf.keras.losses.MeanAbsoluteError()}, metrics= {"pdf":["accuracy"], "reg" :[Bias(name='global_bias'), SigmaMAD(name='global_smad'), OutlierFraction(name='global_outl'),Bias(inf=0, sup=0.4, name='bias1'), Bias(inf=0.4, sup=2, name='bias2'), Bias(inf=2, sup=4, name='bias3'), Bias(inf=4, sup=6, name='bias4'), 
+                  SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'), OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='outl3'), OutlierFraction(inf=4, sup=6, name='outl4')]})
+    
     history = model1.fit(data_gen, epochs=n_epochs, callbacks=[LearningRateDecay()])
     model1.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_ALL_base="+base+"_model="+name+".weights.h5")
 
