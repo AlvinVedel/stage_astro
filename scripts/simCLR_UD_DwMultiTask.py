@@ -111,16 +111,18 @@ def regression_head(input_shape=1024, out_shape=4) :
 
 
 bn=True
-kind="MultiHead_"
+kind="Multi_TTTF_"
 
-model = simCLRmultitask(backbone(bn), mlp(1024), [regression_head(1024, 4)], aux_losses_names=["mse_color_loss"], aux_losses=[tf.keras.losses.MeanSquaredError()])
+model = simCLRmultitask(backbone(bn), mlp(1024), do_color=True, color_head=regression_head(1024, 4), do_seg=True, segmentor=segmentor(),
+                        do_reco=True, deconvolutor=deconvolutor())
 #model = simCLRcolor2(backbone(bn), mlp(1024))
 model.compile(optimizer=keras.optimizers.Adam(1e-3), loss=ContrastivLoss())
 model(np.random.random((32, 64, 64, 5)))
 #model.load_weights("simCLR_cosmos100.weights.h5")
 
 
-data_gen = MultiGen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/phot/"], color=True, batch_size=256, extensions=["UD.npz", '_D.npz'])
+data_gen = MultiGen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/phot/"], do_color=True, do_seg=True, do_mask_band=True,
+                     batch_size=256, extensions=["UD.npz", '_D.npz'])
 
 iter = 1
 while iter <= 100 :
