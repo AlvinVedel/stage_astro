@@ -451,7 +451,7 @@ class ColorGen(tf.keras.utils.Sequence):
 
 
 class MultiGen(tf.keras.utils.Sequence):
-    def __init__(self, paths, batch_size, color=True, image_size=(64, 64, 5), shuffle=True, extensions=[".npz"]):
+    def __init__(self, paths, batch_size, do_color=True, do_seg=True, do_mask_band=True, do_mask_patch=False, image_size=(64, 64, 5), shuffle=True, extensions=[".npz"]):
         self.paths = []
         self.path_index=0
         self.batch_size = batch_size
@@ -460,7 +460,10 @@ class MultiGen(tf.keras.utils.Sequence):
         self.max_images = 80000
         self.extensions = extensions
         self.n_epochs = 0
-        self.color=color
+        self.do_color=do_color
+        self.do_seg=do_seg
+        self.do_mask_band = do_mask_band
+        self.do_mask_patch = do_mask_patch
         self.mean = None
         self.std = None
         self.file_tracker = {}
@@ -507,7 +510,7 @@ class MultiGen(tf.keras.utils.Sequence):
             medians = np.median(self.images[..., :5], axis=(0, 1, 2))  # shape (5,) pour chaque channel
             abs_deviation = np.abs(self.images[..., :5] - medians)  # Déviation absolue
             self.mads = np.median(abs_deviation, axis=(0, 1, 2))  # Une MAD par channel
-        if self.color : 
+        if self.do_color : 
             with mp.Pool() as pool :
                 colors = pool.map(compute_target, self.images)
             self.colors = np.array(colors)
@@ -575,28 +578,107 @@ class MultiGen(tf.keras.utils.Sequence):
 
 
         return images
+    
+
+    def drop_band(self, images) :
+        probas = tf.random.uniform((tf.shape(images)[0], tf.shape(images)[-1]), 0, 1)
+        band_to_drop = tf.argmax(probas, axis=1) # shape batch, 
+        prob_to_drop = tf.random.uniform(tf.shape(images)[0], 0, 1)
+        apply_drop = tf.cast(tf.less(prob_to_drop, 0.4), dtype=tf.float32)  # renvoie 0 ou 1 si inférieur à 0.4 ?  donc shape batch, 
+
+        band_to_drop = tf.one_hot(band_to_drop, depth=tf.shape(images)[-1]) # batch, 5
+        band_to_drop = tf.expand_dims(tf.expand_dims(band_to_drop, axis=1), axis=1)  # batch, 1, 1, 1
+        band_to_drop = 1 - tf.tile(band_to_drop, [1, tf.shape(images[1]), tf.shape(images)[2], 1])*tf.expand_dims(tf.expand_dims(tf.expand_dims(apply_drop, axis=-1), axis=-1), axis=-1)  # batch 64 64 5   avec que des 0 si apply drop vaut 0 donc que des 1
+
+        dropped_band = images * band_to_drop
+        return dropped_band
+
+
+    def drop_patch(self, images, prob=0.4):
+        """Masque un patch de taille 8x8 pour chaque image dans le batch avec une probabilité."""
+        b, h, w, c = tf.shape(images)  # Récupère la forme des images
+        mask_size = 8
+
+        # Génère des coordonnées de départ aléatoires pour chaque image (batch, 2)
+        starts = tf.cast(tf.random.uniform((b, 2), 0, h - mask_size, dtype=tf.int32), dtype=tf.int32)  # Début de chaque patch (x, y)
+
+        # Crée les indices pour chaque pixel du patch 8x8
+        y_indices = tf.reshape(tf.range(mask_size), (1, -1)) + starts[:, 0:1]  # (batch_size, 8)
+        x_indices = tf.reshape(tf.range(mask_size), (-1, 1)) + starts[:, 1:2]  # (8, batch_size)
+
+        # Combine les indices x et y pour obtenir un tableau de taille (batch_size, 8, 8, 2)
+        patch_indices = tf.concat([y_indices, x_indices], axis=-1)  # (batch_size, 8, 8, 2)
+
+        # Aplatis les images pour faciliter l'indexation
+        images_flat = tf.reshape(images, [b, -1, c])  # (batch_size, h * w, c)
+
+        # Aplatis également les indices du patch pour un accès rapide
+        patch_indices_flat = tf.reshape(patch_indices, [-1, 2])  # (batch_size * 8 * 8, 2)
+
+        # Crée un masque binaire avec une probabilité de 40 % pour chaque image
+        apply_mask_prob = tf.random.uniform((b, 1), minval=0, maxval=1) < prob  # (batch_size, 1)
+        
+        # Si apply_mask_prob est True, on applique le masque, sinon on garde l'image intacte
+        apply_mask = tf.reshape(apply_mask_prob, [-1])  # (batch_size,)
+
+        # Crée un tableau de valeurs "0" (valeur à appliquer pour le masquage)
+        patch_values = tf.zeros([patch_indices_flat.shape[0], c], dtype=images_flat.dtype)  # (batch_size * 8 * 8, c)
+
+        # Applique le masque uniquement si apply_mask est True
+        def mask_image(_):
+            # Masque les pixels
+            return tf.tensor_scatter_nd_update(images_flat, patch_indices_flat, patch_values)
+
+        # Applique le masquage conditionnel sur chaque image du batch
+        images_flat = tf.cond(apply_mask[0], lambda: mask_image(images_flat), lambda: images_flat)
+
+        # Ramène les images à leur forme d'origine
+        images = tf.reshape(images_flat, [b, h, w, c])  # (batch_size, h, w, c)
+
+        return images
+
 
     def __getitem__(self, index):
         batch_images = self.images[index * self.batch_size:(index + 1) * self.batch_size]
-        batch_colors = self.colors[index * self.batch_size:(index + 1) * self.batch_size]
 
+        labels_dict = {}
+
+        if self.do_color :
+            batch_colors = self.colors[index * self.batch_size:(index + 1) * self.batch_size]
+            
         if tf.shape(batch_images)[0] < self.batch_size:
             # Compléter le batch avec des images dupliquées ou ignorer (selon ta logique)
             pad_size = self.batch_size - batch_images.shape[0]
             batch_images = tf.concat([batch_images, self.images[:pad_size]], axis=0)  # Compléter avec les premières images
-            batch_colors = tf.concat([batch_colors, self.colors[:pad_size]], axis=0)
+            if self.do_color :
+                batch_colors = tf.concat([batch_colors, self.colors[:pad_size]], axis=0)
+                
+        if self.do_color :
+            batch_colors = tf.cast(tf.tile(batch_colors, [2, 1]), dtype=tf.float32)
+            labels_dict["color"] = batch_colors
 
         batch_masks = batch_images[:, :, :, 5]
         batch_images = batch_images[:, :, :, :5]
         batch_masks = tf.cast(tf.tile(batch_masks, [2, 1, 1]), dtype=bool)
         batch_images = tf.cast(tf.tile(batch_images, [2, 1, 1, 1]), dtype=tf.float32)
-        batch_colors = tf.cast(tf.tile(batch_colors, [2, 1]), dtype=tf.float32)
-        
-        
+
         augmented_images = self.process_batch(batch_images, batch_masks)
+        
+
+        if self.do_seg :
+            labels_dict["seg_mask"] = batch_masks
+        
+        if self.do_mask_band :
+            augmented_images = self.drop_band(augmented_images)
+
+        if self.do_mask_patch :
+            augmented_images = self.drop_patch(augmented_images)
+        
+        
+        
         #labels = tf.zeros((len(batch_images),), dtype=tf.float32)
         #labels = tf.cast(tf.tile(self.colors[index*self.batch_size:(index+1)*self.batch_size], [2, 1]), dtype=tf.float32)  # batch*2, 4
-        return augmented_images, batch_colors
+        return augmented_images, labels_dict
 
 
     def on_epoch_end(self):

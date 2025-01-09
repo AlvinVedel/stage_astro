@@ -39,7 +39,57 @@ def backbone(bn=True) :
     if bn :
         l1 = layers.BatchNormalization()(l1)
 
-    return keras.Model(inputs=inp, outputs=l1)
+    return keras.Model(inputs=inp, outputs=[l1, flat, c4])
+
+def segmentor(input_shape1=1024, input_shape2=(32, 32, 128)) :
+
+    inp = keras.Input(input_shape1)
+    deflat = layers.Reshape((8, 8, 16))(inp)
+    c1 = layers.Conv2D(256, kernel_size=3, strides=1, padding='same')(deflat)  # 8 8 256
+    c1 = layers.PReLU()(c1)
+    c1_r = layers.Reshape((16, 16, 64))(c1)  # 16 16 64
+    c2 = layers.Conv2D(256, kernel_size=3, strides=1, padding='same')(c1_r)
+    c2 = layers.PReLU()(c2)
+    c2_r = layers.Reshape((32, 32, 64))(c2)  #32 32 64
+    c3 = layers.Conv2D(128, strides=1, kernel_size=3, padding='same')(c2_r)
+    c3 = layers.PReLU()(c3)
+    inp2 = keras.Input(input_shape2)
+    conc = layers.Concatenate()([c3, inp2])
+    c4 = layers.Conv2D(256, kernel_size=3, padding='same', strides=1)(conc)  # 32 32 256
+    c4 = layers.PReLU()(c4)
+    c4_r = layers.Reshape((64, 64, 64))(c4)
+    segmentation = layers.Conv2D(1, kernel_size=3, padding='same', strides=1, activation='sigmoid')(c4_r)
+    return keras.Model([inp, inp2], segmentation)
+
+
+
+def deconvolutor(input_shape1=1024) :
+
+    inp = keras.Input(input_shape1)
+    l1 = layers.Dense(1024)(inp)
+    l1 = layers.PReLU()(l1) 
+
+    deflat = layers.Reshape((8, 8, 16))(inp)
+    c1 = layers.Conv2D(256, kernel_size=3, strides=1, padding='same')(deflat)  # 8 8 256
+    c1 = layers.PReLU()(c1)
+    c1 = layers.Conv2D(256, kernel_size=3, strides=1, padding='same')(c1)  # 8 8 256
+    c1 = layers.PReLU()(c1)
+    c1_r = layers.Reshape((16, 16, 64))(c1)  # 16 16 64
+    c2 = layers.Conv2D(256, kernel_size=3, strides=1, padding='same')(c1_r)
+    c2 = layers.PReLU()(c2)
+    c2 = layers.Conv2D(256, kernel_size=3, strides=1, padding='same')(c2)
+    c2 = layers.PReLU()(c2)
+    c2_r = layers.Reshape((32, 32, 64))(c2)  #32 32 64
+    c3 = layers.Conv2D(256, strides=1, kernel_size=3, padding='same')(c2_r)
+    c3 = layers.PReLU()(c3)
+    c4 = layers.Conv2D(256, kernel_size=3, padding='same', strides=1)(c3)  # 32 32 256
+    c4 = layers.PReLU()(c4)
+    c4_r = layers.Reshape((64, 64, 64))(c4)
+    c5 = layers.Conv2D(256, strides=1, kernel_size=3, padding='same')(c4_r)
+    c5 = layers.PReLU()(c5)
+    reconstruction = layers.Conv2D(5, kernel_size=3, padding='same', strides=1, activation='linear')(c5)
+    return keras.Model(inp, reconstruction)
+
 
 
 def mlp(input_shape=100):

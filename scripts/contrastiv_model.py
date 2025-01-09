@@ -175,43 +175,82 @@ class simCLRcolor3(keras.Model) :
 
 
 class simCLRmultitask(keras.Model) :
-    def __init__(self, backbone, head, regressors, aux_losses_names, aux_losses, temp=0.7) :
+    def __init__(self, backbone, head, do_color, color_head, do_seg, segmentor, do_reco, deconvolutor, temp=0.7) :
         super().__init__()
         self.backbone = backbone
         self.head = head
-        self.regressors = regressors
-        self.aux_losses_names = aux_losses_names
-        self.aux_losses = aux_losses
+        self.do_color = do_color
+        self.color_head = color_head
+        self.do_seg = do_seg
+        self.segmentor = segmentor
+        self.do_reco = do_reco
+        self.deconvolutor = deconvolutor
         self.temp=temp
         self.lam = 0.1
 
     def call(self, input, training=True) :
-        x = self.backbone(input, training=training)
+        x, flat, c4 = self.backbone(input, training=training)   # retourne fin du backbone, le résultat du flatten et de la conv4
         z = self.head(x, training=training)
-        outs = [pred(x, training=True) for pred in self.regressor]
-        return z, outs
+        output_dict = {"backbone_output":z}
+
+        if self.do_color :
+            c = self.color_head(x, training=training)
+            output_dict["color_output"] = c
+        if self.do_seg :
+            seg_mask = self.segmentor([flat, c4], training=training)
+            output_dict["seg_output"] = seg_mask
+        if self.do_reco :
+            recon = self.deconvolutor(flat, training=training)
+            output_dict["recon_output"] = recon      
+
+        return output_dict
 
     def train_step(self, data) : 
-        images, labels = data
+        images, labels_dict = data
 
         with tf.GradientTape(persistent=True) as tape :
-            z, outs = self(images)
+            output_dict = self(images)
 
-            contrastiv_loss = self.loss(z, self.temp)
+            contrastiv_loss = self.loss(output_dict["backbone_output"], self.temp)
 
-            aux_losses = []
-            for i, out in enumerate(outs) :
-                aux_losses.append(self.lam * self.aux_losses[i](labels[i], out))
+            loss_dict = {"contrastiv_loss":contrastiv_loss}
+
+            if self.do_color : 
+                color_labels = labels_dict["color"]
+                color_loss = self.lam * tf.keras.losses.mean_squared_error(color_labels[0], output_dict["color_output"])
+                loss_dict["color_loss"] = tf.reduce_mean(color_loss)
+
+            if self.do_seg : 
+                true_seg = labels_dict["seg_mask"]
+                pred_seg = output_dict["seg_output"]
+                seg_loss = tf.keras.losses.binary_crossentropy(true_seg, pred_seg)
+                loss_dict["seg_loss"] = tf.reduce_mean(seg_loss)
+
+            if self.do_reco :
+                #masked_indexes = labels_dict["masked_indexes"]
+                reconstruction = output_dict["recon_output"]
+                diff = tf.abs(images - reconstruction)
+                #diff = tf.abs(tf.where(masked_indexes, images, 0) - tf.where(masked_indexes, reconstruction, 0))
+                recon_loss = tf.reduce_mean(tf.math.log(diff + 1e-8), axis=(1, 2, 3))  # Stabilisation avec epsilon
+                loss_dict["recon_loss"] = tf.reduce_mean(recon_loss) 
 
 
-        loss_dict = {"contrastiv_loss":contrastiv_loss}
+        
         gradients = tape.gradient(contrastiv_loss, self.backbone.trainable_variables + self.head.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
 
-        for i, aux in enumerate(aux_losses) :
-            gradients = tape.gradient(aux, self.backbone.trainable_variables + self.regressors[i].trainable_variables)
-            self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.regressors[i].trainable_variables))
-            loss_dict[self.aux_losses_names[i]] = aux
+        if self.do_color :
+            gradients = tape.gradient(loss_dict["color_loss"], self.backbone.trainable_variables + self.color_head.trainable_variables)
+            self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.color_head.trainable_variables))
+
+        if self.do_seg :
+            gradients = tape.gradient(loss_dict["seg_loss"], self.backbone.trainable_variables + self.segmentor.trainable_variables)
+            self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.segmentor.trainable_variables))
+
+        if self.do_reco :
+            gradients = tape.gradient(loss_dict["recon_losss"], self.backbone.trainable_variables + self.deconvolutor.trainable_variables)
+            self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.deconvolutor.trainable_variables))
+
 
         del tape
         return loss_dict
@@ -356,8 +395,6 @@ class ContrastivLoss(keras.losses.Loss) :
     
 
 
-class COIN(keras.Model) :
-    def __init__(self, backbone, head)
 
 
 
