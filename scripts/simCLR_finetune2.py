@@ -69,7 +69,7 @@ def output_head(input_shape=1024) :
     l1 = layers.PReLU()(l1)
     l2 = layers.Dense(1024)(l1)
     l2 = layers.PReLU()(l2)
-    pdf = layers.Dense(300, activation='linear', name='pdf')(l2)
+    pdf = layers.Dense(300, activation='softmax', name='pdf')(l2)
     l3 = layers.Dense(512, activation='tanh')(l2)
     reg = layers.Dense(1, activation='linear')(l3)
     return keras.Model(inp, [pdf, reg])
@@ -99,7 +99,7 @@ class FineTuneModel(keras.Model) :
         else :
             latent = self.backbone(inputs, training=self.train_back)
         bins_prob, reg = self.head(latent, training=training)
-        return bins_prob, reg
+        return {"pdf":bins_prob, "reg":reg}
     
 def rotate_image(inputs):
     image, rotation = inputs
@@ -176,7 +176,7 @@ class DataGen(keras.utils.Sequence) :
         batch_images = batch_images[:, :, :, :5]
 
         augmented_images = self.process_batch(batch_images, batch_masks)
-        return augmented_images, (batch_z, batch_z2)
+        return augmented_images, {"pdf":batch_z, "reg":batch_z2}
 
     def on_epoch_end(self):
         indices = np.arange(0, self.images.shape[0], dtype=np.int32)
@@ -202,8 +202,8 @@ class LearningRateDecay(tf.keras.callbacks.Callback):
 
 bn=True
 
-weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_800.weights.h5"
-name = "UD_D800_classif_unibin300"
+weights_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_400.weights.h5"
+name = "UD_D400_classif_unibin300"
 
 
 for base in ["b1_1", "b2_1", "b3_1"] :
@@ -228,18 +228,18 @@ for base in ["b1_1", "b2_1", "b3_1"] :
     history = model1.fit(data_gen, epochs=n_epochs, callbacks=[LearningRateDecay()])
     model1.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_HeadOnly_base="+base+"_model="+name+".weights.h5")
 
-    plt.plot(np.arange(1, n_epochs+1), history.history["loss"])
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_loss"])
     plt.xlabel("epochs")
     plt.ylabel("loss (mae)")
     plt.title("finetuning loss")
     plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/loss_HeadOnly_base="+base+"_model="+name+".png")
     plt.close()
 
-    plt.plot(np.arange(1, n_epochs+1), history.history["global_bias"], label='biais moyen')
-    plt.plot(np.arange(1, n_epochs+1), history.history["bias1"], label='[0, 0.4[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["bias2"], label='[0.4, 2[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["bias3"], label='[2, 4[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["bias4"], label='[4, 6[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_global_bias"], label='biais moyen')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_bias1"], label='[0, 0.4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_bias2"], label='[0.4, 2[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_bias3"], label='[2, 4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_bias4"], label='[4, 6[')
     plt.xlabel("epochs")
     plt.ylabel("Bias")
     plt.legend()
@@ -247,11 +247,11 @@ for base in ["b1_1", "b2_1", "b3_1"] :
     plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/bias_HeadOnly_base="+base+"_model="+name+".png")
     plt.close()
 
-    plt.plot(np.arange(1, n_epochs+1), history.history["global_smad"], label='smad moyen')
-    plt.plot(np.arange(1, n_epochs+1), history.history["smad1"], label='[0, 0.4[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["smad2"], label='[0.4, 2[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["smad3"], label='[2, 4[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["smad4"], label='[4, 6[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_global_smad"], label='smad moyen')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_smad1"], label='[0, 0.4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_smad2"], label='[0.4, 2[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_smad3"], label='[2, 4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_smad4"], label='[4, 6[')
     plt.xlabel("epochs")
     plt.ylabel("Sigma MAD")
     plt.legend()
@@ -260,11 +260,11 @@ for base in ["b1_1", "b2_1", "b3_1"] :
     plt.close()
 
 
-    plt.plot(np.arange(1, n_epochs+1), history.history["global_outl"], label='outl moyen')
-    plt.plot(np.arange(1, n_epochs+1), history.history["outl1"], label='[0, 0.4[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["outl2"], label='[0.4, 2[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["outl3"], label='[2, 4[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["outl4"], label='[4, 6[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_global_outl"], label='outl moyen')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_outl1"], label='[0, 0.4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_outl2"], label='[0.4, 2[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_outl3"], label='[2, 4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_outl4"], label='[4, 6[')
     plt.xlabel("epochs")
     plt.ylabel("Outlier Fraction")
     plt.legend()
@@ -290,7 +290,7 @@ for base in ["b1_1", "b2_1", "b3_1"] :
     history = model1.fit(data_gen, epochs=n_epochs, callbacks=[LearningRateDecay()])
     model1.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_simCLR_finetune/simCLR_finetune_ALL_base="+base+"_model="+name+".weights.h5")
 
-    plt.plot(np.arange(1, n_epochs+1), history.history["loss"])
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_loss"])
     plt.xlabel("epochs")
     plt.ylabel("loss (mae)")
     plt.title("finetuning loss")
@@ -299,11 +299,11 @@ for base in ["b1_1", "b2_1", "b3_1"] :
 
 
 
-    plt.plot(np.arange(1, n_epochs+1), history.history["global_bias"], label='biais moyen')
-    plt.plot(np.arange(1, n_epochs+1), history.history["bias1"], label='[0, 0.4[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["bias2"], label='[0.4, 2[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["bias3"], label='[2, 4[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["bias4"], label='[4, 6[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_global_bias"], label='biais moyen')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_bias1"], label='[0, 0.4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_bias2"], label='[0.4, 2[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_bias3"], label='[2, 4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_bias4"], label='[4, 6[')
     plt.xlabel("epochs")
     plt.ylabel("Bias")
     plt.legend()
@@ -311,11 +311,11 @@ for base in ["b1_1", "b2_1", "b3_1"] :
     plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/bias_ALL_base="+base+"_model="+name+".png")
     plt.close()
 
-    plt.plot(np.arange(1, n_epochs+1), history.history["global_smad"], label='smad moyen')
-    plt.plot(np.arange(1, n_epochs+1), history.history["smad1"], label='[0, 0.4[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["smad2"], label='[0.4, 2[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["smad3"], label='[2, 4[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["smad4"], label='[4, 6[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_global_smad"], label='smad moyen')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_smad1"], label='[0, 0.4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_smad2"], label='[0.4, 2[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_smad3"], label='[2, 4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_smad4"], label='[4, 6[')
     plt.xlabel("epochs")
     plt.ylabel("Sigma MAD")
     plt.legend()
@@ -324,11 +324,11 @@ for base in ["b1_1", "b2_1", "b3_1"] :
     plt.close()
 
 
-    plt.plot(np.arange(1, n_epochs+1), history.history["global_outl"], label='outl moyen')
-    plt.plot(np.arange(1, n_epochs+1), history.history["outl1"], label='[0, 0.4[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["outl2"], label='[0.4, 2[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["outl3"], label='[2, 4[')
-    plt.plot(np.arange(1, n_epochs+1), history.history["outl4"], label='[4, 6[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_global_outl"], label='outl moyen')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_outl1"], label='[0, 0.4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_outl2"], label='[0.4, 2[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_outl3"], label='[2, 4[')
+    plt.plot(np.arange(1, n_epochs+1), history.history["reg_outl4"], label='[4, 6[')
     plt.xlabel("epochs")
     plt.ylabel("Outlier Fraction")
     plt.legend()

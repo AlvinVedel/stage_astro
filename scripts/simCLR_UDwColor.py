@@ -61,18 +61,18 @@ def color_head(input_shape=1024) :
 
 
 bn=True
-kind="ColorCosine"
+kind="ColorHead"
 
-#model = simCLRcolor1(backbone(bn), mlp(1024), color_head(1024))
-model = simCLRcolor2(backbone(bn), mlp(1024))
+model = simCLRcolor1(backbone(bn), mlp(1024), color_head(1024))
+#model = simCLRcolor2(backbone(bn), mlp(1024))
 model.compile(optimizer=keras.optimizers.Adam(1e-3), loss=ContrastivLoss())
 model(np.random.random((32, 64, 64, 5)))
-#model.load_weights("simCLR_cosmos100.weights.h5")
+model.load_weights("../model_save/checkpoints_simCLR_UD/simCLR_cosmos_bnTrue_400_ColorHead.weights.h5")
 
 
 data_gen = ColorGen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/phot/"], batch_size=256, extensions=["UD.npz"])
 
-iter = 1
+iter = 41
 while iter <= 100 :
     model.fit(data_gen, epochs=10)  # normalement 4mn max par epoch = 400mn 
     data_gen._load_data()

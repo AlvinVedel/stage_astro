@@ -467,6 +467,7 @@ class MultiGen(tf.keras.utils.Sequence):
         self.mean = None
         self.std = None
         self.file_tracker = {}
+        test = self.drop_band(np.random.random((32, 64, 64, 5)))
         self._find_paths(paths)
         self._load_data()
         self.on_epoch_end()
@@ -581,14 +582,15 @@ class MultiGen(tf.keras.utils.Sequence):
     
 
     def drop_band(self, images) :
-        probas = tf.random.uniform((tf.shape(images)[0], tf.shape(images)[-1]), 0, 1)
+        b, h, w, c = tf.shape(images)
+        probas = tf.random.uniform((b, c), 0, 1)
         band_to_drop = tf.argmax(probas, axis=1) # shape batch, 
-        prob_to_drop = tf.random.uniform(tf.shape(images)[0], 0, 1)
-        apply_drop = tf.cast(tf.less(prob_to_drop, 0.4), dtype=tf.float32)  # renvoie 0 ou 1 si inférieur à 0.4 ?  donc shape batch, 
+        prob_to_drop = tf.random.uniform((b,), 0, 1)
+        apply_drop = tf.cast(tf.less(prob_to_drop, 0.25), dtype=tf.float32)  # renvoie 0 ou 1 si inférieur à 0.4 ?  donc shape batch, 
 
         band_to_drop = tf.one_hot(band_to_drop, depth=tf.shape(images)[-1]) # batch, 5
         band_to_drop = tf.expand_dims(tf.expand_dims(band_to_drop, axis=1), axis=1)  # batch, 1, 1, 1
-        band_to_drop = 1 - tf.tile(band_to_drop, [1, tf.shape(images[1]), tf.shape(images)[2], 1])*tf.expand_dims(tf.expand_dims(tf.expand_dims(apply_drop, axis=-1), axis=-1), axis=-1)  # batch 64 64 5   avec que des 0 si apply drop vaut 0 donc que des 1
+        band_to_drop = 1 - tf.tile(band_to_drop, [1, h, w, 1])*tf.expand_dims(tf.expand_dims(tf.expand_dims(apply_drop, axis=-1), axis=-1), axis=-1)  # batch 64 64 5   avec que des 0 si apply drop vaut 0 donc que des 1
 
         dropped_band = images * band_to_drop
         return dropped_band
@@ -666,7 +668,7 @@ class MultiGen(tf.keras.utils.Sequence):
         
 
         if self.do_seg :
-            labels_dict["seg_mask"] = batch_masks
+            labels_dict["seg_mask"] = tf.expand_dims(batch_masks, axis=-1)
         
         if self.do_mask_band :
             augmented_images = self.drop_band(augmented_images)

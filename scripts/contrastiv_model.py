@@ -1,7 +1,7 @@
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
-
+from regularizers import CosineDistRegularizer, VarRegularizer, TripletCosineRegularizer
 
 
 class simCLR(keras.Model) :
@@ -31,28 +31,34 @@ class simCLR(keras.Model) :
     
 
 class simCLRcolor1(keras.Model) :
-    def __init__(self, backbone, head, mlp, temp=0.7) :
+    def __init__(self, backbone, head, mlp, regularizer=None, temp=0.7) :
         super().__init__()
         self.backbone = backbone
         self.head = head
         self.mlp=mlp
+        self.regularizer = regularizer
+        self.is_regu = True if regularizer is not None else False
         self.temp=temp
         self.lam = 0.1
 
+
     def call(self, input, training=True) :
-        x = self.backbone(input, training=training)
+        c1, c2, c3, c4, c5, c6, c7, c8, c9, f, l1, x = self.backbone(input, training=training)
         z = self.head(x, training=training)
         c = self.mlp(x, training=True)
-        return z, c
+        return z, c, x
 
     def train_step(self, data) : 
         images, labels = data
 
         with tf.GradientTape(persistent=True) as tape :
-            z, c = self(images)
+            z, c, x = self(images)
 
             contrastiv_loss = self.loss(z, self.temp)
             color_loss = self.lam * tf.keras.losses.MSE(labels, c)
+            
+            if self.is_regu :
+                regu_loss = self.regularizer(x, labels)
 
   
         gradients = tape.gradient(contrastiv_loss, self.backbone.trainable_variables + self.head.trainable_variables)
@@ -60,6 +66,12 @@ class simCLRcolor1(keras.Model) :
 
         gradients = tape.gradient(color_loss, self.backbone.trainable_variables + self.mlp.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.mlp.trainable_variables))
+
+        if self.is_regu :
+            gradients = tape.gradient(regu_loss, self.backbone.trainable_variables)
+            self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables))
+            del tape
+            return {"contrastiv_loss":contrastiv_loss, "mse_color_loss":color_loss, "regu_loss":regu_loss}
 
         del tape
         return {"contrastiv_loss":contrastiv_loss, "mse_color_loss":color_loss}
@@ -248,7 +260,7 @@ class simCLRmultitask(keras.Model) :
             self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.segmentor.trainable_variables))
 
         if self.do_reco :
-            gradients = tape.gradient(loss_dict["recon_losss"], self.backbone.trainable_variables + self.deconvolutor.trainable_variables)
+            gradients = tape.gradient(loss_dict["recon_loss"], self.backbone.trainable_variables + self.deconvolutor.trainable_variables)
             self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.deconvolutor.trainable_variables))
 
 

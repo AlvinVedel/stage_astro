@@ -11,7 +11,7 @@
 #SBATCH --time=20:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
 #SBATCH --output=../logs/compute_all_metrics_%j.out      # nom du fichier de sortie
 #SBATCH --error=../logs/compute_all_metrics_%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
-#SBATCH --qos=qos_gpu-t4 
+#SBATCH --qos=qos_gpu-t3 
 
 module purge
 

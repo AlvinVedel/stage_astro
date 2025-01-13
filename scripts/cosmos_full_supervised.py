@@ -138,7 +138,7 @@ class DataGen(keras.utils.Sequence) :
         self.z_values = meta[:, 6]
         self.z_values = self.z_values.astype("float32")
         print("Z VALS", self.z_values)
-        
+        #bins_edges = np.linspace(0, 6, 300)
         bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
         self.z_bins = np.zeros((len(self.z_values)))
         for j, z in enumerate(self.z_values) :
@@ -213,14 +213,14 @@ base_names = ["b1_1", "b2_1", "b3_1"]
 for base in base_names :
 
     model = backbone()
-    gen = DataGen(base_path+base+"_v2.npz", batch_size=32)
+    gen = DataGen(base_path+base+"_v3.npz", batch_size=32)
     n_epochs = 50
     model.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss={"pdf" : tf.keras.losses.SparseCategoricalCrossentropy(), "reg":tf.keras.losses.MeanAbsoluteError()}, 
                   metrics= {"pdf":["accuracy"], "reg" :[Bias(name='global_bias'), SigmaMAD(name='global_smad'), OutlierFraction(name='global_outl'),Bias(inf=0, sup=0.4, name='bias1'), Bias(inf=0.4, sup=2, name='bias2'), Bias(inf=2, sup=4, name='bias3'), Bias(inf=4, sup=6, name='bias4'), 
                   SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'), OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='outl3'), OutlierFraction(inf=4, sup=6, name='outl4')]})
     history = model.fit(gen, epochs=n_epochs, callbacks=[LearningRateScheduler()])
 
-    model.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_supervised/backbone_supervised_"+base+".weights.h5")
+    model.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_supervised/backbone_supervised_v3_"+base+".weights.h5")
 
     print("history keys :", history.history.keys())
 

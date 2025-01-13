@@ -4,6 +4,7 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers
 from contrastiv_model import simCLRcolor1, ContrastivLoss, simCLRcolor2
 from simCLR_generator import ColorGen
+from regularizers import VarRegularizer, TripletCosineRegularizer, CosineDistRegularizer
 import os 
 os.environ["CUDA_VISIBLE_DEVICES"] = '0, 1'
 import time
@@ -61,13 +62,15 @@ def color_head(input_shape=1024) :
 
 
 bn=True
-kind="ColorHead"
+kind="ColorHead_CosineDistRegu"
 
-model = simCLRcolor1(backbone(bn), mlp(1024), color_head(1024))
+#model = simCLRcolor1(backbone(bn), mlp(1024), color_head(1024), regularizer=VarRegularizer())
+#model = simCLRcolor1(backbone(bn), mlp(1024), color_head(1024), regularizer=TripletCosineRegularizer())
+model = simCLRcolor1(backbone(bn), mlp(1024), color_head(1024), regularizer=CosineDistRegularizer())
 #model = simCLRcolor2(backbone(bn), mlp(1024))
 model.compile(optimizer=keras.optimizers.Adam(1e-3), loss=ContrastivLoss())
 model(np.random.random((32, 64, 64, 5)))
-#model.load_weights("simCLR_cosmos100.weights.h5")
+#model.load_weights("../model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_400_ColorHead.weights.h5")
 
 
 data_gen = ColorGen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/phot/"], batch_size=256, extensions=["UD.npz", '_D.npz'])

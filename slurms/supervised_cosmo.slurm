@@ -24,7 +24,7 @@
 #SBATCH --time=10:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
 #SBATCH --output=../logs/supervised_cosmo_log%j.out      # nom du fichier de sortie
 #SBATCH --error=../logs/supervised_cosmo_log%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
-#SBATCH --qos=qos_gpu-t4
+#SBATCH --qos=qos_gpu-t3
  
 # Nettoyage des modules charges en interactif et herites par defaut
 module purge

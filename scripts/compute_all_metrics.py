@@ -200,7 +200,7 @@ def z_med(probas, bin_central_values) :
     index = np.argmax(cdf>=0.5)
     return bin_central_values[index]
 
-
+plots_name = "Var_Multi_200"
 path_memory = {}
 
 for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE CONDITION D ENTRAINEMENT ON VA AVOIR UN SUBPLOT
@@ -229,14 +229,14 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
 
         #npz_files = [f for f in os.listdir(directory) if f.endswith(inf_base+'.npz')]   ## Récupère les fichiers sur lesquels inférer
 
-        simbases = ["fullsupervised", "UD800_classif", "UD_D800_classif"] #    , "UD800_classif","UD_D800_classif"]
+        simbases = ["UD_D200_ColorHead_VarRegu", "UD200_Multitask"] #    , "UD800_classif","UD_D800_classif"]
         iter=0
         #model_liste = ["simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"]
-        for k in range((len(simbases)*2)-1) :
-            if k == 0 :
+        for k in range((len(simbases)*2)) :
+            if k == -1 :
                 #model_name = base_path+"model_save/checkpoints_supervised/treyer_supervised_"+finetune_base+".weights.h5"
-                model_name = "../model_save/checkpoints_supervised/backbone_supervised_"+finetune_base+".weights.h5"
-                tag_name = "treyer"
+                model_name = "../model_save/checkpoints_supervised/backbone_supervised_v3_"+finetune_base+".weights.h5"
+                tag_name = "supervised_v3"
                 treyer = True
 
                 model = backbone_sup(True)#create_model()
@@ -244,9 +244,9 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
                 model(np.random.random((32, 64, 64, 5)))
 
             else :
-                print("iter=",iter, "donc", str(iter//(len(simbases)-1)), str(iter%(len(simbases)-1)+1) )
-                cond = "HeadOnly" if iter//(len(simbases)-1)==0 else "ALL"
-                sim_base = simbases[(iter%(len(simbases)-1))+1]
+                print("iter=",iter, "donc", str(iter//(len(simbases))), str(iter%(len(simbases))) )
+                cond = "HeadOnly" if iter//(len(simbases))==0 else "ALL"
+                sim_base = simbases[(iter%(len(simbases)))]
                 #model_name = base_path+"model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
                 model_name = "../model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
                 tag_name = 'sim_'+sim_base+"_"+cond
@@ -265,7 +265,7 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
                     pred_z = []
                     
 
-                   
+                    #bins_edges = np.linspace(0, 6, 300)
                     bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
                     bins_centres = (bins_edges[1:] + bins_edges[:-1])/2
 
@@ -487,26 +487,26 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
 
 
     fig1.suptitle("redshift estimation heatmap")
-    fig1.savefig(base_path+"plots/simCLR/all_heatmaps_classif_"+finetune_base+".png")
+    fig1.savefig(base_path+"plots/simCLR/all_heatmaps_classif_"+plots_name+"_"+finetune_base+".png")
     plt.close(fig1)
 
     fig2.suptitle("prediction bias")
-    fig2.savefig(base_path+"plots/simCLR/all_bias_classif_"+finetune_base+".png")
+    fig2.savefig(base_path+"plots/simCLR/all_bias_classif_"+plots_name+"_"+finetune_base+".png")
     plt.close(fig2)
 
     fig3.suptitle("sigma MAD")
-    fig3.savefig(base_path+"plots/simCLR/all_smad_classif_"+finetune_base+".png")
+    fig3.savefig(base_path+"plots/simCLR/all_smad_classif_"+plots_name+"_"+finetune_base+".png")
     plt.close(fig3)
 
     fig4.suptitle("outlier fraction")
-    fig4.savefig(base_path+"plots/simCLR/all_outl_classif_"+finetune_base+".png")
+    fig4.savefig(base_path+"plots/simCLR/all_outl_classif_"+plots_name+"_"+finetune_base+".png")
     plt.close(fig4)
 
 
 import pandas as pd
 
 df = pd.DataFrame(data_frame)
-df.to_csv("metrics_inference_v2.csv", index=False)
+df.to_csv("metrics_inference_v2_"+plots_name+".csv", index=False)
 
 
 
