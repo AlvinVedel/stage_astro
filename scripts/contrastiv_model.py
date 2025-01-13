@@ -11,8 +11,11 @@ class simCLR(keras.Model) :
         self.head = head
         self.temp=temp
 
-    def call(self, input, training=True) :
-        x = self.backbone(input, training=training)
+    def call(self, input, training=True, return_all=True) :
+        if return_all :
+            c1, c2, c3, c4, c5, c6, c7, c8, c9, flat, l1, x = self.backbone(input, training=training)
+        else :
+            x = self.backbone(input, training=training)
         z = self.head(x, training=training)
         return z
 
@@ -43,7 +46,7 @@ class simCLRcolor1(keras.Model) :
 
 
     def call(self, input, training=True) :
-        c1, c2, c3, c4, c5, c6, c7, c8, c9, f, l1, x = self.backbone(input, training=training)
+        x = self.backbone(input, training=training)
         z = self.head(x, training=training)
         c = self.mlp(x, training=True)
         return z, c, x

@@ -85,11 +85,10 @@ def backbone(bn=True) :
 
     l1 = layers.Dense(1024)(flat) 
     l1 = layers.PReLU()(l1)
-    l1_save = l1
     if bn :
         l1 = layers.BatchNormalization()(l1)
 
-    return keras.Model(inputs=inp, outputs=[c1, c2, c3, c4, c5, c6, c7, c8, c9, flat, l1_save, l1])
+    return keras.Model(inputs=inp, outputs=l1)
 
 
 def mlp(input_shape=100):
@@ -111,8 +110,8 @@ def color_mlp() :
 
 bn=True
 
-model = simCLRcolor1(backbone(), mlp(1024), color_mlp())
-#model = simCLR(backbone(), mlp(1024))
+#model = simCLRcolor1(backbone(), mlp(1024), color_mlp())
+model = simCLR(backbone(), mlp(1024))
 #model = simCLR(treyer_backbone(bn=True), mlp(1024))
 model.compile(optimizer=keras.optimizers.Adam(1e-3), loss=ContrastivLoss())
 model(np.random.random((32, 64, 64, 5)))
@@ -123,20 +122,7 @@ batch_size=250
 data_gen = Gen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/phot/"], 
                batch_size=batch_size, extensions=["UD.npz", "_D.npz"])
 
-c1, c2, c3, c4, c5, c6, c7, c8, c9, flat, l1, l1_bn = model.backbone(data_gen.images[:200, :, :, :5])
-print("1", np.min(c1), np.max(c1), np.var(c1))
-print("2", np.min(c2), np.max(c2), np.var(c2))
-print("3", np.min(c3), np.max(c3), np.var(c3))
-print("4", np.min(c4), np.max(c4), np.var(c4))
-print("5", np.min(c5), np.max(c5), np.var(c5))
-print("6", np.min(c6), np.max(c6), np.var(c6))
-print("7", np.min(c7), np.max(c7), np.var(c7))
-print("8", np.min(c8), np.max(c8), np.var(c8))
-print("9", np.min(c9), np.max(c9), np.var(c9))
-print(flat, np.min(flat), np.max(flat), np.var(flat))
-print(l1, np.min(l1), np.max(l1), np.var(l1))
-print(l1_bn, np.min(l1_bn), np.max(l1_bn), np.var(l1_bn))
-toto()
+
 
 iter = 1
 while iter <= 1000 :

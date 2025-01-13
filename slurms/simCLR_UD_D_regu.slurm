@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=simCLR_UD_D          # nom du job
+#SBATCH --job-name=simCLR_UD_D_regu          # nom du job
 # Il est possible d'utiliser une autre partition que celle par défaut
 # en activant l'une des 5 directives suivantes :
 ##SBATCH -C v100-16g                 # decommenter pour reserver uniquement des GPU V100 16 Go
@@ -21,9 +21,9 @@
 ##SBATCH --cpus-per-task=24           # nombre de CPU par tache pour gpu_p6 (1/4 des CPU du noeud 4-GPU H100)
 # /!\ Attention, "multithread" fait reference à l'hyperthreading dans la terminologie Slurm
 #SBATCH --hint=nomultithread         # hyperthreading desactive
-#SBATCH --time=100:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
-#SBATCH --output=../logs/simCLR_UD_D_log%j.out      # nom du fichier de sortie
-#SBATCH --error=../logs/simCLR_UD_D_log%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
+#SBATCH --time=80:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
+#SBATCH --output=../logs/simCLR_UD_D_regu_log%j.out      # nom du fichier de sortie
+#SBATCH --error=../logs/simCLR_UD_D_regu_log%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
 #SBATCH --qos=qos_gpu-t4
  
 # Nettoyage des modules charges en interactif et herites par defaut
@@ -46,4 +46,4 @@ set -x
 # Pour les partitions "gpu_p5" et "gpu_p6", le code doit etre compile avec les modules compatibles
 # avec la partition choisie
 # Execution du code
-python -u ../scripts/simCLR_UD_D.py
+python -u ../scripts/simCLR_UD_D_regu.py

@@ -36,10 +36,11 @@ def backbone(bn=True) :
 
     l1 = layers.Dense(1024)(flat) 
     l1 = layers.PReLU()(l1)
+    l1_save = l1
     if bn :
         l1 = layers.BatchNormalization()(l1)
 
-    return keras.Model(inputs=inp, outputs=l1)
+    return keras.Model(inputs=inp, outputs=[c5, c8, flat, l1, l1_save])
 
 
 def mlp(input_shape=100):
@@ -60,6 +61,8 @@ model(np.random.random((32, 64, 64, 5)))
 
 
 data_gen = Gen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/phot/"], batch_size=256, extensions=["UD.npz"])
+
+o1, o2, o3, o4 = 
 
 iter = 1
 while iter <= 100 :
