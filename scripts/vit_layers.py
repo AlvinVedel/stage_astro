@@ -57,6 +57,40 @@ class Block(tf.keras.Model) :
         
         return x
 
+
+class PatchExtractor(tf.keras.layers.Layer) :
+    def __init__(self, patch_size, embed_size=512) :
+        super().__init__()
+        self.patch_size=patch_size
+        self.embed_size = embed_size
+        self.patch_conv = tf.keras.layers.Conv2D(filters=self.embed_size, kernel_size=(self.patch_size, self.patch_size), strides=(self.patch_size, self.patch_size), padding='valid', activation='linear')
+
+
+    def call(self, inputs) :
+        res_conv = self.patch_conv(inputs)  # shape batch, H, W, filtres
+        return tf.reshape(res_conv, (tf.shape(res_conv)[0], -1, tf.shape(res_conv)[-1]))  # shape BATCH, N_PATCH, EMBED_DIM
+    
+
+class ViT_backbone(tf.keras.layers.Layer) :
+    def __init__(self, embed_dim=256, num_blocks=4, num_heads=8, gp='average') :
+        super().__init__()
+        self.embed_dim=embed_dim
+        self.patch_master = PatchExtractor(4, embed_size=self.embed_dim)
+        self.blocks = [Block(embed_dim=self.embed_dim, num_heads=num_heads) for i in range(num_blocks)]
+        if gp == "average" :
+            self.last_pool = layers.GlobalAveragePooling1D()
+        else :
+            self.last_pool = layers.GlobalMaxPooling1D()
+
+    def call(self, inputs) :
+        x = self.patch_master(inputs) 
+        for i in range(len(self.blocks)) :
+            x = self.blocks[i](x)
+        
+        return self.last_pool(x)
+
+
+
 class Backbone(tf.keras.Model) :
     def __init__(self, img_size=64, patch_size=4, embed_dim=576, num_blocks=6) :
         super().__init__()

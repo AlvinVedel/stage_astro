@@ -93,10 +93,9 @@ def backbone(bn=True) :
 
 def mlp(input_shape=100):
     latent_input = keras.Input((input_shape))
-    x = layers.Dense(512, activation='linear', kernel_regularizer=tf.keras.regularizers.l2(5e-7), bias_regularizer=tf.keras.regularizers.l2(5e-7))(latent_input)
-    x = layers.BatchNormalization()(x)
+    x = layers.Dense(512, activation='linear')(latent_input)
     x = layers.PReLU()(x)
-    x = layers.Dense(256, activation='linear', kernel_regularizer=tf.keras.regularizers.l2(5e-7), bias_regularizer=tf.keras.regularizers.l2(5e-7))(x)
+    x = layers.Dense(256, activation='linear', activity_regularizer=tf.keras.regularizers.L1L2(l1=1e-3, l2=1e-2))(x)
     return keras.Model(latent_input, x)
 
 def color_mlp() :

@@ -6,47 +6,21 @@ from contrastiv_model import simCLRcolor1, ContrastivLoss, simCLRcolor2
 from simCLR_generator import ColorGen
 from regularizers import VarRegularizer, TripletCosineRegularizer, CosineDistRegularizer
 import os 
+from vit_layers import Block, ViT_backbone
 os.environ["CUDA_VISIBLE_DEVICES"] = '0, 1'
 import time
 
 
-def backbone() :
-    inp = keras.Input((64, 64, 5))
-    c1 = layers.Conv2D(96, padding='same', strides=1, kernel_size=3)(inp) # 64
-    c1 = layers.PReLU()(c1) 
-    c2 = layers.Conv2D(96, padding='same', kernel_size=3, strides=1, activation='tanh')(c1)  #64
-    p1 = layers.AveragePooling2D((2, 2))(c2)  # 32
-    c3 = layers.Conv2D(128, padding='same', strides=1, kernel_size=3)(p1)
-    c3 = layers.PReLU()(c3)
-    c4 = layers.Conv2D(128, padding='same', kernel_size=3, strides=1)(c3)  #32
-    c4 = layers.PReLU(name='c4')(c4) 
-    p2 = layers.AveragePooling2D((2, 2))(c4)  # 16
-    c5 = layers.Conv2D(256, padding='same', strides=1, kernel_size=3)(p2) #16
-    c5 = layers.PReLU()(c5)
-    c6 = layers.Conv2D(256, padding='same', kernel_size=3, strides=1)(c5)  #16
-    c6 = layers.PReLU()(c6)
-    p3 = layers.AveragePooling2D((2, 2))(c6) # 8
-    c7 = layers.Conv2D(256, kernel_size=3, strides=1, padding='valid')(p3) # 6
-    c7 = layers.PReLU()(c7)
-    c8 = layers.Conv2D(256, kernel_size=3, strides=1, padding='valid')(c7) # 4
-    c8 = layers.PReLU()(c8)
-    c9 = layers.Conv2D(256, padding='valid', kernel_size=3, strides=1)(c8) # 2, 2, 256
-    c9 = layers.PReLU()(c9)
-    
-    flat = layers.Flatten(name='flatten')(c9) # 2, 2, 256 = 1024 
-
-    l1 = layers.Dense(1024)(flat) 
-    l1 = layers.PReLU()(l1)
-   
-    return keras.Model(inputs=inp, outputs=l1)
-
 
 def mlp(input_shape=100):
     latent_input = keras.Input((input_shape))
-    x = layers.Dense(512, activation='linear')(latent_input)
+    x = layers.Dense(512, activation='linear', kernel_regularizer=tf.keras.regularizers.l2(5e-7), bias_regularizer=tf.keras.regularizers.l2(5e-7))(latent_input)
+    x = layers.BatchNormalization()(x)
     x = layers.PReLU()(x)
-    x = layers.Dense(256, activation='linear', activity_regularizer=tf.keras.regularizer.L1L2(l1=1e-3, l2=1e-2))(x)
+    x = layers.Dense(256, activation='linear', kernel_regularizer=tf.keras.regularizers.l2(5e-7), bias_regularizer=tf.keras.regularizers.l2(5e-7))(x)
     return keras.Model(latent_input, x)
+
+
 
 def color_head(input_shape=1024) :
     latent_input = keras.Input((input_shape))
@@ -59,11 +33,11 @@ def color_head(input_shape=1024) :
 
 
 bn=True
-kind="ColorHead_Regularized"
+kind="ViTback_ColorHead"
 
-#model = simCLRcolor1(backbone(bn), mlp(1024), color_head(1024), regularizer=VarRegularizer())
+model = simCLRcolor1(ViT_backbone(embed_dim=256, num_blocks=4, num_heads=8, gp='average'), mlp(1024), color_head(1024), regularizer=None)
 #model = simCLRcolor1(backbone(bn), mlp(1024), color_head(1024), regularizer=TripletCosineRegularizer())
-model = simCLRcolor1(backbone(bn), mlp(1024), color_head(1024), regularizer=None)
+#model = simCLRcolor1(backbone(bn), mlp(1024), color_head(1024), regularizer=CosineDistRegularizer())
 #model = simCLRcolor2(backbone(bn), mlp(1024))
 model.compile(optimizer=keras.optimizers.Adam(1e-3), loss=ContrastivLoss())
 model(np.random.random((32, 64, 64, 5)))

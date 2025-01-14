@@ -25,12 +25,14 @@ class simCLR(keras.Model) :
             z = self(images)
 
             contrastiv_loss = self.loss(z, self.temp)
+
+            regu = sum(self.losses)
   
-        gradients = tape.gradient(contrastiv_loss, self.backbone.trainable_variables + self.head.trainable_variables)
+        gradients = tape.gradient(contrastiv_loss+regu, self.backbone.trainable_variables + self.head.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
 
         del tape
-        return {"contrastiv_loss":contrastiv_loss}
+        return {"contrastiv_loss":contrastiv_loss, "regularization" : regu}
     
 
 class simCLRcolor1(keras.Model) :
@@ -63,8 +65,10 @@ class simCLRcolor1(keras.Model) :
             if self.is_regu :
                 regu_loss = self.regularizer(x, labels)
 
+            regularizers = sum(self.losses)
+
   
-        gradients = tape.gradient(contrastiv_loss, self.backbone.trainable_variables + self.head.trainable_variables)
+        gradients = tape.gradient(contrastiv_loss+regularizers, self.backbone.trainable_variables + self.head.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
 
         gradients = tape.gradient(color_loss, self.backbone.trainable_variables + self.mlp.trainable_variables)
@@ -77,7 +81,7 @@ class simCLRcolor1(keras.Model) :
             return {"contrastiv_loss":contrastiv_loss, "mse_color_loss":color_loss, "regu_loss":regu_loss}
 
         del tape
-        return {"contrastiv_loss":contrastiv_loss, "mse_color_loss":color_loss}
+        return {"contrastiv_loss":contrastiv_loss, "activity_regu":regularizers, "mse_color_loss":color_loss}
     
 
 class simCLRcolor2(keras.Model) :
