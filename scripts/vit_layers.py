@@ -59,23 +59,31 @@ class Block(tf.keras.Model) :
 
 
 class PatchExtractor(tf.keras.layers.Layer) :
-    def __init__(self, patch_size, embed_size=512) :
+    def __init__(self, patch_size=4, embed_size=512, image_size=64) :
         super().__init__()
         self.patch_size=patch_size
         self.embed_size = embed_size
         self.patch_conv = tf.keras.layers.Conv2D(filters=self.embed_size, kernel_size=(self.patch_size, self.patch_size), strides=(self.patch_size, self.patch_size), padding='valid', activation='linear')
-
+        self.num_patches = (image_size // patch_size) ** 2
+        self.positional_embedding = self.add_weight(
+                "positional_embedding",
+                shape=(self.num_patches, self.embed_size),
+                initializer="random_normal",
+                trainable=True
+            )
 
     def call(self, inputs) :
         res_conv = self.patch_conv(inputs)  # shape batch, H, W, filtres
-        return tf.reshape(res_conv, (tf.shape(res_conv)[0], -1, tf.shape(res_conv)[-1]))  # shape BATCH, N_PATCH, EMBED_DIM
+        patch_embedding = tf.reshape(res_conv, (tf.shape(res_conv)[0], -1, tf.shape(res_conv)[-1]))  # shape BATCH, N_PATCH, EMBED_DIM
+        patch_embedding += self.positional_embedding
+        return patch_embedding
     
 
 class ViT_backbone(tf.keras.layers.Layer) :
-    def __init__(self, embed_dim=256, num_blocks=4, num_heads=8, gp='average') :
+    def __init__(self, embed_dim=256, num_blocks=4, num_heads=8, patch_size=4, gp='average') :
         super().__init__()
         self.embed_dim=embed_dim
-        self.patch_master = PatchExtractor(4, embed_size=self.embed_dim)
+        self.patch_master = PatchExtractor(patch_size, embed_size=self.embed_dim, image_size=64)
         self.blocks = [Block(embed_dim=self.embed_dim, num_heads=num_heads) for i in range(num_blocks)]
         if gp == "average" :
             self.last_pool = layers.GlobalAveragePooling1D()
@@ -87,7 +95,7 @@ class ViT_backbone(tf.keras.layers.Layer) :
         for i in range(len(self.blocks)) :
             x = self.blocks[i](x)
         
-        return self.last_pool(x)
+        return self.last_pool(x)   # sortie B, N
 
 
 

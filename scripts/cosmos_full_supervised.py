@@ -4,6 +4,7 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers
 from astro_metrics import Bias, SigmaMAD, OutlierFraction
 import matplotlib.pyplot as plt
+from vit_layers import ViT_backbone
 
 
 import os
@@ -111,6 +112,19 @@ def backbone(bn=True) :
 
 
 
+def ViT_model() :
+    back = ViT_backbone(256, 4, 8, 'average')
+    inp = keras.Input((64, 64, 5))
+    x = back(inp)
+    x = layers.Dense(1024)(x)
+    x1 = layers.PReLU()(x)
+    x2 = layers.Dense(1024)(x1)
+    x2 = layers.PReLU()(x2)
+    pdf = layers.Dense(400, activation='softmax', name='pdf')(x2)
+    x3 = layers.Dense(512, activation='tanh')(x1)
+    reg = layers.Dense(1, activation='linear', name='reg')(x3)
+    return keras.Model(inp, [pdf, reg])
+
 
 
 def rotate_image(inputs):
@@ -213,14 +227,14 @@ base_names = ["b1_1", "b2_1", "b3_1"]
 for base in base_names :
 
     model = backbone()
-    gen = DataGen(base_path+base+"_v3.npz", batch_size=32)
+    gen = DataGen(base_path+base+"_v2.npz", batch_size=32)
     n_epochs = 50
     model.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss={"pdf" : tf.keras.losses.SparseCategoricalCrossentropy(), "reg":tf.keras.losses.MeanAbsoluteError()}, 
                   metrics= {"pdf":["accuracy"], "reg" :[Bias(name='global_bias'), SigmaMAD(name='global_smad'), OutlierFraction(name='global_outl'),Bias(inf=0, sup=0.4, name='bias1'), Bias(inf=0.4, sup=2, name='bias2'), Bias(inf=2, sup=4, name='bias3'), Bias(inf=4, sup=6, name='bias4'), 
                   SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'), OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='outl3'), OutlierFraction(inf=4, sup=6, name='outl4')]})
     history = model.fit(gen, epochs=n_epochs, callbacks=[LearningRateScheduler()])
 
-    model.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_supervised/backbone_supervised_v3_"+base+".weights.h5")
+    model.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_supervised/vit_backbone_supervised_v2_"+base+".weights.h5")
 
     print("history keys :", history.history.keys())
 
@@ -228,7 +242,7 @@ for base in base_names :
     plt.xlabel("epochs")
     plt.ylabel("loss (mae)")
     plt.title("supervised loss")
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/loss_backbone_base="+base+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/loss_vit_base="+base+".png")
     plt.close()
 
 
@@ -241,7 +255,7 @@ for base in base_names :
     plt.ylabel("Bias")
     plt.legend()
     plt.title("supervised bias")
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/bias_backbone_base="+base+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/bias_vit_base="+base+".png")
     plt.close()
 
     plt.plot(np.arange(1, n_epochs+1), history.history["reg_global_smad"], label='smad moyen')
@@ -253,7 +267,7 @@ for base in base_names :
     plt.ylabel("Sigma MAD")
     plt.legend()
     plt.title("supervised smad")
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/smad_backbone_base="+base+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/smad_vit_base="+base+".png")
     plt.close()
 
 
@@ -266,7 +280,7 @@ for base in base_names :
     plt.ylabel("Outlier Fraction")
     plt.legend()
     plt.title("supervised outl")
-    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/outl_backbone_base="+base+".png")
+    plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/outl_vit_base="+base+".png")
     plt.close()
 
 
