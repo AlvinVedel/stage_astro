@@ -1,230 +1,74 @@
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
-from regularizers import CosineDistRegularizer, VarRegularizer, TripletCosineRegularizer
+import random
 
 
 class simCLR(keras.Model) :
-    def __init__(self, backbone, head, temp=0.7) :
+    def __init__(self, backbone, head, regularization={"do":False}, color_head={"do":False}, segmentor={"do":False}, deconvolutor={"do":False}, 
+                 adversarial={"do":False, "metric":tf.keras.metrics.BinaryAccuracy()}, intermediaires_outputs=None, temp=0.7) :
         super().__init__()
         self.backbone = backbone
         self.head = head
+        self.regu_params = regularization
+        self.color_params = color_head
+        self.segm_params = segmentor
+        self.recon_params = deconvolutor
+        self.adversarial_params = adversarial
+        if intermediaires_outputs is not None :
+            self.backbone = keras.Model(inputs=self.backbone.input, outputs=[self.backbone.layers[-1].output]+[self.backbone.layers[i].output for i in intermediaires_outputs])
         self.temp=temp
+        self.lam = 0.1
 
-    def call(self, input, training=True, return_all=True) :
-        if return_all :
-            c1, c2, c3, c4, c5, c6, c7, c8, c9, flat, l1, x = self.backbone(input, training=training)
+    def call(self, input, training=True) :
+        outputs = self.backbone(input, training=training)   # retourne fin du backbone, le résultat du flatten et de la conv4
+
+        if isinstance(outputs, list) :
+
+            z = self.head(outputs[0], training=training)
+            output_dict = {"backbone_output":z}
+
+
+            if self.regu_params["do"] :
+                output_dict["latent_output"] = outputs[0]
+
+            if self.color_params["do"] :
+                c = self.color_params["network"](outputs[0], training=training)
+                output_dict["color_output"] = c
+
+            if self.segm_params["do"] :
+                flat = outputs[self.segm_params["need"][0]]
+                c4 = outputs[self.segm_params["need"][1]]
+                seg_mask = self.segm_params["network"]([flat, c4], training=training)
+                output_dict["seg_output"] = seg_mask
+
+            if self.recon_params["do"] :
+                flat = outputs[self.recon_params["need"][0]]
+                recon = self.recon_params["network"](flat, training=training)
+                output_dict["recon_output"] = recon      
+
+
+            if self.adversarial_params["do"] :
+
+                flat = outputs[self.adversarial_params["need"][0]]
+                probas = self.adversarial_params["network"](flat, training=training)
+                output_dict["adversarial_output"] = probas
+
         else :
-            x = self.backbone(input, training=training)
-        z = self.head(x, training=training)
-        return z
 
-    def train_step(self, data) : 
-        images, labels = data
-        with tf.GradientTape(persistent=True) as tape :
-            z = self(images)
+            z = self.head(outputs, training=training)
+            output_dict = {"backbone_output":z}
 
-            contrastiv_loss = self.loss(z, self.temp)
+            if self.color_params["do"] :
+                c = self.color_params["network"](outputs, training=training)
+                output_dict["color_output"] = c
 
-            regu = sum(self.losses)
-  
-        gradients = tape.gradient(contrastiv_loss+regu, self.backbone.trainable_variables + self.head.trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
-
-        del tape
-        return {"contrastiv_loss":contrastiv_loss, "regularization" : regu}
-    
-
-class simCLRcolor1(keras.Model) :
-    def __init__(self, backbone, head, mlp, regularizer=None, temp=0.7) :
-        super().__init__()
-        self.backbone = backbone
-        self.head = head
-        self.mlp=mlp
-        self.regularizer = regularizer
-        self.is_regu = True if regularizer is not None else False
-        self.temp=temp
-        self.lam = 0.1
-
-
-    def call(self, input, training=True) :
-        x = self.backbone(input, training=training)
-        z = self.head(x, training=training)
-        c = self.mlp(x, training=True)
-        return z, c, x
-
-    def train_step(self, data) : 
-        images, labels = data
-
-        with tf.GradientTape(persistent=True) as tape :
-            z, c, x = self(images)
-
-            contrastiv_loss = self.loss(z, self.temp)
-            color_loss = self.lam * tf.keras.losses.MSE(labels, c)
-            
-            if self.is_regu :
-                regu_loss = self.regularizer(x, labels)
-
-            regularizers = sum(self.losses)
-
-  
-        gradients = tape.gradient(contrastiv_loss+regularizers, self.backbone.trainable_variables + self.head.trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
-
-        gradients = tape.gradient(color_loss, self.backbone.trainable_variables + self.mlp.trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.mlp.trainable_variables))
-
-        if self.is_regu :
-            gradients = tape.gradient(regu_loss, self.backbone.trainable_variables)
-            self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables))
-            del tape
-            return {"contrastiv_loss":contrastiv_loss, "mse_color_loss":color_loss, "regu_loss":regu_loss}
-
-        del tape
-        return {"contrastiv_loss":contrastiv_loss, "activity_regu":regularizers, "mse_color_loss":color_loss}
-    
-
-class simCLRcolor2(keras.Model) :
-    def __init__(self, backbone, head, temp=0.7) :
-        super().__init__()
-        self.backbone = backbone
-        self.head = head
-        self.temp=temp
-        self.lam = 0.05
-
-    def call(self, input, training=True) :
-        x = self.backbone(input, training=training)
-        z = self.head(x, training=training)
-        return z, x
-
-    def train_step(self, data) : 
-        images, labels = data
-
-        with tf.GradientTape(persistent=True) as tape :
-            z, x = self(images)
-
-            contrastiv_loss = self.loss(z, self.temp)
-
-            pairwise_cosine = tf.keras.losses.cosine_similarity(x, x) ## cosine similarity entre tous les éléments : on vise orthogonalité donc minimiser somme de la matrice
-            # résultat entre -1 et 1  
-
-            color_cosine_dist = 1 - tf.keras.losses.cosine_similarity(labels, labels)  # distance cosinus dans l'espace couleur entre tous les éléments
-            ## Résultat entre 0 et 2 : 0 = vecteurs proches dans l'espace couleur    2 = vecteurs opposés  ==> si proche on diminue pénalité pour l'orthogonalité recherchée
-
-            weighted_pairwise_cosine = tf.multiply(pairwise_cosine, color_cosine_dist)
-            cosine_loss = tf.reduce_sum(weighted_pairwise_cosine) * self.lam
-
-
-  
-        gradients = tape.gradient(contrastiv_loss, self.backbone.trainable_variables + self.head.trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
-
-        gradients = tape.gradient(cosine_loss, self.backbone.trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables))
-
-        del tape
-        return {"contrastiv_loss":contrastiv_loss, "cosine_loss":cosine_loss}
-
-import random
-
-class simCLRcolor3(keras.Model) :
-    def __init__(self, backbone, head, temp=0.7) :
-        super().__init__()
-        self.backbone = backbone
-        self.head = head
-        self.temp=temp
-        self.lam = 0.05
-
-    def call(self, input, training=True) :
-        x = self.backbone(input, training=training)
-        z = self.head(x, training=training)
-        return z, x
-    
-    def kmeans(self, data, k, num_iterations=10):
-        centroids = tf.Variable(tf.gather(data, tf.random.shuffle(tf.range(tf.shape(data)[0]))[:k]))
-
-        for i in range(num_iterations):
-            # Calcul des distances (Euclidiennes)
-            expanded_data = tf.expand_dims(data, 1)  # Shape: (512, 1, 1024)
-            expanded_centroids = tf.expand_dims(centroids, 0)  # Shape: (1, k, 1024)
-            distances = tf.reduce_sum(tf.square(expanded_data - expanded_centroids), axis=2)  # Shape: (512, k)
-
-            # Assignation des clusters
-            cluster_assignments = tf.argmin(distances, axis=1)  # Shape: (512,)
-
-            # Mise à jour des centroides (vectorisée)
-            mask = tf.one_hot(cluster_assignments, k)  # Shape: (512, k)
-            cluster_sums = tf.matmul(mask, data, transpose_a=True)  # Shape: (k, 1024)
-            cluster_counts = tf.reduce_sum(mask, axis=0)  # Shape: (k,)
-            new_centroids = cluster_sums / tf.expand_dims(cluster_counts + 1e-8, axis=1)
-
-            centroids.assign(new_centroids)
-
-        return centroids, cluster_assignments
-
-    def train_step(self, data) : 
-        images, labels = data
-
-        with tf.GradientTape(persistent=True) as tape :
-            z, x = self(images)
-
-            contrastiv_loss = self.loss(z, self.temp)
-
-            centroids, clusters = self.kmeans(tf.nn.l2_normalize(x, axis=1), k=random.randint(5, 20))
-
-            mask = tf.one_hot(clusters, len(centroids))  # Shape: (512, k)
-            #cluster_data = tf.matmul(mask, x, transpose_a=True)  # Agrégation des données par cluster
-            cluster_labels = tf.matmul(mask, tf.cast(labels, tf.float32), transpose_a=True)
-
-            var_intra = tf.reduce_sum(
-                tf.math.reduce_variance(cluster_labels, axis=1)
-            ) * self.lam
-
-
-
-  
-        gradients = tape.gradient(contrastiv_loss, self.backbone.trainable_variables + self.head.trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
-
-        gradients = tape.gradient(var_intra, self.backbone.trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables))
-
-        del tape
-        return {"contrastiv_loss":contrastiv_loss, "var intra":var_intra}
-
-
-class simCLRmultitask(keras.Model) :
-    def __init__(self, backbone, head, do_color, color_head, do_seg, segmentor, do_reco, deconvolutor, temp=0.7) :
-        super().__init__()
-        self.backbone = backbone
-        self.head = head
-        self.do_color = do_color
-        self.color_head = color_head
-        self.do_seg = do_seg
-        self.segmentor = segmentor
-        self.do_reco = do_reco
-        self.deconvolutor = deconvolutor
-        self.temp=temp
-        self.lam = 0.1
-
-    def call(self, input, training=True) :
-        x, flat, c4 = self.backbone(input, training=training)   # retourne fin du backbone, le résultat du flatten et de la conv4
-        z = self.head(x, training=training)
-        output_dict = {"backbone_output":z}
-
-        if self.do_color :
-            c = self.color_head(x, training=training)
-            output_dict["color_output"] = c
-        if self.do_seg :
-            seg_mask = self.segmentor([flat, c4], training=training)
-            output_dict["seg_output"] = seg_mask
-        if self.do_reco :
-            recon = self.deconvolutor(flat, training=training)
-            output_dict["recon_output"] = recon      
 
         return output_dict
 
     def train_step(self, data) : 
+
+
         images, labels_dict = data
 
         with tf.GradientTape(persistent=True) as tape :
@@ -233,182 +77,108 @@ class simCLRmultitask(keras.Model) :
             contrastiv_loss = self.loss(output_dict["backbone_output"], self.temp)
 
             loss_dict = {"contrastiv_loss":contrastiv_loss}
+            loss_dict["regularization"] = sum(self.losses)
 
-            if self.do_color : 
+            basic_loss = contrastiv_loss + loss_dict["regularization"]
+
+            
+
+            if self.color_params["do"] : 
                 color_labels = labels_dict["color"]
-                color_loss = self.lam * tf.keras.losses.mean_squared_error(color_labels[0], output_dict["color_output"])
-                loss_dict["color_loss"] = tf.reduce_mean(color_loss)
+                color_loss = tf.keras.losses.mean_squared_error(color_labels, output_dict["color_output"])
+                loss_dict["color_loss"] = self.color_params["weight"] * tf.reduce_mean(color_loss)
 
-            if self.do_seg : 
+                if self.regu_params["do"] :
+                    additionnal_regu_loss = self.regu_params["weight"] * self.regu_params["regularizer"](output_dict["latent_output"], output_dict["color_output"])
+                    loss_dict["backregu_loss"] = additionnal_regu_loss
+
+            if self.segm_params["do"] : 
                 true_seg = labels_dict["seg_mask"]
                 pred_seg = output_dict["seg_output"]
-                seg_loss = tf.keras.losses.binary_crossentropy(true_seg, pred_seg)
-                loss_dict["seg_loss"] = tf.reduce_mean(seg_loss)
+                seg_loss = tf.keras.losses.binary_crossentropy(true_seg, pred_seg) 
+                loss_dict["seg_loss"] = tf.reduce_mean(seg_loss)* self.segm_params["weight"]
 
-            if self.do_reco :
+            if self.recon_params["do"] :
                 #masked_indexes = labels_dict["masked_indexes"]
                 reconstruction = output_dict["recon_output"]
                 diff = tf.abs(images - reconstruction)
                 #diff = tf.abs(tf.where(masked_indexes, images, 0) - tf.where(masked_indexes, reconstruction, 0))
                 recon_loss = tf.reduce_mean(tf.math.log(diff + 1e-8), axis=(1, 2, 3))  # Stabilisation avec epsilon
-                loss_dict["recon_loss"] = tf.reduce_mean(recon_loss) 
+                loss_dict["recon_loss"] = tf.reduce_mean(recon_loss) * self.recon_params["weight"]
+
+            if self.adversarial_params["do"] :
+                survey_labels = labels_dict["survey"]
+                classif_loss = tf.keras.losses.binary_crossentropy(survey_labels, output_dict["adversarial_output"]) * self.adversarial_params["weight"]
+                adversarial_loss = -classif_loss
+                loss_dict["classif_loss"] = classif_loss
+                loss_dict["adversarial_loss"] = adversarial_loss
+
+                self.adversarial_params["metric"].update_state(survey_labels, output_dict["adversarial_output"])
+                loss_dict["adv_acc"] = self.adversarial_params["metric"].result()
 
 
         
-        gradients = tape.gradient(contrastiv_loss, self.backbone.trainable_variables + self.head.trainable_variables)
+        gradients = tape.gradient(basic_loss, self.backbone.trainable_variables + self.head.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
+        
 
-        if self.do_color :
-            gradients = tape.gradient(loss_dict["color_loss"], self.backbone.trainable_variables + self.color_head.trainable_variables)
-            self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.color_head.trainable_variables))
+        if self.color_params["do"] :
+            gradients = tape.gradient(loss_dict["color_loss"], self.backbone.trainable_variables + self.color_params["network"].trainable_variables)
+            self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.color_params["network"].trainable_variables))
 
-        if self.do_seg :
-            gradients = tape.gradient(loss_dict["seg_loss"], self.backbone.trainable_variables + self.segmentor.trainable_variables)
-            self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.segmentor.trainable_variables))
+            if self.regu_params["do"] :
+                gradients = tape.gradient(loss_dict["backregu_loss"], self.backbone.trainable_variables)
+                self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables))
 
-        if self.do_reco :
-            gradients = tape.gradient(loss_dict["recon_loss"], self.backbone.trainable_variables + self.deconvolutor.trainable_variables)
-            self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.deconvolutor.trainable_variables))
+        if self.segm_params["do"] :
+            gradients = tape.gradient(loss_dict["seg_loss"], self.backbone.trainable_variables + self.segm_params["network"].trainable_variables)
+            self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.segm_params["network"].trainable_variables))
+
+        if self.recon_params["do"] :
+            gradients = tape.gradient(loss_dict["recon_loss"], self.backbone.trainable_variables + self.recon_params["network"].trainable_variables)
+            self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.recon_params["network"].trainable_variables))
+
+        if self.adversarial_params["do"] :
+            gradients = tape.gradient(loss_dict["classif_loss"], self.adversarial_params["network"].trainable_variables)
+            self.optimizer.apply_gradients(zip(gradients, self.adversarial_params["network"].trainable_variables))
+
+            gradients = tape.gradient(loss_dict["adversarial_loss"], self.backbone.trainable_variables)
+            self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables))
 
 
         del tape
         return loss_dict
 
-class simCLR_adversarial(keras.Model) :
-    def __init__(self, backbone, head, adversaire, temp=0.7) :
-        super().__init__()
-        self.backbone = backbone
-        self.head = head
-        self.adversaire=adversaire
-        self.temp=temp
-        self.flat_vector = tf.constant(tf.ones((1, 2), dtype=tf.float32)/tf.cast(2, dtype=tf.float32))
-        self.adverse_accuracy = tf.keras.metrics.BinaryAccuracy(name="survey_accuracy")  # flatten
-
-        self.adversarial_layers = []
-        for i, lay in enumerate(self.backbone.layers) : 
-            if lay.name == 'flatten' :
-                self.adversarial_layers.append(lay)
-                break
-            else :
-                self.adversarial_layers.append(lay)
-        self.adversarial_variables = [var for layer in self.adversarial_layers for var in layer.trainable_variables]
-
-    def call(self, input, training=True) :
-        x, flat = self.backbone(input, training=training)
-        survey_predictions = self.adversaire(flat, training=training)
-        z = self.head(x, training=training)
-        return z, survey_predictions
-
-    def train_step(self, data) : 
-        images, true_survey = data
-        with tf.GradientTape(persistent=True) as tape :
-            z, surv = self(images)
-
-            contrastiv_loss = self.loss(z, self.temp)
-            flat_distr = tf.tile(self.flat_vector, [tf.shape(images)[0], 1])
-            adversarial_loss = tf.keras.losses.kl_divergence(flat_distr, surv)  # KL divergence entre distribution flat et prédiction de l'adverse
-            # on pénalise backbone si la classif est facile pour la tête
-            survey_classif = tf.keras.losses.binary_crossentropy(true_survey, surv)  # crossentropy pour MLP de classif sur le survey
-
-            self.adverse_accuracy.update_state(true_survey, surv)
-  
-        gradients = tape.gradient(contrastiv_loss, self.backbone.trainable_variables + self.head.trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
-
-        gradients = tape.gradient(survey_classif, self.adversaire.trainable_variables)  # MAJ DU CLASSIFIER SUR SURVEY
-        self.optimizer.apply_gradients(zip(gradients, self.adversaire.trainable_variables))
-
-        gradients = tape.gradient(adversarial_loss, self.adversarial_variables)
-        self.optimizer.apply_gradients(zip(gradients, self.adversarial_variables))
-
-        del tape
-        return {"contrastiv_loss":contrastiv_loss,
-                "survey accuracy":self.adverse_accuracy.result(), 
-                "adversarial_kl":adversarial_loss,
-                "adversarial_crossent":survey_classif}
-
-
-class simCLR_adversarial2(keras.Model) :
-    def __init__(self, backbone, head, adversaire, temp=0.7) :
-        super().__init__()
-        self.backbone = backbone
-        self.head = head
-        self.adversaire=adversaire
-        self.temp=temp
-        #self.flat_vector = tf.constant(tf.ones((1, 2), dtype=tf.float32)/tf.cast(2, dtype=tf.float32))
-        self.adverse_accuracy = tf.keras.metrics.BinaryAccuracy(name="survey_accuracy")  # flatten
-
-        self.adversarial_layers = []
-        for i, lay in enumerate(self.backbone.layers) :
-            if lay.name == 'flatten' :
-                self.adversarial_layers.append(lay)
-                break
-            else :
-                self.adversarial_layers.append(lay)
-        self.adversarial_variables = [var for layer in self.adversarial_layers for var in layer.trainable_variables]
-
-    def call(self, input, training=True) :
-        x, flat = self.backbone(input, training=training)
-        survey_predictions = self.adversaire(flat, training=training)
-        z = self.head(x, training=training)
-        return z, survey_predictions
-
-    def train_step(self, data) :
-        images, true_survey = data
-        with tf.GradientTape(persistent=True) as tape :
-            z, surv = self(images)
-
-            contrastiv_loss = self.loss(z, self.temp)
-            #flat_distr = tf.tile(self.flat_vector, [tf.shape(images)[0], 1])
-            #adversarial_loss = tf.keras.losses.kl_divergence(flat_distr, surv)  # KL divergence entre distribution flat et prédiction de l'adverse
-            # on pénalise backbone si la classif est facile pour la tête
-            survey_classif = tf.keras.losses.binary_crossentropy(true_survey, surv)  # crossentropy pour MLP de classif sur le survey
-            adversarial_loss = -survey_classif
-            self.adverse_accuracy.update_state(true_survey, surv)
-
-        gradients = tape.gradient(contrastiv_loss, self.backbone.trainable_variables + self.head.trainable_variables)
-        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
-
-        gradients = tape.gradient(survey_classif, self.adversaire.trainable_variables)  # MAJ DU CLASSIFIER SUR SURVEY
-        self.optimizer.apply_gradients(zip(gradients, self.adversaire.trainable_variables))
-
-        gradients = tape.gradient(adversarial_loss, self.adversarial_variables)
-        self.optimizer.apply_gradients(zip(gradients, self.adversarial_variables))
-
-        del tape
-        return {"contrastiv_loss":contrastiv_loss,
-                "survey accuracy":self.adverse_accuracy.result(),
-                "adversarial_kl":adversarial_loss,
-                "adversarial_crossent":survey_classif}
 
 
             
-class ContrastivLoss(keras.losses.Loss) :
+class NTXent(keras.losses.Loss) :
     def __init__(self) :
         super().__init__()
         self.large_num = 1e8
 
     def call(self, batch, temperature=1) :
+        # sépare les images x des images x'
         hidden1, hidden2 = tf.split(batch, 2, 0)
         batch_size = tf.shape(hidden1)[0]
 
         hidden1_large = hidden1
         hidden2_large = hidden2
-        labels = tf.one_hot(tf.range(batch_size), batch_size*2)
-        masks = tf.one_hot(tf.range(batch_size), batch_size)
+        labels = tf.one_hot(tf.range(batch_size), batch_size*2)    # matrice des des labels,    batch_size x 2*batch_size
+        masks = tf.one_hot(tf.range(batch_size), batch_size)       # mask de shape     batch x batch
 
-        logits_aa = tf.matmul(hidden1, hidden1_large, transpose_b=True) / temperature
-        logits_aa = logits_aa - masks * self.large_num
+        logits_aa = tf.matmul(hidden1, hidden1_large, transpose_b=True) / temperature       ### si normalisé cela aurait été cosine sim => shape batch, batch    distance x x
+        logits_aa = logits_aa - masks * self.large_num    ### on rempli la diagonale de très petite valeur car forcément cosine sim entre vecteurs identique = 1
         logits_bb = tf.matmul(hidden2, hidden2_large, transpose_b=True) / temperature
-        logits_bb = logits_bb - masks * self.large_num
-        logits_ab = tf.matmul(hidden1, hidden2_large, transpose_b=True) / temperature
-        logits_ba = tf.matmul(hidden2, hidden1_large, transpose_b=True) / temperature
+        logits_bb = logits_bb - masks * self.large_num    ###  idem ici ==> donc là on fait distances entre x' x'
+        logits_ab = tf.matmul(hidden1, hidden2_large, transpose_b=True) / temperature     ### sim x x'
+        logits_ba = tf.matmul(hidden2, hidden1_large, transpose_b=True) / temperature     ### sim x' x 
 
-        loss_a = tf.nn.softmax_cross_entropy_with_logits(
-            labels, tf.concat([logits_ab, logits_aa], 1))
-        loss_b = tf.nn.softmax_cross_entropy_with_logits(
+        loss_a = tf.nn.softmax_cross_entropy_with_logits(              ### matrice labels contient info de où sont les paires positives
+            labels, tf.concat([logits_ab, logits_aa], 1))              ### en concaténant ab et aa on obtient similarité de a vers toutes les autres images (en ayant mis sa propre correspondance à 0) 
+        loss_b = tf.nn.softmax_cross_entropy_with_logits(              ### idem de b vers toutes les images
             labels, tf.concat([logits_ba, logits_bb], 1))
-        loss = tf.reduce_mean(loss_a + loss_b)
+        loss = tf.reduce_mean(loss_a + loss_b)     ### moyenne des 2 et loss
 
         return loss
     
@@ -417,6 +187,8 @@ class ContrastivLoss(keras.losses.Loss) :
 
 
 
+
+###### BarlowTwins #######
 
 class BarlowTwins(keras.Model) :
     def __init__(self, backbone, head, lam=5e-3) : 
@@ -458,6 +230,9 @@ class BarlowTwinsLoss(keras.losses.Loss) :
         return loss
     
 
+
+
+###### VICReg #######
 
 class VICReg(keras.Model) :
     def __init__(self, backbone, head):
@@ -514,4 +289,71 @@ class VICRegLoss(keras.losses.Loss) :
         cov2 = off_diag / d
 
         return self.la * invariance + self.mu *(var1+var2) + self.nu*(cov1+cov2)
+
+
+
+###### BYOL #######
+
+class BYOL(keras.Model) :
+    def __init__(self, backbone_online, backbone_target, head_online, head_target, clas_online, momentum=0.99) :
+        super().__init__()
+        self.online_backbone = backbone_online
+        self.target_backbone = backbone_target
+        self.online_head = head_online
+        self.target_head = head_target
+        self.online_clas = clas_online
+        self.momentum = momentum
+
+    def call(self, images) :
+        """
+        recoit un batch d'images taille 2N, les N premières sont la transformation t1 et les N suivantes sont la transformation t2 des mêmes images
+        """
+        x = self.online_backbone(images, training=True)
+        x = self.online_head(x, training=True)
+        x = self.online_clas(x, training=True)
+
+        y = self.target_backbone(images, training=False)
+        y = self.target_head(y, training=False)
+
+        y1, y2 = tf.split(y, 2, 0)   # inversion pour comparer les images à une transformation différente
+        y = tf.concat([y2, y1], axis=0)
+
+        return x, y
+    
+    def update_target_weights(self):
+        online_weights = self.online_backbone.weights + self.online_head.weights
+        target_weights = self.target_backbone.weights + self.target_head.weights
+
+        for online_weight, target_weight in zip(online_weights, target_weights):
+            target_weight.assign(self.momentum * target_weight + (1 - self.momentum) * online_weight)
+
+    def train_step(self, data):
+        images = data  
+
+        with tf.GradientTape() as tape:
+
+            x, y = self(images)
+            loss = self.loss(y, x) 
+
+        gradients = tape.gradient(loss, self.online_backbone.trainable_variables+self.online_head.trainable_variables+self.online_clas.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.online_backbone.trainable_variables+self.online_head.trainable_variables+self.online_clas.trainable_variables))
+
+        self.update_target_weights()
+
+        return {"loss": loss}
+
+class ByolLoss(keras.losses.Loss) :
+    def __init__(self) :
+        super().__init__()
+
+    def call(self, ytrue, ypred) :
+        """
+        pas de ytrue car self supervised
+        ypred contient les [x, y] pour online et teacher
+        """
+        x, y = ytrue, ypred
+        x = tf.math.l2_normalize(x, axis=-1)
+        y = tf.math.l2_normalize(y, axis=-1)
+        loss = 2 - 2 * tf.reduce_sum(x*y, axis=-1)
+        return tf.reduce_mean(loss)
 

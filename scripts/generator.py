@@ -1,307 +1,334 @@
-import numpy as np
 import tensorflow as tf
+import tensorflow.keras as keras
+import numpy as np
 import random
-
-class ImageDataGenerator(tf.keras.utils.Sequence):
-    def __init__(self, file_path, batch_size, large_crop_size, small_crop_size, shuffle=True, patch_size=4):
-        self.file_path = file_path
-        self.batch_size = batch_size
-        self.large_crop_size = large_crop_size
-        self.small_crop_size = small_crop_size
-        self.shuffle = shuffle
-        self.patch_size=patch_size
-        self._load_data()
-        self.on_epoch_end()
-
-    def _load_data(self):
-        # Charger les images à partir du fichier .npz
-        data = np.load(self.file_path, allow_pickle=True)
-        self.images = np.sign(data['cube']) * (np.sqrt(np.abs(data["cube"])+1)-1)  # Assumes the key is 'images'
-
-    def _apply_crops(self, image, large_crop_size, small_crop_size, num_large_crops=2, num_small_crops=4, masking_rate=0.4):
-        h, w = image.shape[:2]
-        ch, cw = large_crop_size
-        small_crops = []
-        large_crops = []
-        #masked_large_crops = []
-        masked_indexes = []
-        num_patch_per_large = (ch // self.patch_size)**2
-        
-        mask = np.zeros((self.patch_size, self.patch_size, 9))
-
-        for _ in range(num_large_crops):
-            if h > ch and w > cw:
-                top = random.randint(0, h - ch)
-                left = random.randint(0, w - cw)
-                large_crop = image[top:top + ch, left:left + cw]
-                large_crops.append(large_crop)
-
-                mask_indices = np.random.choice([False, True], size=(int(num_patch_per_large)), replace=True, p=[1-masking_rate, masking_rate])
-                
-                """
-                masked_large_crop = large_crop.copy()
-                
-                masked_patch_index = np.random.choice(np.arange(0, num_patch_per_large, 1), size=int(num_patch_per_large*masking_rate), replace=False)
-                for index in masked_patch_index :
-                    row = index // (cw // self.patch_size)  # 
-                    col = index % (cw // self.patch_size)
-
-                    row_start = row * self.patch_size
-                    col_start = col * self.patch_size
-
-                    masked_large_crop[row_start:row_start+self.patch_size, col_start:col_start+self.patch_size] = mask
-                
-                masked_large_crops.append(masked_large_crop)
-                masked_indexes.append(masked_patch_index)
-                """
-                masked_indexes.append(mask_indices)
+import os
+import gc
 
 
-        ch, cw = small_crop_size
-        for _ in range(num_small_crops):
-            if h > ch and w > cw:
-                top = random.randint(0, h - ch)
-                left = random.randint(0, w - cw)
-                small_crop = image[top:top + ch, left:left + cw]
-                small_crops.append(small_crop)
-
-        return np.array(large_crops), np.array(small_crops), np.array(masked_indexes) # np.array(masked_large_crops),
-    
+def rotate_image(inputs):
+    image, rotation = inputs
+    return tf.image.rot90(image, rotation)
 
 
+import multiprocessing as mp
+def compute_target(x) :
+        image = x[..., :5]
+        mask = x[..., 5].astype(bool)
 
+        indices = np.where(mask)
+        pixels = image[indices]
 
-    def __len__(self):
-        # Nombre de batches par epoch
-        return int(np.ceil(len(self.images) / self.batch_size))
+        colors = np.zeros((4))
 
-    def __getitem__(self, index):
-        batch_images = self.images[index * self.batch_size:(index + 1) * self.batch_size]
-        large_crops = []
-        small_crops = []
-        #masked_large_crops = []
-        masked_patch_index = []
+        colors[0] = np.mean((pixels[..., 0]-pixels[..., 1])) # u-g
+        colors[1] = np.mean((pixels[..., 1] - pixels[..., 2])) # g-r
+        colors[2] = np.mean((pixels[..., 3] - pixels[..., 4])) # i-z
+        colors[3] = np.mean((pixels[..., 2] - pixels[..., 3])) # r-i
 
-        for img in batch_images:
-            large_crop, small_crop, masked_index = self._apply_crops(img, self.large_crop_size, self.small_crop_size)
-            large_crops.append(large_crop)
-            small_crops.append(small_crop)
-            #masked_large_crops.append(masked_crop)
-            masked_patch_index.append(masked_index)
-
-        return {
-            'large_crop': np.array(large_crops),
-            'small_crop': np.array(small_crops),
-            #'masked_crop' : np.array(masked_large_crops),
-            'masked_patch_index' : np.array(masked_patch_index)
-
-        }
-
-    def on_epoch_end(self):
-        if self.shuffle:
-            np.random.shuffle(self.images)
+        return colors
 
 
 
 
 
-
-
-
-
-
-class ByolGenerator(tf.keras.utils.Sequence):
-    def __init__(self, file_path, batch_size, image_size=(64, 64, 9), shuffle=True):
-        self.file_path = file_path
+class MultiGen(tf.keras.utils.Sequence):
+    def __init__(self, paths, batch_size, do_color=True, do_seg=True, do_mask_band=True, do_adversarial=False, image_size=(64, 64, 5), shuffle=True, extensions=[".npz"]):
+        self.paths = []
+        self.path_index=0
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.image_size = image_size
+        self.max_images = 80000
+        self.extensions = extensions
+        self.n_epochs = 0
+        self.do_color=do_color
+        self.do_seg=do_seg
+        self.do_mask_band = do_mask_band
+        self.do_adversarial = do_adversarial
+        self.mean = None
+        self.std = None
+        self.file_tracker = {}
+        self._find_paths(paths)
         self._load_data()
         self.on_epoch_end()
-
-    def _load_data(self):
-        # Charger les images à partir du fichier .npz
-        data = np.load(self.file_path, allow_pickle=True)
-        self.images = np.sign(data['cube'])*(np.sqrt(np.abs(data["cube"])+1)-1 )
-
-    def __len__(self):
-        # Nombre de batches par epoch
-        return int(np.ceil(len(self.images) / self.batch_size))
-    
-
-    def preprocess_image(self, image):
-
-        image = self.apply_basic_transform(image)
-
-        if random.random() < 0.5 :
-            image = self.apply_mask(image)   # KEEP
-        """
-        if random.random() < 0.25 :
-            image = self.add_noise(image)
-        """
-        if random.random() < 0.5 :
-            image = self.crop_and_resize(image)   # KEEP
         
 
-        return image  #64, 64, 9
-    
-    def apply_basic_transform(self, image) :
-        image = tf.image.random_flip_left_right(image)
-        image = tf.image.random_flip_up_down(image)
-        image = tf.image.rot90(image, k=random.randint(0, 4))
-        return image
 
-    def apply_mask(self, image):
-        # ON GARDE LE MASQUE 12 12   => partie aléatoire de l'image masquée
-        mask_size = 12
-        x = random.randint(0, self.image_size[0] - mask_size)
-        y = random.randint(0, self.image_size[1] - mask_size)
-        mask = tf.image.pad_to_bounding_box(tf.zeros((mask_size, mask_size, self.image_size[2])), x, y, self.image_size[0], self.image_size[1])
-        image = tf.where(mask > 0, mask, image)
-        return image
-    def add_noise(self, image) :
-        gaussian_noise = tf.random.normal(shape=(tf.shape(image)), mean=0, stddev=0.1)
-        image = tf.clip_by_value(image+gaussian_noise, 0, 1)
-        return image
-    def crop_and_resize(self, image) :
-        # sélectionne entre 60% et 80% de l'image et resize
-        new_size = (self.image_size[0] * random.uniform(0.1, 1), self.image_size[1] * random.uniform(0.1, 1) )
-        x = random.randint(0, self.image_size[0] - int(new_size[0]))
-        y = random.randint(0, self.image_size[1] - int(new_size[1]))
-        crop = image[x:x+int(new_size[0]), y:y+int(new_size[1])]
-        image = tf.image.resize(crop, [self.image_size[0], self.image_size[1]], method='bicubic')
-        return image
-    
+    def _find_paths(self, dir_paths) :
+        for dire in dir_paths :
+            for root, dirs, files in os.walk(dire):
+                for file in files:
+                    if file.endswith(tuple(self.extensions)):
+                        filepath = os.path.join(root, file)
+                        self.paths.append(filepath)
+                        self.file_tracker[filepath] = (0, 0)
+        random.shuffle(self.paths)
+                        
+
+    def _load_data(self):
+        random.shuffle(self.paths)
+        self.images = []
+        self.surveys = []
+
+        gc.collect()
+        while np.sum([len(cube) for cube in self.images]) < self.max_images :
+            path = self.paths[self.path_index]
+            self.path_index = (self.path_index+1)%len(self.paths)
+            try :
+                data = np.load(path, allow_pickle=True)
+                images = data["cube"][..., :5]  # on ne prend que les 5 premières bandes
+                masks = np.expand_dims(data["cube"][..., 5], axis=-1)
+
+                #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
+                images = np.concatenate([images, masks], axis=-1)  # N, 64, 64, 6
+                self.images.append(images)
+                self.file_tracker[path] = (self.file_tracker[path][0]+1, images.shape[0])
+
+                if "_UD.npz" in path :
+                    self.surveys.append(np.ones((len(data["cube"]))))
+                elif "_D.npz" in path :
+                    self.surveys.append(np.zeros((len(data["cube"]))))
+
+            
+
+            except Exception as e :
+                print("file couldn't be readen", path)
+        self.surveys = np.concatenate(self.surveys, axis=0)
+
+        self.images = np.concatenate(self.images, axis=0)
+        if self.n_epochs == 0 :
+            print("je calcule les mads")
+            medians = np.median(self.images[..., :5], axis=(0, 1, 2))  # shape (5,) pour chaque channel
+            abs_deviation = np.abs(self.images[..., :5] - medians)  # Déviation absolue
+            self.mads = np.median(abs_deviation, axis=(0, 1, 2))  # Une MAD par channel
+        if self.do_color : 
+            with mp.Pool() as pool :
+                colors = pool.map(compute_target, self.images)
+            self.colors = np.array(colors)
+            if self.mean is None and self.std is None :
+                self.mean = np.mean(self.colors, axis=0)
+                self.std = np.std(self.colors, axis=0)
+
+                self.colors = (self.colors - self.mean) / self.std
+            else :
+                self.colors = (self.colors - self.mean) / self.std
+
+        print("nb files opened :", np.sum([self.file_tracker[path][0] for path in self.paths]), "distinct :", np.sum([1 if self.file_tracker[path][0]>0 else 0 for path in self.paths])) 
+        print("nb images loaded :", np.sum([self.file_tracker[path][1]*self.file_tracker[path][0] for path in self.paths]))
+        print("nb distinct images loaded :", np.sum([self.file_tracker[path][1] if self.file_tracker[path][0]>0 else 0 for path in self.paths]))
+        print("nb files :", len(self.paths))
+
+        
  
 
+       
+    def __len__(self):
+        return int(np.ceil(len(self.images) / self.batch_size))
+    
+    def zoom(self, images, masks) :
+        batch_size, height, width = tf.shape(images)[0], tf.shape(images)[1], tf.shape(images)[2]
+        zoom_values = tf.random.uniform((batch_size,), minval=(height//2)-4, maxval=height // 2, dtype=tf.int32)
+        centers_x = height // 2
+        centers_y = width // 2
+
+        crop_boxes = tf.stack([
+            (centers_x - zoom_values) / height,  # y_min
+            (centers_y - zoom_values) / width,   # x_min
+            (centers_x + zoom_values) / height,  # y_max
+            (centers_y + zoom_values) / width    # x_max
+        ], axis=1)
+        images = tf.image.crop_and_resize(tf.cast(images, dtype=tf.float32), tf.cast(crop_boxes, dtype=tf.float32), box_indices=tf.range(batch_size), crop_size=[height, width])
+        return images
+    
+    def gaussian_noise(self, images, masks, apply_prob=0.2) :
+
+        masks = tf.tile(tf.expand_dims(masks, axis=-1), (1, 1, 1, tf.shape(images)[-1])) # shape batch, 64, 64, 5
+        us = tf.random.uniform((tf.shape(images)[0], tf.shape(images)[-1]), minval=1, maxval=3, dtype=tf.float32)  # shape batch, 5  sample un u par image par channel (1 à 3 fois le bruit médian)
+        new_sigmas = tf.multiply(us, tf.expand_dims(tf.cast(self.mads, dtype=tf.float32), axis=0))   #    batch, 5 * 1, 5     batch, 5  le mads représente le noise scale et les u à quel point ils s'expriment 
+        # on a un sigma par channel par image
+        noises = tf.random.normal(shape=tf.shape(images), mean=0, stddev=1, dtype=tf.float32) # batch, 64, 64, 5
+        sampled_noises = tf.multiply(noises, tf.expand_dims(tf.expand_dims(tf.math.sqrt(new_sigmas), axis=1), axis=1))  # on multiplie par la racine du sigma pour avoir un bruit 0, sigma
+        apply_noise = tf.cast(tf.random.uniform((tf.shape(images)[0], 1, 1, 1)) < apply_prob, tf.float32)
+        return images + apply_noise * sampled_noises * (1 - tf.cast(masks, dtype=tf.float32))
+    
+    def process_batch(self, images, masks, ebv=None) :
+        
+        images = self.gaussian_noise(images, masks)
+        images = self.zoom(images, masks)
+
+        images = tf.image.random_flip_left_right(images)
+        images = tf.image.random_flip_up_down(images)
+        rotations = tf.random.uniform((tf.shape(images)[0],), minval=0, maxval=4, dtype=tf.int32)    
+        images = tf.map_fn(rotate_image, (images, rotations), dtype=images.dtype)
+
+
+        return images
     
 
+    def drop_band(self, images) :
+        b, h, w, c = tf.shape(images)
+        probas = tf.random.uniform((b, c), 0, 1)
+        band_to_drop = tf.argmax(probas, axis=1) # shape batch, 
+        prob_to_drop = tf.random.uniform((b,), 0, 1)
+        apply_drop = tf.cast(tf.less(prob_to_drop, 0.25), dtype=tf.float32)  # renvoie 0 ou 1 si inférieur à 0.4 ?  donc shape batch, 
+
+        band_to_drop = tf.one_hot(band_to_drop, depth=tf.shape(images)[-1]) # batch, 5
+        band_to_drop = tf.expand_dims(tf.expand_dims(band_to_drop, axis=1), axis=1)  # batch, 1, 1, 1
+        band_to_drop = 1 - tf.tile(band_to_drop, [1, h, w, 1])*tf.expand_dims(tf.expand_dims(tf.expand_dims(apply_drop, axis=-1), axis=-1), axis=-1)  # batch 64 64 5   avec que des 0 si apply drop vaut 0 donc que des 1
+
+        dropped_band = images * band_to_drop
+        return dropped_band
+
+
+    
+
+
     def __getitem__(self, index):
-        # Obtenir un batch d'images
         batch_images = self.images[index * self.batch_size:(index + 1) * self.batch_size]
-        augmented_images = np.zeros((self.batch_size*2, self.image_size[0], self.image_size[1], self.image_size[2]))     
-        for i, image in enumerate(batch_images) :
-            augmented_images[i] = self.preprocess_image(image)
-            augmented_images[i+self.batch_size] = self.preprocess_image(image)
+
+        labels_dict = {}
+
+        if self.do_color :
+            batch_colors = self.colors[index * self.batch_size:(index + 1) * self.batch_size]
+
+        if self.do_adversarial : 
+            batch_survey = self.surveys[index * self.batch_size: (index+1)*self.batch_size]
             
-        #batch_images = [self.preprocess_image(image_path) for image_path in batch_paths]
+        if tf.shape(batch_images)[0] < self.batch_size:
+            # Compléter le batch avec des images dupliquées ou ignorer (selon ta logique)
+            pad_size = self.batch_size - batch_images.shape[0]
+            batch_images = tf.concat([batch_images, self.images[:pad_size]], axis=0)  # Compléter avec les premières images
+            if self.do_color :
+                batch_colors = tf.concat([batch_colors, self.colors[:pad_size]], axis=0)
+            if self.do_adversarial :
+                batch_survey = tf.concat([batch_survey, self.surveys[:pad_size]], axis=0)
+                
+        if self.do_color :
+            batch_colors = tf.cast(tf.tile(batch_colors, [2, 1]), dtype=tf.float32)
+            labels_dict["color"] = batch_colors
+
+        if self.do_adversarial :
+            batch_surveys = tf.cast(tf.tile(tf.expand_dims(batch_surveys, axis=1), [2, 1]), dtype=tf.float32)
+            labels_dict["survey"] = batch_survey
+
         
-        # pour un batch de 32 retourne 64 images tq 0 = identity0, 1 = transform0, 2 = identity1, 3 = transform1
-        return augmented_images.astype(np.float32)
+
+        batch_masks = batch_images[:, :, :, 5]
+        batch_images = batch_images[:, :, :, :5]
+        batch_masks = tf.cast(tf.tile(batch_masks, [2, 1, 1]), dtype=bool)
+        batch_images = tf.cast(tf.tile(batch_images, [2, 1, 1, 1]), dtype=tf.float32)
+
+        augmented_images = self.process_batch(batch_images, batch_masks)
+        
+
+        if self.do_seg :
+            labels_dict["seg_mask"] = tf.expand_dims(batch_masks, axis=-1)
+        
+        if self.do_mask_band :
+            augmented_images = self.drop_band(augmented_images)
+
+        
+        
+        
+        
+        #labels = tf.zeros((len(batch_images),), dtype=tf.float32)
+        #labels = tf.cast(tf.tile(self.colors[index*self.batch_size:(index+1)*self.batch_size], [2, 1]), dtype=tf.float32)  # batch*2, 4
+        return augmented_images, labels_dict
+
 
     def on_epoch_end(self):
-        # Optionnel : Mélanger les images après chaque époque
-        np.random.shuffle(self.images)
+        self.n_epochs+=1
+        indices = np.arange(0, self.images.shape[0], dtype=np.int32)
+        np.random.shuffle(indices)
+        self.images = self.images[indices]
+        self.colors = self.colors[indices]
 
 
 
 
-import os
-class ImageDataGeneratorModified(tf.keras.utils.Sequence):
-    def __init__(self, file_path, batch_size, large_crop_size, small_crop_size, shuffle=True, patch_size=4, img_size=(128, 128)):
-        self.file_path = file_path
+
+
+
+
+
+class SupervisedGenerator(keras.utils.Sequence) :
+    def __init__(self, data_path, batch_size, nbins=150) :
+        super(SupervisedGenerator, self).__init__()
         self.batch_size = batch_size
-        self.large_crop_size = large_crop_size
-        self.small_crop_size = small_crop_size
-        self.shuffle = shuffle
-        self.patch_size=patch_size
-        self.img_size=img_size
-        self._load_data()
+        self.data_path = data_path
+        self.nbins=nbins
+        self.load_data()
         self.on_epoch_end()
-        
 
-    def _load_data(self):
-        self.images = []
-        for root, dirs, files in os.walk(self.file_path):
-            for file in files:
-                if file.endswith('.jpg'):
-                    image_path = os.path.join(root, file)
-                    image = tf.io.read_file(image_path)
-                    image = tf.image.decode_jpeg(image, channels=3)  
-                       
-                        
-                    image = tf.cast(image, dtype=tf.float32) / 255.0  # Normalisation des pixels entre 0 et 1
-                    image = tf.image.resize(image, self.img_size, method='nearest')
-                    self.images.append(image.numpy())
-        
-        self.n = len(self.images)
+    def load_data(self) :
+        data = np.load(self.data_path, allow_pickle=True)
+        images = data["cube"][..., :5]  # on ne prend que les 5 premières bandes
+        masks = np.expand_dims(data["cube"][..., 5], axis=-1)
 
-    def _apply_crops(self, image, large_crop_size, small_crop_size, num_large_crops=2, num_small_crops=4, masking_rate=0.4):
-        h, w = image.shape[:2]
-        ch, cw = large_crop_size
-        small_crops = []
-        large_crops = []
-        masked_large_crops = []
-        masked_indexes = []
-        num_patch_per_large = (ch // self.patch_size)**2
-        
-        mask = np.zeros((self.patch_size, self.patch_size, 3))
+        #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
+        self.images = np.concatenate([images, masks], axis=-1).astype(np.float32)  # N, 64, 64, 6
 
-        for _ in range(num_large_crops):
-            if h > ch and w > cw:
-                top = random.randint(0, h - ch)
-                left = random.randint(0, w - cw)
-                large_crop = image[top:top + ch, left:left + cw]
-                large_crops.append(large_crop)
+        meta = data["info"]
+        self.z_values = meta[:, 6]
+        self.z_values = self.z_values.astype("float32")
+        print("Z VALS", self.z_values)
+        #bins_edges = np.linspace(0, 6, 300)
+        bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
+        self.z_bins = np.zeros((len(self.z_values)))
+        for j, z in enumerate(self.z_values) :
+            i = 0
+            flag = True
+            while flag and i < len(bins_edges)-1 :
+                if z >= bins_edges[i] and z < bins_edges[i+1] :
+                    self.z_bins[j] = i
+                    flag = False
+                i+=1
+            if flag : 
+                self.z_bins[j] = i-1
+        print(np.max(self.z_bins), np.min(self.z_bins))
+        print("NAN IMGS :",np.any(np.isnan(self.images)))
+        print("NAN Z :", np.any(np.isnan(self.z_values)), np.any(np.isnan(self.z_bins)))
+        self.z_bins = self.z_bins.astype(np.int32)
+        print(self.z_bins)
 
-                masked_large_crop = large_crop.copy()
-                
-                masked_patch_index = np.random.choice(np.arange(0, num_patch_per_large, 1), size=int(num_patch_per_large*masking_rate), replace=False)
-                for index in masked_patch_index :
-                    row = index // (cw // self.patch_size)  # 
-                    col = index % (cw // self.patch_size)
-
-                    row_start = row * self.patch_size
-                    col_start = col * self.patch_size
-
-                    masked_large_crop[row_start:row_start+self.patch_size, col_start:col_start+self.patch_size] = mask
-                masked_large_crops.append(masked_large_crop)
-                masked_indexes.append(masked_patch_index)
-
-        ch, cw = small_crop_size
-        for _ in range(num_small_crops):
-            if h > ch and w > cw:
-                top = random.randint(0, h - ch)
-                left = random.randint(0, w - cw)
-                small_crop = image[top:top + ch, left:left + cw]
-                small_crops.append(small_crop)
-
-        return np.array(large_crops), np.array(small_crops), np.array(masked_large_crops), np.array(masked_indexes)
 
     def __len__(self):
-        # Nombre de batches par epoch
         return int(np.ceil(len(self.images) / self.batch_size))
 
+    def process_batch(self, images, masks, ebv=None) :
+
+        images = tf.image.random_flip_left_right(images)
+        images = tf.image.random_flip_up_down(images)
+        rotations = tf.random.uniform((tf.shape(images)[0],), minval=0, maxval=4, dtype=tf.int32)
+        images = tf.map_fn(rotate_image, (images, rotations), dtype=images.dtype)
+
+
+        return images
+
     def __getitem__(self, index):
-        batch_images = self.images[index * self.batch_size:(index + 1) * self.batch_size]
-        large_crops = []
-        small_crops = []
-        masked_large_crops = []
-        masked_patch_index = []
+        batch_images = self.images[index*self.batch_size : (index+1)*self.batch_size]
+        batch_z = self.z_bins[index*self.batch_size : (index+1)*self.batch_size]
+        batch_z2 = self.z_values[index*self.batch_size : (index+1)*self.batch_size]
 
-        for img in batch_images:
-            large_crop, small_crop, masked_crop, masked_index = self._apply_crops(img, self.large_crop_size, self.small_crop_size)
-            large_crops.append(large_crop)
-            small_crops.append(small_crop)
-            masked_large_crops.append(masked_crop)
-            masked_patch_index.append(masked_index)
 
-        return {
-            'large_crop': np.array(large_crops),
-            'small_crop': np.array(small_crops),
-            'masked_crop' : np.array(masked_large_crops),
-            'masked_patch_index' : np.array(masked_patch_index)
+        if tf.shape(batch_images)[0] < self.batch_size:
+            # Compléter le batch avec des images dupliquées ou ignorer (selon ta logique)
+            pad_size = self.batch_size - batch_images.shape[0]
+            batch_images = tf.concat([batch_images, self.images[:pad_size]], axis=0)  # Compléter avec les premières images
+            batch_z = tf.concat([batch_z, self.z_bins[:pad_size]], axis=0)
+            batch_z2 = tf.concat([batch_z2, self.z_values[:pad_size]], axis=0)
 
-        }
+
+        batch_masks = batch_images[:, :, :, 5]
+        batch_images = batch_images[:, :, :, :5]
+
+        augmented_images = self.process_batch(batch_images, batch_masks)
+        return augmented_images, (batch_z, batch_z2)
 
     def on_epoch_end(self):
-        if self.shuffle:
-            np.random.shuffle(self.images)
-
-
-
-
-
-
-
-
+        indices = np.arange(0, self.images.shape[0], dtype=np.int32)
+        np.random.shuffle(indices)
+        self.images = self.images[indices]
+        self.z_values = self.z_values[indices]
+        self.z_bins = self.z_bins[indices]
