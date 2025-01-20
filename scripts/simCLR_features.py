@@ -3,9 +3,10 @@ import numpy as np
 from sklearn.manifold import TSNE
 from tensorflow.keras import layers
 import tensorflow.keras as keras
-from contrastiv_model import simCLR
+from contrastiv_model import simCLRcolor1
 from deep_models import basic_backbone, projection_mlp, color_mlp, classif_mlp
 import matplotlib.pyplot as plt
+from vit_layers import ViT_backbone
 #from scipy.stats import gaussian_kde
 from matplotlib import cm
 import os
@@ -13,12 +14,13 @@ os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
 
 
+model = simCLRcolor1(basic_backbone(), projection_mlp(1024), color_mlp(1024))
+#model = simCLRcolor1(ViT_backbone(), projection_mlp(256), color_mlp(256))
+#model = simCLR(basic_backbone(), projection_mlp(1024))
+base_path = "../model_save/checkpoints_simCLR_UD_D/"
+model_name = "simCLR_cosmos_bnTrue_150_ColorHead_Regularized.weights.h5"
 
-model = simCLR(basic_backbone(), projection_mlp(1024))
-base_path = "../model_save/checkpoints_simCLR_UD/"
-model_name = "simCLR_cosmos_bnTrue_400_ColorHead.weights.h5"
-
-code_save = "ColorHead_UD400"
+code_save = "ColorHead_Regularized_UD_D"
 
 model(np.random.random((32, 64, 64, 5)))
 model.load_weights(base_path+model_name)
@@ -72,7 +74,7 @@ for i in range(len(indices2)) :
     images = images[takes]
     meta = meta[takes]
     
-    images = np.sign(images)*(np.sqrt(np.abs(images+1))-1) 
+    #images = np.sign(images)*(np.sqrt(np.abs(images+1))-1) 
     all_images.append(images)
     metas = np.array([extract_meta(met) for met in meta])
     all_metas.append(metas)
@@ -97,7 +99,7 @@ for i in range(len(indices3)) :
     images = images[takes]
     meta = meta[takes]
 
-    images = np.sign(images)*(np.sqrt(np.abs(images+1))-1)
+    #images = np.sign(images)*(np.sqrt(np.abs(images+1))-1)
     all_images.append(images)
     metas = np.array([extract_meta(met) for met in meta]) # shape 20k, 5
     all_metas.append(metas)
@@ -136,10 +138,20 @@ for s in origin_label :
 
 if True :    
     extractor = model.backbone
-    if i ==2 :
+    if False :
         features, flatten = extractor.predict(images)
     else :
-        features = extractor.predict(images)
+        features = []
+        i = 0
+        while i < len(images) :
+            if i+200 > len(images) :
+                f = extractor(images[i:])
+            else :
+                f = extractor(images[i:i+200])
+            i+=200
+            features.append(f)
+        features = np.concatenate(features, axis=0)
+        #features = extractor.predict(images)
     if np.isnan(features).any():
         print("Found NaN values in features, replacing them with 0...")
         features = np.nan_to_num(features, nan=0.0)

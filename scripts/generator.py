@@ -324,7 +324,7 @@ class SupervisedGenerator(keras.utils.Sequence) :
         batch_images = batch_images[:, :, :, :5]
 
         augmented_images = self.process_batch(batch_images, batch_masks)
-        return augmented_images, (batch_z, batch_z2)
+        return augmented_images, {"pdf":batch_z, "reg":batch_z2}
 
     def on_epoch_end(self):
         indices = np.arange(0, self.images.shape[0], dtype=np.int32)

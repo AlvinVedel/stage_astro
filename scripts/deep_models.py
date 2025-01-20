@@ -94,7 +94,7 @@ def projection_mlp(input_shape=1024, bn=False):
     if bn :
         x = layers.BatchNormalization()(x)
     x = layers.PReLU()(x)
-    x = layers.Dense(256, activation='linear', activity_regularizer=tf.keras.regularizer.L1L2(l1=1e-3, l2=1e-2))(x)
+    x = layers.Dense(256, activation='linear', activity_regularizer=tf.keras.regularizers.L1L2(l1=1e-3, l2=1e-2))(x)
     return keras.Model(latent_input, x)
 
 
@@ -133,8 +133,9 @@ def astro_head(input_shape=1024, nbins=400) :
 def astro_model(back, head) :
     inp = keras.Input((64, 64, 5))
     x = back(inp)
-    output = head(x)
-    return keras.Model(inp, output)
+    pdf, reg = head(x)
+    #return keras.Model(inp, [pdf, reg])
+    return keras.Model(inp, {"pdf":pdf, "reg":reg})
 
 
 

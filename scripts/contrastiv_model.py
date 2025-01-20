@@ -151,6 +151,40 @@ class simCLR(keras.Model) :
 
 
 
+class simCLRcolor1(keras.Model) :
+    def __init__(self, backbone, head, color_head, temp=0.7) :
+        super().__init__()
+        self.backbone = backbone
+        self.head = head
+        self.color_head = color_head
+        self.temp=temp
+
+    def call(self, input, training=True) :
+        x = self.backbone(input, training=training)
+        z = self.head(x, training=training)
+        c = self.color_head(x, training=training)
+        return z, c
+
+    def train_step(self, data) : 
+        images, labels = data
+        with tf.GradientTape(persistent=True) as tape :
+            z, c = self(images)
+
+            contrastiv_loss = self.loss(z, self.temp)
+            color_loss = tf.keras.losses.mean_squared_error(labels["color"], c)
+
+            regu_loss = sum(self.losses)
+            total_loss = regu_loss + contrastiv_loss
+  
+        gradients = tape.gradient(total_loss, self.backbone.trainable_variables + self.head.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
+
+        gradients = tape.gradient(color_loss, self.backbone.trainable_variables + self.color_head.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.color_head.trainable_variables))
+
+        del tape
+        return {"contrastiv_loss":contrastiv_loss, "regu_loss":regu_loss, "color_loss":color_loss}
+
             
 class NTXent(keras.losses.Loss) :
     def __init__(self) :

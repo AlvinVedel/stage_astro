@@ -16,10 +16,11 @@ os.environ["CUDA_VISIBLE_DEVICES"]='0'
 
 base_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"
 base_names = ["b1_1", "b2_1", "b3_1"]
-save_name = "vit_backbone"
+save_name = "cnn_backbone"
 
 for base in base_names :
-    model = astro_model(ViT_backbone(256, 4, 8, 4, 'average'), astro_head())
+    #model = astro_model(ViT_backbone(256, 4, 8, 4, 'average'), astro_head())
+    model = astro_model(basic_backbone(), astro_head())
     gen = SupervisedGenerator(base_path+base+"_v2.npz", batch_size=32)
     n_epochs = 50
     model.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss={"pdf" : tf.keras.losses.SparseCategoricalCrossentropy(), "reg":tf.keras.losses.MeanAbsoluteError()}, 
@@ -30,7 +31,7 @@ for base in base_names :
     model.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_supervised/"+save_name+"_"+base+".weights.h5")
 
     print("history keys :", history.history.keys())
-
+    """
     plt.plot(np.arange(1, n_epochs+1), history.history["reg_loss"])
     plt.xlabel("epochs")
     plt.ylabel("loss (mae)")
@@ -75,7 +76,7 @@ for base in base_names :
     plt.title("supervised outl")
     plt.savefig("/lustre/fswork/projects/rech/dnz/ull82ct/astro/plots/simCLR/simCLR_finetune/outl_"+save_name+"_base="+base+".png")
     plt.close()
-
+    """
 
 
 

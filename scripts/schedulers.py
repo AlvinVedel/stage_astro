@@ -22,9 +22,25 @@ class CosineDecay(tf.keras.callbacks.Callback):
     def on_epoch_begin(self, epoch, logs=None):
         """Mise à jour du learning rate au début de chaque époque"""
         self.epoch_counter += 1
-        current_lr = self.model.optimizer.learning_rate - self.cosine_lr_schedule()
-        tf.keras.backend.set_value(self.model.optimizer.lr, current_lr)
-        print(f"\nEpoch {self.epoch_counter}: Learning rate is set to {current_lr}")
+        #current_lr = self.model.optimizer.learning_rate - self.cosine_lr_schedule()
+        if self.epoch_counter % 25 == 0 :
+            current_lr = self.model.optimizer.lr.numpy() / 2
+            tf.keras.backend.set_value(self.model.optimizer.lr, current_lr)
+            print(f"\nEpoch {self.epoch_counter}: Learning rate is set to {current_lr}")
+
+class LinearDecay(tf.keras.callbacks.Callback):
+    def __init__(self, ep, factor=2, each=25) :
+        super().__init__()
+        self.epoch_counter = ep
+        self.factor = factor
+        self.each = each
+
+    def on_epoch_begin(self, epoch, logs=None) :
+        self.epoch_counter+=1
+        if self.epoch_counter % self.each == 0 :
+            current_lr = self.model.optimizer.lr.numpy() / self.factor
+            tf.keras.backend.set_value(self.model.optimizer.lr, current_lr)
+            print(f"\nEpoch {self.epoch_counter}: Learning rate is set to {current_lr}")
 
 
 

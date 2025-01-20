@@ -4,181 +4,10 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers
 from contrastiv_model import simCLR
 import matplotlib.pyplot as plt
-
+from vit_layers import ViT_backbone
+from deep_models import basic_backbone, astro_head, astro_model
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]='0'
-
-
-
-def inception_block(input):
-    c1 = layers.Conv2D(101, activation='relu', kernel_size=1, strides=1, padding='same')(input)
-    c2 = layers.Conv2D(101, activation='relu', kernel_size=1, strides=1, padding='same')(input)
-    c3 = layers.Conv2D(101, activation='relu', kernel_size=1, strides=1, padding='same')(input)
-
-    c4 = layers.Conv2D(156, activation='relu', kernel_size=3, strides=1, padding='same')(c1)
-    c5 = layers.Conv2D(156, activation='relu', kernel_size=5, strides=1, padding='same')(c2)
-    c6 = layers.AveragePooling2D((2, 2), strides=1, padding='same')(c3)
-
-    c7 = layers.Conv2D(109, activation='relu', kernel_size=1, strides=1, padding='same')(input)
-
-    conc = layers.Concatenate(axis=-1)([c4, c5, c6, c7])   # 156 + 156 + 101 + 109 = 522
-    return conc
-
-def create_model(with_ebv=False) :
-
-    input_img = keras.Input((64, 64, 5))
-    #input_ebv = keras.Input((1,))
-    conv1 = layers.Conv2D(96, kernel_size=5, activation='relu', strides=1, padding='same', name='c1')(input_img)
-    conv2 = layers.Conv2D(96, kernel_size=3, activation='tanh', strides=1, padding='same', name='c2')(conv1)
-    avg_pool = layers.AveragePooling2D(pool_size=(2, 2), strides=2, name='p1')(conv2)  # batch, 32, 32, 96
-
-    incep1 = inception_block(avg_pool)
-    incep2 = inception_block(incep1)
-    incep3 = inception_block(incep2)
-
-    avg_pool2 = layers.AveragePooling2D((2, 2), strides=2, name='p2')(incep3) # 16, 16, 522
-
-    incep4 = inception_block(avg_pool2)
-    incep5 = inception_block(incep4)
-
-    avg_pool3 = layers.AveragePooling2D((2, 2), strides=2, name='p3')(incep5)  # 8, 8, 522
-
-    incep6 = inception_block(avg_pool3) 
-
-    conv3 = layers.Conv2D(96, kernel_size=3, activation='relu', padding='valid', strides=1, name='c3')(incep6)  # 6, 6, 96
-    conv4 = layers.Conv2D(96, kernel_size=3, activation='relu', padding='valid', strides=1, name='c4')(conv3)  # 4, 4, 96
-    conv5 = layers.Conv2D(96, kernel_size=3, activation='relu', padding='valid', strides=1, name='c5')(conv4)   # 2, 2, 96
-    avg_pool4 = layers.AveragePooling2D((2, 2), strides=1, name='p4')(conv5)   # 1, 1, 96
-    resh = layers.Reshape(target_shape=(96,))(avg_pool4) # batch, 96
-    if with_ebv : 
-        ebv_input = keras.Input((1))
-        resh = layers.Concatenate(axis=-1)([resh, ebv_input])
-    #conc = layers.Concatenate()([resh, input_ebv])
-    l1 = layers.Dense(1024, activation='relu', name='l1')(resh)
-
-    l2 = layers.Dense(1024, activation='relu', name='l2')(l1)
-    l3 = layers.Dense(512, activation='tanh', name='l3')(l1)
-
-    pdf = layers.Dense(400, activation='softmax', name='pdf')(l2)
-    regression = layers.Dense(1, activation='relu', name='reg')(l3)
-    if with_ebv :
-        model = keras.Model(inputs=[input_img, ebv_input], outputs=[pdf, regression])
-    else :
-        model = keras.Model(inputs=[input_img], outputs=[pdf, regression])
-    return model
-
-def backbone(bn=True) :
-    inp = keras.Input((64, 64, 5))
-    c1 = layers.Conv2D(96, padding='same', strides=1, kernel_size=3)(inp) # 64
-    c1 = layers.PReLU()(c1) 
-    c2 = layers.Conv2D(96, padding='same', kernel_size=3, strides=1, activation='tanh')(c1)  #64
-    p1 = layers.AveragePooling2D((2, 2))(c2)  # 32
-    c3 = layers.Conv2D(128, padding='same', strides=1, kernel_size=3)(p1)
-    c3 = layers.PReLU()(c3)
-    c4 = layers.Conv2D(128, padding='same', kernel_size=3, strides=1)(c3)  #32
-    c4 = layers.PReLU(name='c4')(c4) 
-    p2 = layers.AveragePooling2D((2, 2))(c4)  # 16
-    c5 = layers.Conv2D(256, padding='same', strides=1, kernel_size=3)(p2) #16
-    c5 = layers.PReLU()(c5)
-    c6 = layers.Conv2D(256, padding='same', kernel_size=3, strides=1)(c5)  #16
-    c6 = layers.PReLU()(c6)
-    p3 = layers.AveragePooling2D((2, 2))(c6) # 8
-    c7 = layers.Conv2D(256, kernel_size=3, strides=1, padding='valid')(p3) # 6
-    c7 = layers.PReLU()(c7)
-    c8 = layers.Conv2D(256, kernel_size=3, strides=1, padding='valid')(c7) # 4
-    c8 = layers.PReLU()(c8)
-    c9 = layers.Conv2D(256, padding='valid', kernel_size=3, strides=1)(c8) # 2, 2, 256
-    c9 = layers.PReLU()(c9)
-    
-    flat = layers.Flatten(name='flatten')(c9) # 2, 2, 256 = 1024 
-
-    l1 = layers.Dense(1024)(flat) 
-    l1 = layers.PReLU()(l1)
-    if bn :
-        l1 = layers.BatchNormalization()(l1)
-
-    return keras.Model(inputs=inp, outputs=l1)
-
-
-def backbone_sup(bn=True) :
-    inp = keras.Input((64, 64, 5))
-    c1 = layers.Conv2D(96, padding='same', strides=1, kernel_size=3)(inp) # 64
-    c1 = layers.PReLU()(c1)
-    c2 = layers.Conv2D(96, padding='same', kernel_size=3, strides=1, activation='tanh')(c1)  #64
-    p1 = layers.AveragePooling2D((2, 2))(c2)  # 32
-    c3 = layers.Conv2D(128, padding='same', strides=1, kernel_size=3)(p1)
-    c3 = layers.PReLU()(c3)
-    c4 = layers.Conv2D(128, padding='same', kernel_size=3, strides=1)(c3)  #32
-    c4 = layers.PReLU(name='c4')(c4)
-    p2 = layers.AveragePooling2D((2, 2))(c4)  # 16
-    c5 = layers.Conv2D(256, padding='same', strides=1, kernel_size=3)(p2) #16
-    c5 = layers.PReLU()(c5)
-    c6 = layers.Conv2D(256, padding='same', kernel_size=3, strides=1)(c5)  #16
-    c6 = layers.PReLU()(c6)
-    p3 = layers.AveragePooling2D((2, 2))(c6) # 8
-    c7 = layers.Conv2D(256, kernel_size=3, strides=1, padding='valid')(p3) # 6
-    c7 = layers.PReLU()(c7)
-    c8 = layers.Conv2D(256, kernel_size=3, strides=1, padding='valid')(c7) # 4
-    c8 = layers.PReLU()(c8)
-    c9 = layers.Conv2D(256, padding='valid', kernel_size=3, strides=1)(c8) # 2, 2, 256
-    c9 = layers.PReLU()(c9)
-
-    flat = layers.Flatten(name='flatten')(c9) # 2, 2, 256 = 1024
-
-    l1 = layers.Dense(1024)(flat)
-    l1 = layers.PReLU()(l1)
-    if bn :
-        l1 = layers.BatchNormalization()(l1)
-
-    l2 = layers.Dense(1024)(l1)
-    l2 = layers.PReLU()(l2)
-    l3 = layers.Dense(1024)(l2)
-    l3 = layers.PReLU()(l3)
-    pdf = layers.Dense(400, activation='softmax', name='pdf')(l3)
-    l3b = layers.Dense(512, activation='tanh')(l2)
-    reg = layers.Dense(1, activation='linear', name='reg')(l3b)
-
-    return keras.Model(inputs=inp, outputs=[pdf, reg])
-
-
-
-def regression_head(input_shape=1024) :
-    inp = keras.Input((input_shape))
-    l1 = layers.Dense(1024)(inp)
-    l1 = layers.PReLU()(l1)
-    l2 = layers.Dense(1024)(l1)
-    l2 = layers.PReLU()(l2)
-    reg = layers.Dense(1, activation='linear')(l2)
-    return keras.Model(inp, reg)
-
-def output_head(input_shape=1024) :
-    inp = keras.Input((input_shape))
-    l1 = layers.Dense(1024)(inp)
-    l1 = layers.PReLU()(l1)
-    l2 = layers.Dense(1024)(l1)
-    l2 = layers.PReLU()(l2)
-    pdf = layers.Dense(400, activation='softmax', name='pdf')(l2)
-    l3 = layers.Dense(512, activation='tanh')(l1)
-    reg = layers.Dense(1, activation='linear')(l3)
-    return keras.Model(inp, [pdf, reg])
-
-
-class FineTuneModel(keras.Model) :
-    def __init__(self, back, head, train_back=False, adv=False) :
-        super(FineTuneModel, self).__init__()
-        self.backbone = back
-        self.head = head
-        self.adv = adv
-        self.train_back = train_back
-
-    def call(self, inputs, training=True) :
-        if self.adv :
-            latent, flat = self.backbone(inputs, training=self.train_back)
-        else :
-            latent = self.backbone(inputs, training=self.train_back)
-        pred = self.head(latent, training=training)
-        return pred
-
 
 base_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/"
 
@@ -200,7 +29,7 @@ def z_med(probas, bin_central_values) :
     index = np.argmax(cdf>=0.5)
     return bin_central_values[index]
 
-plots_name = "Var_Multi_200"
+plots_name = "ViT_backbone280"
 path_memory = {}
 
 for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE CONDITION D ENTRAINEMENT ON VA AVOIR UN SUBPLOT
@@ -228,32 +57,46 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
             npz_files = path_memory[inf_base]
 
         #npz_files = [f for f in os.listdir(directory) if f.endswith(inf_base+'.npz')]   ## Récupère les fichiers sur lesquels inférer
-
-        simbases = ["UD_D200_ColorHead_VarRegu", "UD200_Multitask"] #    , "UD800_classif","UD_D800_classif"]
+        simbases = ["280_ViTback_ColorHead"]
+        #simbases = ["100_ViTback_ColorHead", "200_ColorHead_Regularized"] #    , "UD800_classif","UD_D800_classif"]
         iter=0
         #model_liste = ["simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"]
         for k in range((len(simbases)*2)) :
-            if k == -1 :
+            if False :
                 #model_name = base_path+"model_save/checkpoints_supervised/treyer_supervised_"+finetune_base+".weights.h5"
-                model_name = "../model_save/checkpoints_supervised/backbone_supervised_v3_"+finetune_base+".weights.h5"
-                tag_name = "supervised_v3"
+                model_name = "../model_save/checkpoints_supervised/cnn_backbone_"+finetune_base+".weights.h5"
+                tag_name = "supervised_reprod"
                 treyer = True
-
-                model = backbone_sup(True)#create_model()
+                model = astro_model(basic_backbone(), astro_head())
+                #model = backbone_sup(True)#create_model()
                 #model = FineTuneModel(backbone(True), head=output_head(1024))
                 model(np.random.random((32, 64, 64, 5)))
 
             else :
+
                 print("iter=",iter, "donc", str(iter//(len(simbases))), str(iter%(len(simbases))) )
                 cond = "HeadOnly" if iter//(len(simbases))==0 else "ALL"
                 sim_base = simbases[(iter%(len(simbases)))]
+                if sim_base == "280_ViTback_ColorHead" :
+                    back = ViT_backbone()
+                    back(np.random.random((32, 64, 64, 5)))
+                    #back.summary()
+                    model = astro_model(back, astro_head(256, 400))
+                else :
+                    back = basic_backbone()
+                    print("SUMMARY BACK")
+                    back.summary()
+                    head = astro_head(1024, 400)
+                    print("SUMMARY HEAD")
+                    head.summary()
+                    model = astro_model(back, head)
                 #model_name = base_path+"model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
-                model_name = "../model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
+                model_name = "../model_save/checkpoints_simCLR_finetune/simCLR_finetune_UD_D__"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
                 tag_name = 'sim_'+sim_base+"_"+cond
                 treyer = True
                 iter+=1
-                model = FineTuneModel(backbone(True), head=output_head(1024))
-                model(np.random.random((32, 64, 64, 5)))  
+                #model = FineTuneModel(backbone(True), head=output_head(1024))
+                #model(np.random.random((32, 64, 64, 5)))  
             #print("the model name isss :", model_name)
             #print(os.getcwd())
             print(tag_name)
@@ -281,9 +124,10 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
                         z = np.array([extract_z(m) for m in meta])
                         #print(z.shape)
                         true_z.append(z)
-                        
+                        #print("file opened")
                         if treyer :
-                            probas, reg = model.predict(images)
+                            output = model.predict(images)
+                            probas = output["pdf"]
                             #print("nan ?", np.any(np.isnan(probas)), np.any(np.isnan(reg)))
                             z_meds = np.array([z_med(p, bins_centres) for p in probas])
                             reg = z_meds
@@ -291,7 +135,7 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
                         else :
                             reg = model.predict(images)
                             reg = reg[:, 0]
-                        
+                        #print("ive made through prediction")
                         #reg = model.predict(images)
                         #reg = reg[:, 0]
                         pred_z.append(reg)
