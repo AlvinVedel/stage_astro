@@ -253,13 +253,28 @@ class MultiGen(tf.keras.utils.Sequence):
 
 
 class SupervisedGenerator(keras.utils.Sequence) :
-    def __init__(self, data_path, batch_size, nbins=150) :
+    def __init__(self, data_path, batch_size, nbins=150, adversarial=False, adv_extensions=["_D.npz"], adversarial_dir=None) :
         super(SupervisedGenerator, self).__init__()
         self.batch_size = batch_size
         self.data_path = data_path
         self.nbins=nbins
+        self.adversarial = adversarial
+        self.adversarial_dir = adversarial_dir
+        self.adversarial_paths = []
+        self.extensions=adv_extensions
         self.load_data()
         self.on_epoch_end()
+        if self.adversarial :
+            self._find_paths(self.adversarial_dir)
+
+    def _find_paths(self, dir_paths) :
+        for dire in dir_paths :
+            for root, dirs, files in os.walk(dire):
+                for file in files:
+                    if file.endswith(tuple(self.extensions)):
+                        filepath = os.path.join(root, file)
+                        self.adversarial_paths.append(filepath)
+        random.shuffle(self.adversarial_paths)
 
     def load_data(self) :
         data = np.load(self.data_path, allow_pickle=True)
@@ -291,6 +306,17 @@ class SupervisedGenerator(keras.utils.Sequence) :
         print("NAN Z :", np.any(np.isnan(self.z_values)), np.any(np.isnan(self.z_bins)))
         self.z_bins = self.z_bins.astype(np.int32)
         print(self.z_bins)
+
+        if self.adversarial :
+
+            adv_imgs = []
+            for p in self.adversarial_paths :
+                data = np.load(p, allow_pickle=True)
+                images = data["cube"][..., :5]
+                masks = np.expand_dims(data["cube"][..., 5], axis=-1)
+                adv_imgs.append(np.concatenate([images, masks], axis=-1).astype(np.float32) )
+            self.adversarial_images = np.concatenate(adv_imgs, axis=0)
+
 
 
     def __len__(self):
@@ -324,6 +350,17 @@ class SupervisedGenerator(keras.utils.Sequence) :
         batch_images = batch_images[:, :, :, :5]
 
         augmented_images = self.process_batch(batch_images, batch_masks)
+        if self.adversarial :
+            batch_images = self.adversarial_images[index*self.batch_size:(index+1)*self.batch_size]
+            if tf.shape(batch_images)[0] < self.batch_size:
+                # Compléter le batch avec des images dupliquées ou ignorer (selon ta logique)
+                pad_size = self.batch_size - batch_images.shape[0]
+                batch_images = tf.concat([batch_images, self.adversarial_images[:pad_size]], axis=0)
+
+            adversarial_images = self.process_batch(batch_images[..., :5], batch_images[..., 5])
+
+            return (augmented_images, adversarial_images), {"pdf":batch_z, "reg":batch_z2}
+
         return augmented_images, {"pdf":batch_z, "reg":batch_z2}
 
     def on_epoch_end(self):

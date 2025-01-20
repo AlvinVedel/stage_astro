@@ -138,6 +138,115 @@ def astro_model(back, head) :
     return keras.Model(inp, {"pdf":pdf, "reg":reg})
 
 
+def adv_network() :
+    inp = keras.Input((32, 32, 128))
+    c4 = layers.Conv2D(128, kernel_size=3, strides=1, padding='same')(inp)
+    c4 = layers.PReLU()(c4)
+    c5 = layers.Conv2D(256, kernel_size=3, strides=1, padding='same')(c4)
+    c5 = layers.PReLU()(c5)
+    gap = layers.GlobalAveragePooling2D()(c5)
+    fc1 = layers.Dense(128)(gap)
+    fc1 = layers.PReLU()(fc1)
+    drop = layers.Dropout(0.4)(fc1)
+    fc2 = layers.Dense(128)(drop)
+    fc2 = layers.PReLU()(fc2)
+    drop2 = layers.Dropout(0.4)(fc2)
+    classif = layers.Dense(2, activation='softmax')(drop2)
+    return keras.Model(inp, classif)
+
+
+class AstroModel(tf.keras.Model) :
+    def __init__(self, back, head, is_adv, adv_network) :
+        super().__init__()
+        self.back = back
+        self.head = head 
+        self.adv = is_adv
+        self.survey_accuracy = tf.keras.metrics.BinaryAccuracy()
+        self.adv_network = adv_network
+        if self.adv :
+            self.back = tf.keras.Model(self.back.input, [self.back.layers[5].output, self.back.output])
+        for i, lay in enumerate(self.back.layers) :
+            print(i, lay.name)
+
+    def call(self, inputs, only_adv=False, training=True) :
+        output_dict = {}
+
+        if self.adv :
+            c3, x = self.back(inputs, training=training)
+            adv_pred = self.adv_network(c3)
+            output_dict["adversarial"] = adv_pred
+
+
+        else :
+            x = self.back(inputs, training=training)
+
+        if only_adv :  
+            return output_dict
+        else :
+            pdf, reg = self.head(x, training=training)
+            output_dict["pdf"] = pdf
+            output_dict["reg"] = reg
+            return output_dict
+
+
+
+    def train_step(self, inputs) :
+        loss_dict = {}
+
+        x, y = inputs
+        if self.adv : 
+            z_imgs, adv_imgs = x
+        else :
+            z_imgs = x
+        
+        batch_size = tf.shape(z_imgs)[0]        
+
+        with tf.GradientTape(persistent=True) as tape :
+
+            out1 = self(z_imgs, only_adv=False, training=True)
+
+            pdf_loss = tf.keras.losses.sparse_categorical_crossentropy(y["pdf"], out1["pdf"])
+            reg_loss = tf.keras.losses.mean_absolute_error(y["reg"], out1["reg"])
+
+            z_loss = pdf_loss+reg_loss
+            loss_dict["pdf_loss"] = pdf_loss
+            loss_dict["reg_loss"] = reg_loss
+
+
+            if self.adv : 
+                out2 = self(adv_imgs, only_adv=True, training=True)
+
+                classif_true_labels = tf.cast(tf.concat([tf.ones(batch_size), tf.zeros(batch_size)]), dtype=tf.int32)
+                predictions = tf.concat([out1["adversarial"], out2["adversarial"]])
+
+                self.survey_accuracy.update(tf.cast(classif_true_labels, dtype=tf.float32), tf.cast(predictions, dtype=tf.float32))
+
+                adv_loss = tf.keras.losses.sparse_categorical_crossentropy(classif_true_labels, predictions)
+                inverse_adv_loss = -adv_loss
+                loss_dict["adversarial_loss"] = adv_loss
+                loss_dict["adversarial_accuracy"] = self.survey_accuracy.result()
+
+        
+        gradients = tape.gradient(z_loss, self.back.trainable_variables+self.head.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.back.trainable_variables+self.head.trainable_variables))
+
+        if self.adv :
+            gradients = tape.gradient(adv_loss, self.adv_network.trainable_variables)
+            self.optimizer.apply_gradients(zip(gradients, self.adv_network.trainable_variables))
+
+            gradients = tape.gradient(inverse_adv_loss, self.back.trainable_variables)
+            self.optimizer.apply_gradients(zip(gradients, self.back.trainable_variables))
+
+        return loss_dict
+
+        
+
+
+        
+            
+
+
+
 
 def segmentor(input_shape1=1024, input_shape2=(32, 32, 128)) :
 

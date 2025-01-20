@@ -4,7 +4,7 @@ import tensorflow.keras as keras
 from tensorflow.keras import layers
 from astro_metrics import Bias, SigmaMAD, OutlierFraction
 import matplotlib.pyplot as plt
-from deep_models import basic_backbone, treyer_backbone, astro_head, astro_model
+from deep_models import basic_backbone, treyer_backbone, astro_head, astro_model, AstroModel, adv_network
 from vit_layers import ViT_backbone
 from generator import SupervisedGenerator
 from schedulers import TreyerScheduler
@@ -15,17 +15,23 @@ os.environ["CUDA_VISIBLE_DEVICES"]='0'
 
 
 base_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"
+adv_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/"
 base_names = ["b1_1", "b2_1", "b3_1"]
 save_name = "cnn_backbone"
 
+
+
 for base in base_names :
     #model = astro_model(ViT_backbone(256, 4, 8, 4, 'average'), astro_head())
-    model = astro_model(basic_backbone(), astro_head())
-    gen = SupervisedGenerator(base_path+base+"_v2.npz", batch_size=32)
+    #model = astro_model(basic_backbone(), astro_head())
+    model = AstroModel(back=basic_backbone(), head=astro_head, is_adv=True, adv_network=adv_network())
+    model(np.random.random((32, 64, 64, 5)))
+    gen = SupervisedGenerator(base_path+base+"_v2.npz", batch_size=32, adversarial=True, adversarial_dir=adv_path, adv_extensions=["SPEC_D.npz"])
     n_epochs = 50
-    model.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss={"pdf" : tf.keras.losses.SparseCategoricalCrossentropy(), "reg":tf.keras.losses.MeanAbsoluteError()}, 
-                  metrics= {"pdf":["accuracy"], "reg" :[Bias(name='global_bias'), SigmaMAD(name='global_smad'), OutlierFraction(name='global_outl'),Bias(inf=0, sup=0.4, name='bias1'), Bias(inf=0.4, sup=2, name='bias2'), Bias(inf=2, sup=4, name='bias3'), Bias(inf=4, sup=6, name='bias4'), 
-                  SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'), OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='outl3'), OutlierFraction(inf=4, sup=6, name='outl4')]})
+    model.compile(optimizer=tf.keras.optimizers.Adam(1e-4))
+    #model.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss={"pdf" : tf.keras.losses.SparseCategoricalCrossentropy(), "reg":tf.keras.losses.MeanAbsoluteError()}, 
+    #              metrics= {"pdf":["accuracy"], "reg" :[Bias(name='global_bias'), SigmaMAD(name='global_smad'), OutlierFraction(name='global_outl'),Bias(inf=0, sup=0.4, name='bias1'), Bias(inf=0.4, sup=2, name='bias2'), Bias(inf=2, sup=4, name='bias3'), Bias(inf=4, sup=6, name='bias4'), 
+    #              SigmaMAD(inf=0, sup=0.4, name='smad1'), SigmaMAD(inf=0.4, sup=2, name='smad2'), SigmaMAD(inf=2, sup=4, name='smad3'), SigmaMAD(inf=4, sup=6, name='smad4'), OutlierFraction(inf=0, sup=0.4, name='outl1'), OutlierFraction(inf=0.4, sup=2, name='outl2'), OutlierFraction(inf=2, sup=4, name='outl3'), OutlierFraction(inf=4, sup=6, name='outl4')]})
     history = model.fit(gen, epochs=n_epochs, callbacks=[TreyerScheduler()])
 
     model.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/checkpoints_supervised/"+save_name+"_"+base+".weights.h5")
