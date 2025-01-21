@@ -54,6 +54,16 @@ def load_data(filepath, newpath, k):
     data = np.load(filepath, allow_pickle=True)
     images = data["cube"][..., :5]  # Garder les 5 premières bandes
     meta = data["info"]
+    print(meta.dtype, meta[0])
+
+    toto()
+
+    all_flags = np.array([me[2] for me in meta])
+    valid_images = np.where(np.sum(all_flags)==0)
+
+    images = images[valid_images]
+    meta = meta[valid_images]
+
     images = np.sign(images) * (np.sqrt(np.abs(images) + 1) - 1)
 
     with mp.Pool(processes=mp.cpu_count()) as pool:
