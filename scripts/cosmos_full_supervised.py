@@ -15,18 +15,25 @@ os.environ["CUDA_VISIBLE_DEVICES"]='0'
 
 
 base_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"
-adv_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/"
-base_names = ["b1_1", "b2_1", "b3_1"]
-save_name = "cnn_backbone"
+adv_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_spec/"
+base_names = ["base1", "base2", "base3"]
+save_name = "cleaned_cnn_supervised_noadv"
 
+
+#x_val = np.load("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_spec/cube_1_UD.npz", allow_pickle=True)["cube"][:10000, :, :, :6]
+#y_val = np.load("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_spec/cube_1_UD.npz", allow_pickle=True)["info"][:10000]["ZSPEC"]
+#x_val2 = np.load("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_spec/cube_1_D.npz", allow_pickle=True)["cube"][:10000, :, :, :6]
+
+#val_data = ((x_val, x_val2), y_val)
 
 
 for base in base_names :
     #model = astro_model(ViT_backbone(256, 4, 8, 4, 'average'), astro_head())
     #model = astro_model(basic_backbone(), astro_head())
-    model = AstroModel(back=basic_backbone(), head=astro_head, is_adv=True, adv_network=adv_network())
-    model(np.random.random((32, 64, 64, 5)))
-    gen = SupervisedGenerator(base_path+base+"_v2.npz", batch_size=32, adversarial=True, adversarial_dir=adv_path, adv_extensions=["SPEC_D.npz"])
+    model = AstroModel(back=basic_backbone(), head=astro_head(), is_adv=False, adv_network=adv_network())
+    model(np.random.random((32, 64, 64, 6)))
+    gen = SupervisedGenerator(base_path+base+".npz", batch_size=32, adversarial=False, adversarial_dir=adv_path, adv_extensions=["_D.npz"])
+
     n_epochs = 50
     model.compile(optimizer=tf.keras.optimizers.Adam(1e-4))
     #model.compile(optimizer=tf.keras.optimizers.Adam(1e-4), loss={"pdf" : tf.keras.losses.SparseCategoricalCrossentropy(), "reg":tf.keras.losses.MeanAbsoluteError()}, 

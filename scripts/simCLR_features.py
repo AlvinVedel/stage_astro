@@ -17,18 +17,18 @@ os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 model = simCLRcolor1(basic_backbone(), projection_mlp(1024), color_mlp(1024))
 #model = simCLRcolor1(ViT_backbone(), projection_mlp(256), color_mlp(256))
 #model = simCLR(basic_backbone(), projection_mlp(1024))
-base_path = "../model_save/checkpoints_simCLR_UD_D/"
-model_name = "simCLR_cosmos_bnTrue_150_ColorHead_Regularized.weights.h5"
+base_path = "../model_save/checkpoints_new_simCLR/"
+model_name = "simCLR_UD_D_norm350_ColorHead_Regularized.weights.h5"
 
-code_save = "ColorHead_Regularized_UD_D"
+code_save = "ColorHead_Regularized_norm"
 
-model(np.random.random((32, 64, 64, 5)))
+model(np.random.random((32, 64, 64, 6)))
 model.load_weights(base_path+model_name)
 
+extracteur = model.backbone
 
 
-
-folder_path2 = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/"
+folder_path2 = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_spec/"
 
 
 
@@ -50,7 +50,7 @@ random.shuffle(indices3)
 
 import gc
 
-all_images = []
+all_latents = []
 all_metas = []
 origin_label = []
 
@@ -64,18 +64,28 @@ for i in range(len(indices2)) :
     ind = indices2[i]
     print("FILE ", i, file_paths2['d'][ind])
     data = np.load(file_paths2['d'][ind], allow_pickle=True)
-    images = data["cube"][..., :5]
+    images = data["cube"][..., :6]
     meta = data["info"]
     
-    n = images.shape[0]
-    sub_ind = np.arange(n)
-    random.shuffle(sub_ind)
-    takes = sub_ind[:250]
-    images = images[takes]
-    meta = meta[takes]
+    #n = images.shape[0]
+    #sub_ind = np.arange(n)
+    #random.shuffle(sub_ind)
+    #takes = sub_ind[:250]
+    #images = images[takes]
+    #meta = meta[takes]
     
     #images = np.sign(images)*(np.sqrt(np.abs(images+1))-1) 
-    all_images.append(images)
+    latents = []
+    a = 0
+    while a < len(images) :
+        if a + 500 < len(images) :
+            feat = extracteur(images[a:a+500])
+        else :
+            feat = extracteur(images[a:])
+        latents.append(feat)
+        a+=500
+    latents = np.concatenate(latents, axis=0)
+    all_latents.append(latents)
     metas = np.array([extract_meta(met) for met in meta])
     all_metas.append(metas)
     label = ['cosmos_d' for _ in range(images.shape[0])]
@@ -89,18 +99,28 @@ for i in range(len(indices3)) :
     ind = indices3[i]
     print("FILE ", i, file_paths2['ud'][ind])
     data = np.load(file_paths2['ud'][ind], allow_pickle=True)
-    images = data["cube"][..., :5]
+    images = data["cube"][..., :6]
     meta = data["info"]
 
-    n = images.shape[0]
-    sub_ind = np.arange(n)
-    random.shuffle(sub_ind)
-    takes = sub_ind[:250]
-    images = images[takes]
-    meta = meta[takes]
-
+    #n = images.shape[0]
+    #sub_ind = np.arange(n)
+    #random.shuffle(sub_ind)
+    #takes = sub_ind[:10000]
+    #images = images[takes]
+    #meta = meta[takes]
+    latents = []
+    a = 0
+    while a < len(images) :
+        if a + 500 < len(images) :
+            feat = extracteur(images[a:a+500])
+        else :
+            feat = extracteur(images[a:])
+        latents.append(feat)
+        a+=500
+    latents = np.concatenate(latents, axis=0)
+    all_latents.append(latents)
     #images = np.sign(images)*(np.sqrt(np.abs(images+1))-1)
-    all_images.append(images)
+    #all_images.append(images)
     metas = np.array([extract_meta(met) for met in meta]) # shape 20k, 5
     all_metas.append(metas)
     label = ['cosmos_ud' for _ in range(images.shape[0])]
@@ -108,7 +128,7 @@ for i in range(len(indices3)) :
     gc.collect()
 
 
-images = np.concatenate(all_images, axis=0)
+features = np.concatenate(all_latents, axis=0)
 metas = np.concatenate(all_metas, axis=0)  # 12*20k, 5
 
 ra = metas[:, 0]
@@ -137,10 +157,10 @@ for s in origin_label :
     
 
 if True :    
-    extractor = model.backbone
+    #extractor = model.backbone
     if False :
         features, flatten = extractor.predict(images)
-    else :
+    elif False :
         features = []
         i = 0
         while i < len(images) :

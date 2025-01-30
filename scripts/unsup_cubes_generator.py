@@ -6,7 +6,7 @@ import os
 
 
 
-def get_mask(image, threshold=0.2, center_window_fraction=0.6) :
+def get_mask(image, threshold=0.15, center_window_fraction=0.6) :
     channels_masks = []
     for channel in range(image.shape[-1]) :
         mean_image = image[:, :, channel]
@@ -41,7 +41,7 @@ import matplotlib.pyplot as plt
 
 
 
-
+"""
 folder_path2 = "/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/SPEC/COSMOS/us" 
 new_directory = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_spec/"
 
@@ -66,7 +66,7 @@ z_key = "zspec"
 
 
 image_indice = 0
-image_bank = np.zeros((80000, 64, 64, 7))
+image_bank = np.zeros((50000, 64, 64, 7))
 meta_bank = []
 
 
@@ -100,7 +100,9 @@ for i, path in enumerate(file_paths2["ud"]) :
             n_to_add = images.shape[0]
             with mp.Pool(processes=mp.cpu_count()) as pool:
                 masques = pool.map(get_mask, images) 
-
+            masques = np.array(masques)
+            masques = np.expand_dims(masques, axis=-1)
+            print(masques.shape)
             nadd = image_bank.shape[0] - image_indice
             if image_indice+n_to_add >= image_bank.shape[0] :
                 image_bank[image_indice:] = np.concatenate([images[:nadd], masques[:nadd]], axis=-1)
@@ -135,7 +137,7 @@ np.savez_compressed(newpath, cube=image_bank[:image_indice], info=np.array(meta_
 
 
 image_indice = 0
-image_bank = np.zeros((80000, 64, 64, 7))
+image_bank = np.zeros((50000, 64, 64, 7))
 meta_bank = []
 
 
@@ -169,7 +171,8 @@ for i, path in enumerate(file_paths2["d"]) :
             n_to_add = images.shape[0]
             with mp.Pool(processes=mp.cpu_count()) as pool:
                 masques = pool.map(get_mask, images) 
-
+            masques = np.array(masques)
+            masques = np.expand_dims(masques, axis=-1)
             nadd = image_bank.shape[0] - image_indice
             if image_indice+n_to_add >= image_bank.shape[0] :
                 image_bank[image_indice:] = np.concatenate([images[:nadd], masques[:nadd]], axis=-1)
@@ -214,10 +217,10 @@ np.savez_compressed(newpath, cube=image_bank[:image_indice], info=np.array(meta_
 
 
 
+"""
 
 
-
-
+z_key = "zphot"
 
 
 
@@ -241,7 +244,7 @@ random.shuffle(file_paths2["d"])
 
 
 image_indice = 0
-image_bank = np.zeros((80000, 64, 64, 6))
+image_bank = np.zeros((50000, 64, 64, 7))
 meta_bank = []
 
 
@@ -276,13 +279,14 @@ for i, path in enumerate(file_paths2["ud"]) :
         print(i, len(images), "images extracted")
         try :
             meta_assoc = np.load(path, allow_pickle=True)["info"][mask]#
-            z_assoc = meta_assoc["ZSPEC"]
+            #z_assoc = meta_assoc["ZPHOT"]
 
             ##if no problem with zspec
             n_to_add = images.shape[0]
             with mp.Pool(processes=mp.cpu_count()) as pool:
                 masques = pool.map(get_mask, images) 
-
+            masques = np.array(masques)
+            masques = np.expand_dims(masques, axis=-1)
             nadd = image_bank.shape[0] - image_indice
             if image_indice+n_to_add >= image_bank.shape[0] :
                 image_bank[image_indice:] = np.concatenate([images[:nadd], masques[:nadd]], axis=-1)
@@ -320,7 +324,7 @@ np.savez_compressed(newpath, cube=image_bank[:image_indice], info=np.array(meta_
 
 
 image_indice = 0
-image_bank = np.zeros((80000, 64, 64, 6))
+image_bank = np.zeros((50000, 64, 64, 7))
 meta_bank = []
 
 
@@ -354,13 +358,14 @@ for i, path in enumerate(file_paths2["d"]) :
         print(i, len(images), "images extracted")
         try :
             meta_assoc = np.load(path, allow_pickle=True)["info"][mask]#
-            z_assoc = meta_assoc["ZSPEC"]
+            #z_assoc = meta_assoc["ZSPEC"]
 
             ##if no problem with zspec
             n_to_add = images.shape[0]
             with mp.Pool(processes=mp.cpu_count()) as pool:
                 masques = pool.map(get_mask, images) 
-
+            masques = np.array(masques)
+            masques = np.expand_dims(masques, axis=-1)
             nadd = image_bank.shape[0] - image_indice
             if image_indice+n_to_add >= image_bank.shape[0] :
                 image_bank[image_indice:] = np.concatenate([images[:nadd], masques[:nadd]], axis=-1)

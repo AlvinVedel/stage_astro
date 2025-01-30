@@ -5,7 +5,7 @@ from tensorflow.keras import layers
 from contrastiv_model import simCLR
 import matplotlib.pyplot as plt
 from vit_layers import ViT_backbone
-from deep_models import basic_backbone, astro_head, astro_model
+from deep_models import basic_backbone, astro_head, astro_model, AstroModel, adv_network
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]='0'
 
@@ -29,17 +29,18 @@ def z_med(probas, bin_central_values) :
     index = np.argmax(cdf>=0.5)
     return bin_central_values[index]
 
-plots_name = "ViT_backbone280"
+plots_name = "simCLR_nonorm"
 path_memory = {}
+import gc
 
-for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE CONDITION D ENTRAINEMENT ON VA AVOIR UN SUBPLOT
-    base_liste = ["spec_UD", "cos2020_UD", "spec_D", "cos2020_D"]
+for i, finetune_base in enumerate(["base2", "base3", "base1"]) :   #### POUR CHAQUE CONDITION D ENTRAINEMENT ON VA AVOIR UN SUBPLOT
+    base_liste = ["_UD", "_D"]
     print("finetune base", finetune_base)
 
-    fig1, ax1 = plt.subplots(nrows=len(base_liste), ncols=5, figsize=(20, 20)) # pour 1 treyer + 3 simCLR dans 2 conditions modèles   ==>   heatmap
-    fig2, ax2 = plt.subplots(nrows=len(base_liste), ncols=5, figsize=(20, 20)) # ===> BIAS
-    fig3, ax3 = plt.subplots(nrows=len(base_liste), ncols=5, figsize=(20, 20)) # ===> SMAD
-    fig4, ax4 = plt.subplots(nrows=len(base_liste), ncols=5, figsize=(20, 20)) # ===> OUTL
+    fig1, ax1 = plt.subplots(nrows=len(base_liste), ncols=4, figsize=(20, 10)) # pour 1 treyer + 3 simCLR dans 2 conditions modèles   ==>   heatmap
+    fig2, ax2 = plt.subplots(nrows=len(base_liste), ncols=4, figsize=(20, 10)) # ===> BIAS
+    fig3, ax3 = plt.subplots(nrows=len(base_liste), ncols=4, figsize=(20, 10)) # ===> SMAD
+    fig4, ax4 = plt.subplots(nrows=len(base_liste), ncols=4, figsize=(20, 10)) # ===> OUTL
 
 
 
@@ -48,29 +49,58 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
         if i == 0 :
             from pathlib import Path
 
-            dir_path = Path("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/")
+            dir_path = Path("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_spec/")
             extension = inf_base+'.npz'
-            npz_files = [file for file in dir_path.rglob(f"*{extension}")]
+            npz_files = [file for file in dir_path.rglob(f"*{extension}") if "4" not in str(file)]
+            print("npz files :", npz_files)
             path_memory[inf_base] = npz_files
 
         else :
             npz_files = path_memory[inf_base]
 
         #npz_files = [f for f in os.listdir(directory) if f.endswith(inf_base+'.npz')]   ## Récupère les fichiers sur lesquels inférer
-        simbases = ["280_ViTback_ColorHead"]
-        #simbases = ["100_ViTback_ColorHead", "200_ColorHead_Regularized"] #    , "UD800_classif","UD_D800_classif"]
+        #simbases = ["cleaned_cnn_supervised", "cleaned_cnn_supervised_noadv"]
+        
+        simbases = ["nonorm350_ColorHead_Regularized", "norm350_ColorHead_Regularized"] #    , "UD800_classif","UD_D800_classif"]
         iter=0
         #model_liste = ["simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"]
-        for k in range((len(simbases)*2)) :
+        for k in range((len(simbases))*2) :
             if False :
                 #model_name = base_path+"model_save/checkpoints_supervised/treyer_supervised_"+finetune_base+".weights.h5"
-                model_name = "../model_save/checkpoints_supervised/cnn_backbone_"+finetune_base+".weights.h5"
-                tag_name = "supervised_reprod"
+                #model_name = "../model_save/checkpoints_supervised/cnn_backbone_"+finetune_base+".weights.h5"
+                model_name = "../model_save/checkpoints_supervised/"+simbases[k]+"_"+finetune_base+".weights.h5"
+                tag_name = "supervised_cleaned"
                 treyer = True
-                model = astro_model(basic_backbone(), astro_head())
-                #model = backbone_sup(True)#create_model()
-                #model = FineTuneModel(backbone(True), head=output_head(1024))
-                model(np.random.random((32, 64, 64, 5)))
+                if k == 1 :
+                    model = astro_model(basic_backbone(), astro_head())
+                    print("LE ASTRO_MODEL a ", len(model.layers), "layers")
+                    model = AstroModel(back=basic_backbone(), head=astro_head(), is_adv=False, adv_network=adv_network())
+                    print("AstroModel a ", len(model.layers), "layers")
+                    model(np.random.random((32, 64, 64, 6)))
+                    model.load_weights(model_name)
+                    inp = keras.Input((64, 64, 6))
+                    x = model.back(inp)
+                    pdf, reg = model.head(x)
+                    model = keras.Model(inp, [pdf, reg])
+                    #inp = keras.Input((64, 64, 6))
+                    #x = model.back(inp)
+                    #pdf, reg = model.head(x)
+                    #model = keras.Model(inp, [pdf, reg])
+                else :
+                    model = AstroModel(back=basic_backbone(), head=astro_head(), is_adv=True, adv_network=adv_network())
+                    #inp = keras.Input((64, 64, 6))
+                    #x = model.back(inp)
+                    #pdf, reg = model.head(x)
+                    #model = keras.Model(inp, [pdf, reg])
+                    #model = backbone_sup(True)#create_model()
+                    #model = FineTuneModel(backbone(True), head=output_head(1024))
+                    model(np.random.random((32, 64, 64, 6)))
+                    model.load_weights(model_name)
+                    backbone = keras.Model(model.back.input, model.back.layers[-1].output)
+                    inp = keras.Input((64, 64, 6))
+                    x = backbone(inp)
+                    pdf, reg = model.head(x)
+                    model = keras.Model(inp, [pdf, reg])
 
             else :
 
@@ -119,8 +149,10 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
                     for file in npz_files :
                         #data = np.load(str(base_path)+"data/spec/"+str(file), allow_pickle=True)
                         data = np.load(str(file), allow_pickle=True)
-                        images = data["cube"][..., :5]
+                        images = data["cube"][..., :6]
+                        print("images loaded")
                         meta = data["info"]
+                        print("meta loaded")
                         z = np.array([extract_z(m) for m in meta])
                         #print(z.shape)
                         true_z.append(z)
@@ -128,6 +160,7 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
                         if treyer :
                             output = model.predict(images)
                             probas = output["pdf"]
+                            #probas = output[0]
                             #print("nan ?", np.any(np.isnan(probas)), np.any(np.isnan(reg)))
                             z_meds = np.array([z_med(p, bins_centres) for p in probas])
                             reg = z_meds
@@ -140,8 +173,8 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
                         #reg = reg[:, 0]
                         pred_z.append(reg)
                         counter+=1
-                        
-
+                        del images, meta
+                        gc.collect()
                     true_z = np.concatenate(true_z, axis=0)
                     pred_z = np.concatenate(pred_z, axis=0)
 
@@ -153,7 +186,7 @@ for i, finetune_base in enumerate(["b1_1", "b2_1", "b3_1"]) :   #### POUR CHAQUE
                     density = gaussian_kde(xy)(xy)
 
 
-                    ax1[j, k].scatter(true_z, pred_z, c=density, cmap='hot', s=5)
+                    ax1[j, k].scatter(true_z, pred_z, c=density, cmap='hot', s=2)
                     ax1[j, k].set_ylim((-1, 6))
                     ax1[j, k].set_xlim((-1, 6))
                     ax1[j, k].set_xlabel("true Z")

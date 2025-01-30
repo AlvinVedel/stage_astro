@@ -187,15 +187,18 @@ class simCLRcolor1(keras.Model) :
 
             
 class NTXent(keras.losses.Loss) :
-    def __init__(self) :
+    def __init__(self, normalize=False) :
         super().__init__()
         self.large_num = 1e8
+        self.normalize = normalize
 
     def call(self, batch, temperature=1) :
         # sépare les images x des images x'
         hidden1, hidden2 = tf.split(batch, 2, 0)
         batch_size = tf.shape(hidden1)[0]
-
+        if self.normalize :
+            hidden1 = tf.nn.l2_normalize(hidden1, axis=1)
+            hidden2 = tf.nn.l2_normalize(hidden2, axis=1)
         hidden1_large = hidden1
         hidden2_large = hidden2
         labels = tf.one_hot(tf.range(batch_size), batch_size*2)    # matrice des des labels,    batch_size x 2*batch_size

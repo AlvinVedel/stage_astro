@@ -14,14 +14,14 @@ bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]],
 bins_centres = (bins_edges[1:] + bins_edges[:-1])/2
 print(bins_edges.shape, bins_centres.shape)
 
-version='v2'
+version='v1'
 
-for base in ["b1_1", "b2_1", "b3_1"] :
+for base in ["base1", "base2", "base3"] :
 
 
-    data = np.load("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+"_"+version+".npz")
+    data = np.load("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", allow_pickle=True)
     meta = data["info"]
-    z_values = meta[:, 6]
+    z_values = np.array([me[40] for me in meta])
     z_values = z_values.astype(np.float32)
     bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
     bins_centres = (bins_edges[1:] + bins_edges[:-1])/2

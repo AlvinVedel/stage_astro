@@ -46,4 +46,4 @@ set -x
 # Pour les partitions "gpu_p5" et "gpu_p6", le code doit etre compile avec les modules compatibles
 # avec la partition choisie
 # Execution du code
-python -u ../scripts/simCLR_finetune.py
+python -u ../scripts/simCLR_finetune2.py

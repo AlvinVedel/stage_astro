@@ -21,7 +21,7 @@ def inception_block(input):
 
 
 def basic_backbone() :
-    inp = keras.Input((64, 64, 5))
+    inp = keras.Input((64, 64, 6))
     c1 = layers.Conv2D(96, padding='same', strides=1, kernel_size=3)(inp) # 64
     c1 = layers.PReLU()(c1) 
     c2 = layers.Conv2D(96, padding='same', kernel_size=3, strides=1, activation='tanh')(c1)  #64
@@ -53,7 +53,7 @@ def basic_backbone() :
 
 def treyer_backbone(bn=False) :
 
-    input_img = keras.Input((64, 64, 5))
+    input_img = keras.Input((64, 64, 6))
     #input_ebv = keras.Input((1,))
     conv1 = layers.Conv2D(96, kernel_size=5, activation='relu', strides=1, padding='same', name='c1')(input_img)
     conv2 = layers.Conv2D(96, kernel_size=3, activation='tanh', strides=1, padding='same', name='c2')(conv1)
@@ -104,7 +104,7 @@ def color_mlp(input_shape=1024) :
     x = layers.PReLU()(x)
     x = layers.Dense(256)(x)
     x = layers.PReLU()(x)
-    output = layers.Dense(4, activation='linear')(x)
+    output = layers.Dense(5, activation='linear')(x)
     return keras.Model(latent_input, output)
 
 def classif_mlp(input_shape=1024) :
@@ -131,7 +131,7 @@ def astro_head(input_shape=1024, nbins=400) :
 
 
 def astro_model(back, head) :
-    inp = keras.Input((64, 64, 5))
+    inp = keras.Input((64, 64, 6))
     x = back(inp)
     pdf, reg = head(x)
     #return keras.Model(inp, [pdf, reg])
@@ -164,7 +164,7 @@ class AstroModel(tf.keras.Model) :
         self.survey_accuracy = tf.keras.metrics.BinaryAccuracy()
         self.adv_network = adv_network
         if self.adv :
-            self.back = tf.keras.Model(self.back.input, [self.back.layers[5].output, self.back.output])
+            self.back = tf.keras.Model(self.back.input, [self.back.layers[6].output, self.back.output])
         for i, lay in enumerate(self.back.layers) :
             print(i, lay.name)
 
@@ -216,12 +216,14 @@ class AstroModel(tf.keras.Model) :
             if self.adv : 
                 out2 = self(adv_imgs, only_adv=True, training=True)
 
-                classif_true_labels = tf.cast(tf.concat([tf.ones(batch_size), tf.zeros(batch_size)]), dtype=tf.int32)
-                predictions = tf.concat([out1["adversarial"], out2["adversarial"]])
+                classif_true_labels = tf.cast(tf.concat([tf.ones(batch_size), tf.zeros(batch_size)], axis=0), dtype=tf.int32)
+                predictions = tf.concat([out1["adversarial"], out2["adversarial"]], axis=0)
 
-                self.survey_accuracy.update(tf.cast(classif_true_labels, dtype=tf.float32), tf.cast(predictions, dtype=tf.float32))
+                adv_loss = tf.keras.losses.sparse_categorical_crossentropy(classif_true_labels, predictions, from_logits=False)
 
-                adv_loss = tf.keras.losses.sparse_categorical_crossentropy(classif_true_labels, predictions)
+                self.survey_accuracy.update_state(tf.cast(classif_true_labels, dtype=tf.float32), tf.cast(predictions[:, 1], dtype=tf.float32))
+
+                #adv_loss = tf.keras.losses.sparse_categorical_crossentropy(classif_true_labels, predictions)
                 inverse_adv_loss = -adv_loss
                 loss_dict["adversarial_loss"] = adv_loss
                 loss_dict["adversarial_accuracy"] = self.survey_accuracy.result()

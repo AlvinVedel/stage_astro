@@ -20,7 +20,7 @@ model = simCLRcolor1(basic_backbone(), projection_mlp(1024), color_mlp(1024))
 base_path = "../model_save/checkpoints_simCLR_UD_D/"
 model_name = "simCLR_cosmos_bnTrue_200_ColorHead_Regularized.weights.h5"
 
-code_save = "knn"
+code_save = "knn_d2ud_acp"
 
 model(np.random.random((32, 64, 64, 5)))
 model.load_weights(base_path+model_name)
@@ -28,8 +28,10 @@ extractor = model.backbone
 
 
 
-#folder_path2 = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/"
-folder_path2 = "/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/SPEC/COSMOS/" 
+
+
+folder_path2 = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/"
+#folder_path2 = "/lustre/fswork/projects/rech/kof/uve94ap/CUBES_HSC/SPEC/COSMOS/" 
 
 
 file_paths2 = {'d':[], 'ud':[]}
@@ -42,7 +44,11 @@ for file_name in os.listdir(folder_path2):
         file_paths2['ud'].append(file_path)
     
 
-z_key = "ZPHOT"
+file_paths2["d"] = file_paths2["d"]
+file_paths2["ud"] = file_paths2["ud"]
+
+
+z_key = "zspec"
 
 ud_latent = []
 ud_z = []
@@ -50,9 +56,11 @@ ud_z = []
 print("There is ", len(file_paths2["ud"]), "files in ud")
 
 for i, path in enumerate(file_paths2["ud"]) :
-    print(i)
-
+    #print(i)
+  
     info_i = np.load(path, allow_pickle=True)["info"]
+    if i == 0 :
+        print(info_i.dtype)
     info_i.dtype.names = tuple([x.lower() for x in info_i.dtype.names])
     mask = (info_i["i"] >= 18) & (info_i["i"] <= 25)
     if "flag" in np.load(path).files :
@@ -63,10 +71,28 @@ for i, path in enumerate(file_paths2["ud"]) :
 
     images = np.load(path, allow_pickle=True)["cube"][mask][..., :5]
     images = np.sign(images) * (np.sqrt(np.abs(images) + 1) - 1)
-    latent = extractor(images)
-    z_assoc = np.load(path, allow_pickle=True)["info"][mask][z_key]
-    ud_latent.append(latent)
-    ud_z.append(z_assoc)
+    #latent = extractor(images)
+    print(i, len(images), "images extracted")
+    if len(images) > 0 :
+        if len(images)> 1500 :
+            latents = []
+            i = 0
+            while i < len(images)-1000 :
+                latents.append(extractor(images[i:i+1000]))
+                i+=1000 
+            latents.append(extractor(images[i:]))
+            latent = np.concatenate(latents, axis=0)
+        else :
+      
+            latent = extractor(images)
+        try :
+            z_assoc = np.load(path, allow_pickle=True)["info"][mask]#
+            if len(z_assoc)>0 :
+                z_assoc = z_assoc["ZSPEC"]
+                ud_latent.append(latent)
+                ud_z.append(z_assoc)
+        except Exception as e :
+            print("problem during loading", e)
 
 ud_latent = np.concatenate(ud_latent, axis=0)
 ud_z = np.concatenate(ud_z, axis=0)
@@ -79,9 +105,11 @@ print("There is ", len(file_paths2["d"]), "files in d")
 
 
 for i, path in enumerate(file_paths2["d"]) :
-    print(i)
+    #print(i)
 
     info_i = np.load(path, allow_pickle=True)["info"]
+    if i == 0 :
+        print(info_i.dtype)
     info_i.dtype.names = tuple([x.lower() for x in info_i.dtype.names])
     mask = (info_i["i"] >= 18) & (info_i["i"] <= 25)
     if "flag" in np.load(path).files :
@@ -92,10 +120,28 @@ for i, path in enumerate(file_paths2["d"]) :
 
     images = np.load(path, allow_pickle=True)["cube"][mask][..., :5]
     images = np.sign(images) * (np.sqrt(np.abs(images) + 1) - 1)
-    latent = extractor(images)
-    z_assoc = np.load(path, allow_pickle=True)["info"][mask][z_key]
-    d_latent.append(latent)
-    d_z.append(z_assoc)
+    if len(images) > 0 :
+        if len(images)> 1500 :
+            latents = []
+            i = 0
+            while i < len(images)-1000 :
+                latents.append(extractor(images[i:i+1000]))
+                i+=1000
+            latents.append(extractor(images[i:]))
+            latent = np.concatenate(latents, axis=0)
+        else :
+
+            latent = extractor(images)
+        #latent = extractor(images)
+        print(i, len(latent), "images extracted")
+        try :
+            z_assoc = np.load(path, allow_pickle=True)["info"][mask]#
+            if len(z_assoc)>0 :
+                z_assoc = z_assoc["ZSPEC"]
+                d_latent.append(latent)
+                d_z.append(z_assoc)
+        except Exception as e :
+            print("problem during loading")
 
 d_latent = np.concatenate(d_latent, axis=0)
 d_z = np.concatenate(d_z, axis=0)
@@ -104,32 +150,34 @@ d_z = np.concatenate(d_z, axis=0)
 #deltas = np.zeros(d_z.shape[0])
 
 from sklearn.neighbors import KNeighborsRegressor
+from sklearn.decomposition import PCA
 
 n_ud = len(ud_latent)
 inferences_edges = np.linspace(0, 6, 20)
 inferences_edges_mid = (inferences_edges[1:]+inferences_edges[:-1])/2
 
-
+method='acp'
 
 for d, n_dim in enumerate([2, 10, 200, 1000]) :
     print("D = ", n_dim)
 
-    tsne = TSNE(n_components=n_dim, random_state=42)
+    acp = PCA(n_components=n_dim)
+    #tsne = TSNE(n_components=n_dim, random_state=42)
     all_latent = np.concatenate([ud_latent, d_latent], axis=0)
-    projections = tsne.fit_transform(all_latent)
-
-    fig, axes = plt.subplots(nrows=4, ncols=4)
+    #projections = tsne.fit_transform(all_latent)
+    projections = acp.fit_transform(all_latent)
+    fig, axes = plt.subplots(nrows=4, ncols=4, figsize=(20, 20))
 
     for n, n_neigh in enumerate([1, 10, 100, 200]) :
         print("N =", n_neigh)
 
         neigh = KNeighborsRegressor(n_neighbors=n_neigh, weights='distance')
-        neigh.fit(projections[:n_ud], ud_z)
-        predictions = neigh.predict(projections[n_ud:])
+        neigh.fit(projections[n_ud:], d_z)
+        predictions = neigh.predict(projections[:n_ud])
 
 
         metrics = np.zeros((len(inferences_edges)-1, 3))
-        deltas = (predictions - d_z) / (1+d_z)
+        deltas = (predictions - ud_z) / (1+ud_z)
         
 
         axes[n, 0].set_xlabel("redshift")
@@ -150,7 +198,7 @@ for d, n_dim in enumerate([2, 10, 200, 1000]) :
 
 
         for i in range(len(inferences_edges)-1) :
-            inds = np.where((d_z>=inferences_edges[i]) & (d_z<inferences_edges[i+1]))
+            inds = np.where((ud_z>=inferences_edges[i]) & (ud_z<inferences_edges[i+1]))
             selected_deltas = deltas[inds]
 
             metrics[i, 0] = np.mean(selected_deltas)
@@ -158,11 +206,11 @@ for d, n_dim in enumerate([2, 10, 200, 1000]) :
             median_delta_z_norm = np.median(selected_deltas)
             mad = np.median(np.abs(selected_deltas - median_delta_z_norm))
             sigma_mad = 1.4826 * mad
-            metrics[d, n, i, 1] = sigma_mad
+            metrics[i, 1] = sigma_mad
 
             outliers = np.abs(selected_deltas) > 0.05
             fraction_outliers = np.sum(outliers) / (len(selected_deltas)+1e-6)
-            metrics[d, n, i, 2] = fraction_outliers
+            metrics[i, 2] = fraction_outliers
 
 
         print("métriques :", metrics)
@@ -171,11 +219,15 @@ for d, n_dim in enumerate([2, 10, 200, 1000]) :
         axes[n, 0].plot(inferences_edges_mid, metrics[:, 0])
         axes[n, 1].plot(inferences_edges_mid, metrics[:, 1])
         axes[n, 2].plot(inferences_edges_mid, metrics[:, 2])
-        axes[n, 3].plot(d_z, predictions)
+        from scipy.stats import gaussian_kde
+        xy = np.vstack([ud_z, predictions])
+        density = gaussian_kde(xy)(xy)
+
+        axes[n, 3].scatter(ud_z, predictions, c=density, cmap='hot', s=5)
 
 
 
-    fig.savfig("../plots/knn_results_dim_tsne="+str(n_dim)+".png")
+    fig.savefig("../plots/knn_results_d2ud_dim_"+method+"="+str(n_dim)+".png")
 
 
         
@@ -184,7 +236,7 @@ for d, n_dim in enumerate([2, 10, 200, 1000]) :
 
 
 
-
+toto()
 
 
 
@@ -199,7 +251,9 @@ if True :
         features = np.nan_to_num(features, nan=0.0)
     print(features.shape)
     print(features)
+    #pca = PCA(n_components=2)
     tsne = TSNE(n_components=2, random_state=42)
+    #data_tsne = pca.fit_transform(features)
     data_tsne = tsne.fit_transform(features)
     print("tsne ended")
 

@@ -16,11 +16,47 @@ for root, dirs, files in os.walk(directory) :
 """
 from pathlib import Path
 
-dir_path = Path("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/")
-extension = "spec_UD.npz"
+#dir_path = Path("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/")
+path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_spec/cube_4_UD.npz"
+#extension = "spec_UD.npz"
+
+data = np.load(path, allow_pickle=True)
+meta = data["info"]
+print(len(meta))
+print(meta.dtype)
+
+inds = np.arange(len(meta))
+import random
+random.shuffle(inds)
+
+inds1 = inds[:5000]
+
+random.shuffle(inds)
+
+inds2 = inds[:10000]
+
+random.shuffle(inds)
+
+inds3 = inds[:20000]
+
+
+all_inds = [inds1, inds2, inds3]
+
+a = 1
+
+for ind in all_inds :
+    selected_imgs = data["cube"][ind]
+    selected_meta = data["info"][ind]
+
+    np.savez_compressed("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/base"+str(a)+".npz", cube=selected_imgs, info=selected_meta)
+    a+=1
+
+
+
+toto()
 
 # Utilisation de pathlib pour simplifier et filtrer les fichiers
-files_list = [file for file in dir_path.rglob(f"*{extension}")]
+#files_list = [file for file in dir_path.rglob(f"*{extension}")]
 
 n_files = len(files_list)
 n1 = int(5000/n_files)+5

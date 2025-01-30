@@ -22,22 +22,22 @@ base_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/"
 
 model = simCLRcolor1(basic_backbone(), projection_mlp(1024), color_mlp(1024))
 #model = simCLRcolor1(ViT_backbone(), projection_mlp(256), color_mlp(256))
-model(np.random.random((32, 64, 64, 5)))
+model(np.random.random((32, 64, 64, 6)))
 
 
 
-load_w_path = "model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_"
-model_name = "400_ColorHead_Regularized"
+load_w_path = "model_save/checkpoints_new_simCLR/simCLR_UD_D_"
+model_name = "nonorm350_ColorHead_Regularized"
 save_w_path = "model_save/checkpoints_simCLR_finetune/simCLR_finetune_UD_D_"
 plots_path = "plots/simCLR/simCLR_finetune/"
 
-for base in ["b1_1", "b2_1", "b3_1"] :
+for base in ["base1", "base2", "base3"] :
 
-    data_gen = SupervisedGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+"_v2.npz", batch_size=32, nbins=400)
+    data_gen = SupervisedGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=32, nbins=400)
 
    
     
-    model(np.random.random((32, 64, 64, 5)))
+    model(np.random.random((32, 64, 64, 6)))
     model.load_weights(base_path+load_w_path+model_name+".weights.h5")
 
     extracteur = model.backbone
@@ -102,7 +102,7 @@ for base in ["b1_1", "b2_1", "b3_1"] :
     ##### PARTIE 2
 
     
-    model(np.random.random((32, 64, 64, 5)))
+    model(np.random.random((32, 64, 64, 6)))
     model.load_weights(base_path+load_w_path+model_name+".weights.h5")
 
     extracteur = model.backbone

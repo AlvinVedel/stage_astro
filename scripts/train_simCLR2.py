@@ -14,12 +14,12 @@ os.environ["CUDA_VISIBLE_DEVICES"] = '0, 1'
 import time
 
 
-model_save = 'checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_'
+model_save = 'checkpoints_new_simCLR/simCLR_UD_D_norm'
 iter_suffixe="_ColorHead_Regularized"
 allowed_extensions = ["UD.npz", "_D.npz"]
 batch_size=256
-lr = 2e-5
-callbacks = [LinearDecay(0, 2, 25)]
+lr = 1e-5
+callbacks = [LinearDecay(0, 10, 100)]
 
 #### PARAMS  générateur
 do_color = True
@@ -28,7 +28,7 @@ do_drop_band = False
 do_adversarial = False
 
 load_model = True
-iter = 20
+iter = 15
 
 intermediate_outputs = []
 color = {"do":True, "network":color_mlp(1024), "need":[0], "weight":1}
@@ -42,8 +42,8 @@ sup_regu = {"do":False, "weight":0.1}
 #                regularization=sup_regu, color_head=color, segmentor=segment, deconvolutor=reconstr, adversarial=adverse)
 model = simCLRcolor1(basic_backbone(), projection_mlp(1024, False), color_mlp(1024))
 #model = simCLRcolor1(ViT_backbone(), projection_mlp(256, False), color_mlp(256))
-model.compile(optimizer=keras.optimizers.Adam(lr), loss=ContrastivLoss())
-model(np.random.random((32, 64, 64, 5)))
+model.compile(optimizer=keras.optimizers.Adam(lr), loss=ContrastivLoss(normalize=True))
+model(np.random.random((32, 64, 64, 6)))
 
 """
 import h5py
@@ -60,11 +60,11 @@ with h5py.File(weights_path, "r") as f:
     model.color_params["network"].set_weights(color_weights)
 """
 if load_model :
-    model.load_weights("../model_save/"+model_save+str(iter*10)+iter_suffixe+".weights.h5")
+    model.load_weights("../model_save/"+model_save+str((iter+20)*10)+iter_suffixe+".weights.h5")
 
 
 
-data_gen = MultiGen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/phot/"], 
+data_gen = MultiGen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_phot/"], 
                batch_size=batch_size, extensions=allowed_extensions, do_color=do_color, do_seg=do_seg, do_mask_band=do_drop_band)
 
 
@@ -74,6 +74,6 @@ while iter <= 1000 :
     iter+=1
     model.fit(data_gen, epochs=10, callbacks=callbacks)  # normalement 4mn max par epoch = 400mn 
     data_gen._load_data()
-    if iter % 2 == 0 :
+    if iter % 5 == 0 :
         filename = "../model_save/"+model_save+str(iter*10)+iter_suffixe+".weights.h5"
         model.save_weights(filename)  # 6000 minutes   ==> 15 fois 100 épochs

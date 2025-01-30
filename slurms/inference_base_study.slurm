@@ -11,6 +11,7 @@
 #SBATCH --time=12:00:00              # temps maximum d'execution demande (HH:MM:SS)   # 20H
 #SBATCH --output=../logs/inference_base_study_%j.out      # nom du fichier de sortie
 #SBATCH --error=../logs/inference_base_study_%j.out       # nom du fichier d'erreur (ici commun avec la sortie)
+#SBATCH --qos=qos_gpu-t3
  
 module purge
 

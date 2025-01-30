@@ -13,18 +13,19 @@ def rotate_image(inputs):
 
 import multiprocessing as mp
 def compute_target(x) :
-        image = x[..., :5]
-        mask = x[..., 5].astype(bool)
+        image = x[..., :6]
+        mask = x[..., 6].astype(bool)
 
         indices = np.where(mask)
         pixels = image[indices]
 
-        colors = np.zeros((4))
+        colors = np.zeros((5))
 
         colors[0] = np.mean((pixels[..., 0]-pixels[..., 1])) # u-g
         colors[1] = np.mean((pixels[..., 1] - pixels[..., 2])) # g-r
         colors[2] = np.mean((pixels[..., 3] - pixels[..., 4])) # i-z
         colors[3] = np.mean((pixels[..., 2] - pixels[..., 3])) # r-i
+        colors[4] = np.mean((pixels[..., 4] - pixels[..., 5]))
 
         return colors
 
@@ -33,13 +34,13 @@ def compute_target(x) :
 
 
 class MultiGen(tf.keras.utils.Sequence):
-    def __init__(self, paths, batch_size, do_color=True, do_seg=True, do_mask_band=True, do_adversarial=False, image_size=(64, 64, 5), shuffle=True, extensions=[".npz"]):
+    def __init__(self, paths, batch_size, do_color=True, do_seg=True, do_mask_band=True, do_adversarial=False, image_size=(64, 64, 6), shuffle=True, extensions=[".npz"]):
         self.paths = []
         self.path_index=0
         self.batch_size = batch_size
         self.shuffle = shuffle
         self.image_size = image_size
-        self.max_images = 80000
+        self.max_images = 70000
         self.extensions = extensions
         self.n_epochs = 0
         self.do_color=do_color
@@ -77,8 +78,8 @@ class MultiGen(tf.keras.utils.Sequence):
             self.path_index = (self.path_index+1)%len(self.paths)
             try :
                 data = np.load(path, allow_pickle=True)
-                images = data["cube"][..., :5]  # on ne prend que les 5 premières bandes
-                masks = np.expand_dims(data["cube"][..., 5], axis=-1)
+                images = data["cube"][..., :6]  # on ne prend que les 5 premières bandes
+                masks = np.expand_dims(data["cube"][..., 6], axis=-1)
 
                 #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
                 images = np.concatenate([images, masks], axis=-1)  # N, 64, 64, 6
@@ -99,8 +100,8 @@ class MultiGen(tf.keras.utils.Sequence):
         self.images = np.concatenate(self.images, axis=0)
         if self.n_epochs == 0 :
             print("je calcule les mads")
-            medians = np.median(self.images[..., :5], axis=(0, 1, 2))  # shape (5,) pour chaque channel
-            abs_deviation = np.abs(self.images[..., :5] - medians)  # Déviation absolue
+            medians = np.median(self.images[..., :6], axis=(0, 1, 2))  # shape (5,) pour chaque channel
+            abs_deviation = np.abs(self.images[..., :6] - medians)  # Déviation absolue
             self.mads = np.median(abs_deviation, axis=(0, 1, 2))  # Une MAD par channel
         if self.do_color : 
             with mp.Pool() as pool :
@@ -214,8 +215,8 @@ class MultiGen(tf.keras.utils.Sequence):
 
         
 
-        batch_masks = batch_images[:, :, :, 5]
-        batch_images = batch_images[:, :, :, :5]
+        batch_masks = batch_images[:, :, :, 6]
+        batch_images = batch_images[:, :, :, :6]
         batch_masks = tf.cast(tf.tile(batch_masks, [2, 1, 1]), dtype=bool)
         batch_images = tf.cast(tf.tile(batch_images, [2, 1, 1, 1]), dtype=tf.float32)
 
@@ -262,30 +263,39 @@ class SupervisedGenerator(keras.utils.Sequence) :
         self.adversarial_dir = adversarial_dir
         self.adversarial_paths = []
         self.extensions=adv_extensions
-        self.load_data()
-        self.on_epoch_end()
+        #self.load_data()
+        #self.on_epoch_end()
         if self.adversarial :
             self._find_paths(self.adversarial_dir)
+            print(self.extensions, self.adversarial_dir)
+            print("nb :", len(self.adversarial_paths), self.adversarial_paths)
+        self.load_data()
+        self.on_epoch_end()
 
-    def _find_paths(self, dir_paths) :
-        for dire in dir_paths :
-            for root, dirs, files in os.walk(dire):
-                for file in files:
-                    if file.endswith(tuple(self.extensions)):
-                        filepath = os.path.join(root, file)
-                        self.adversarial_paths.append(filepath)
+
+    def _find_paths(self, dir_path) :
+        #for dire in dir_paths :
+        for root, dirs, files in os.walk(dir_path):
+            for file in files:
+                if file.endswith(tuple(self.extensions)):
+                    filepath = os.path.join(root, file)
+                    self.adversarial_paths.append(filepath)
+                    print("+1 file")
         random.shuffle(self.adversarial_paths)
 
     def load_data(self) :
         data = np.load(self.data_path, allow_pickle=True)
-        images = data["cube"][..., :5]  # on ne prend que les 5 premières bandes
-        masks = np.expand_dims(data["cube"][..., 5], axis=-1)
+        images = data["cube"][..., :6]  # on ne prend que les 5 premières bandes
+        masks = np.expand_dims(data["cube"][..., 6], axis=-1)
 
         #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
         self.images = np.concatenate([images, masks], axis=-1).astype(np.float32)  # N, 64, 64, 6
 
         meta = data["info"]
-        self.z_values = meta[:, 6]
+        print(meta[0])
+        print(meta[0].dtype)
+        print(meta.dtype)
+        self.z_values = np.array([m["ZSPEC"] for m in meta])
         self.z_values = self.z_values.astype("float32")
         print("Z VALS", self.z_values)
         #bins_edges = np.linspace(0, 6, 300)
@@ -312,9 +322,9 @@ class SupervisedGenerator(keras.utils.Sequence) :
             adv_imgs = []
             for p in self.adversarial_paths :
                 data = np.load(p, allow_pickle=True)
-                images = data["cube"][..., :5]
-                masks = np.expand_dims(data["cube"][..., 5], axis=-1)
-                adv_imgs.append(np.concatenate([images, masks], axis=-1).astype(np.float32) )
+                images = data["cube"][..., :6]
+                masks = np.expand_dims(data["cube"][..., 6], axis=-1)
+                adv_imgs.append(np.concatenate([images, masks], axis=-1).astype(np.float32))
             self.adversarial_images = np.concatenate(adv_imgs, axis=0)
 
 
@@ -346,8 +356,8 @@ class SupervisedGenerator(keras.utils.Sequence) :
             batch_z2 = tf.concat([batch_z2, self.z_values[:pad_size]], axis=0)
 
 
-        batch_masks = batch_images[:, :, :, 5]
-        batch_images = batch_images[:, :, :, :5]
+        batch_masks = batch_images[:, :, :, 6]
+        batch_images = batch_images[:, :, :, :6]
 
         augmented_images = self.process_batch(batch_images, batch_masks)
         if self.adversarial :
@@ -357,7 +367,7 @@ class SupervisedGenerator(keras.utils.Sequence) :
                 pad_size = self.batch_size - batch_images.shape[0]
                 batch_images = tf.concat([batch_images, self.adversarial_images[:pad_size]], axis=0)
 
-            adversarial_images = self.process_batch(batch_images[..., :5], batch_images[..., 5])
+            adversarial_images = self.process_batch(batch_images[..., :6], batch_images[..., 6])
 
             return (augmented_images, adversarial_images), {"pdf":batch_z, "reg":batch_z2}
 
