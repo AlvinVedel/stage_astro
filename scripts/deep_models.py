@@ -110,6 +110,7 @@ def color_mlp(input_shape=1024) :
 def classif_mlp(input_shape=1024) :
     latent_input = keras.Input((input_shape))
     x = layers.Dense(256, activation='relu')(latent_input)
+    x = layers.Dropout(0.4)
     x = layers.Dense(256, activation='relu')(x)
     output = layers.Dense(2, activation='softmax')(x)
     return keras.Model(latent_input, output)

@@ -34,8 +34,9 @@ def compute_target(x) :
 
 
 class MultiGen(tf.keras.utils.Sequence):
-    def __init__(self, paths, batch_size, do_color=True, do_seg=True, do_mask_band=True, do_adversarial=False, image_size=(64, 64, 6), shuffle=True, extensions=[".npz"]):
+    def __init__(self, paths, batch_size, do_color=True, do_seg=True, do_mask_band=True, do_adversarial=False, image_size=(64, 64, 6), shuffle=True, extensions=[".npz"], same_samples=True):
         self.paths = []
+        self.survey_paths = {"UD":[], "D":[]}
         self.path_index=0
         self.batch_size = batch_size
         self.shuffle = shuffle
@@ -49,6 +50,7 @@ class MultiGen(tf.keras.utils.Sequence):
         self.do_adversarial = do_adversarial
         self.mean = None
         self.std = None
+        self.same_samples = same_samples
         self.file_tracker = {}
         self._find_paths(paths)
         self._load_data()
@@ -61,40 +63,102 @@ class MultiGen(tf.keras.utils.Sequence):
             for root, dirs, files in os.walk(dire):
                 for file in files:
                     if file.endswith(tuple(self.extensions)):
+                        
                         filepath = os.path.join(root, file)
+                        if "_UD" in file :
+                            self.survey_paths["UD"].append(filepath)
+                        else :
+                            self.survey_paths["D"].append(filepath)
                         self.paths.append(filepath)
                         self.file_tracker[filepath] = (0, 0)
         random.shuffle(self.paths)
-                        
+        random.shuffle(self.survey_paths["UD"])
+        random.shuffle(self.survey_paths["D"])
 
     def _load_data(self):
         random.shuffle(self.paths)
         self.images = []
         self.surveys = []
+        self.colors = []
 
         gc.collect()
-        while np.sum([len(cube) for cube in self.images]) < self.max_images :
-            path = self.paths[self.path_index]
-            self.path_index = (self.path_index+1)%len(self.paths)
-            try :
+        if self.same_samples :
+            ud_images = np.zeros((40000, 64, 64, 6))
+
+            random.shuffle(self.survey_paths["UD"])
+            random.shuffle(self.survey_paths["D"])
+
+            ud_index = 0
+            path_iter = 0
+            while ud_index < 40000 :
+                path = self.survey_paths["UD"][path_iter]
                 data = np.load(path, allow_pickle=True)
                 images = data["cube"][..., :6]  # on ne prend que les 5 premières bandes
-                masks = np.expand_dims(data["cube"][..., 6], axis=-1)
+                meta = data["info"]
+                colors = np.array([np.array([m["u"] - m["g"], m["g"] - m["r"], m['r'] - m["i"], m["i"] - m["z"], m["z"] - m["y"]]) for m in meta])
+                self.colors.append(colors)
+                #masks = np.expand_dims(data["cube"][..., 6], axis=-1)
+                    #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
+                #images = np.concatenate([images, masks], axis=-1)
+                if len(images) + ud_index > ud_images.shape[0] :
+                    ud_images[ud_index:] = images[:(ud_images.shape[0] - ud_index)]
+                else :
+                    ud_images[ud_index:ud_index+len(images)] = images
 
-                #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
-                images = np.concatenate([images, masks], axis=-1)  # N, 64, 64, 6
-                self.images.append(images)
-                self.file_tracker[path] = (self.file_tracker[path][0]+1, images.shape[0])
+                ud_index += len(images)
+            self.images.append(ud_images)
+            self.surveys.append(np.ones((40000)))
 
-                if "_UD.npz" in path :
-                    self.surveys.append(np.ones((len(data["cube"]))))
-                elif "_D.npz" in path :
-                    self.surveys.append(np.zeros((len(data["cube"]))))
+            ud_images = np.zeros((40000, 64, 64, 6))
 
+            ud_index = 0
+            path_iter = 0
+            while ud_index < 40000 :
+                path = self.survey_paths["D"][path_iter]
+                data = np.load(path, allow_pickle=True)
+                images = data["cube"][..., :6]  # on ne prend que les 5 premières bandes
+                colors = np.array([np.array([m["u"] - m["g"], m["g"] - m["r"], m['r'] - m["i"], m["i"] - m["z"], m["z"] - m["y"]]) for m in meta])
+                self.colors.append(colors)
+                #masks = np.expand_dims(data["cube"][..., 6], axis=-1)
+                    #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
+                #images = np.concatenate([images, masks], axis=-1)
+                if len(images) + ud_index > ud_images.shape[0] :
+                    ud_images[ud_index:] = images[:(ud_images.shape[0] - ud_index)]
+                else :
+                    ud_images[ud_index:ud_index+len(images)] = images
+
+                ud_index += len(images)
+            self.images.append(ud_images)
+            self.surveys.append(np.zeros((40000)))
+
+            del ud_images
+            gc.collect()
             
 
-            except Exception as e :
-                print("file couldn't be readen", path)
+
+        else :
+            while np.sum([len(cube) for cube in self.images]) < self.max_images :
+                path = self.paths[self.path_index]
+                self.path_index = (self.path_index+1)%len(self.paths)
+                try :
+                    data = np.load(path, allow_pickle=True)
+                    images = data["cube"][..., :6]  # on ne prend que les 5 premières bandes
+                    #masks = np.expand_dims(data["cube"][..., 6], axis=-1)
+
+                    #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
+                    #images = np.concatenate([images, masks], axis=-1)  # N, 64, 64, 6
+                    self.images.append(images)
+                    self.file_tracker[path] = (self.file_tracker[path][0]+1, images.shape[0])
+
+                    if "_UD.npz" in path :
+                        self.surveys.append(np.ones((len(data["cube"]))))
+                    elif "_D.npz" in path :
+                        self.surveys.append(np.zeros((len(data["cube"]))))
+
+                
+
+                except Exception as e :
+                    print("file couldn't be readen", path)
         self.surveys = np.concatenate(self.surveys, axis=0)
 
         self.images = np.concatenate(self.images, axis=0)
@@ -104,9 +168,10 @@ class MultiGen(tf.keras.utils.Sequence):
             abs_deviation = np.abs(self.images[..., :6] - medians)  # Déviation absolue
             self.mads = np.median(abs_deviation, axis=(0, 1, 2))  # Une MAD par channel
         if self.do_color : 
-            with mp.Pool() as pool :
-                colors = pool.map(compute_target, self.images)
-            self.colors = np.array(colors)
+        #    with mp.Pool() as pool :
+        #        colors = pool.map(compute_target, self.images)
+        #    self.colors = np.array(colors)
+            self.colors = np.concatenate(self.colors, axis=0)
             if self.mean is None and self.std is None :
                 self.mean = np.mean(self.colors, axis=0)
                 self.std = np.std(self.colors, axis=0)
@@ -127,7 +192,7 @@ class MultiGen(tf.keras.utils.Sequence):
     def __len__(self):
         return int(np.ceil(len(self.images) / self.batch_size))
     
-    def zoom(self, images, masks) :
+    def zoom(self, images) :
         batch_size, height, width = tf.shape(images)[0], tf.shape(images)[1], tf.shape(images)[2]
         zoom_values = tf.random.uniform((batch_size,), minval=(height//2)-4, maxval=height // 2, dtype=tf.int32)
         centers_x = height // 2
@@ -142,21 +207,41 @@ class MultiGen(tf.keras.utils.Sequence):
         images = tf.image.crop_and_resize(tf.cast(images, dtype=tf.float32), tf.cast(crop_boxes, dtype=tf.float32), box_indices=tf.range(batch_size), crop_size=[height, width])
         return images
     
-    def gaussian_noise(self, images, masks, apply_prob=0.2) :
+    def center_jitter(self, images):
+        batch_size, img_h, img_w, channels = images.shape  # Assumes NHWC format
+        
+        nx = tf.random.uniform(shape=(batch_size,), minval=-5, maxval=5, dtype=tf.int32)
+        ny = tf.random.uniform(shape=(batch_size,), minval=-5, maxval=5, dtype=tf.int32)
 
-        masks = tf.tile(tf.expand_dims(masks, axis=-1), (1, 1, 1, tf.shape(images)[-1])) # shape batch, 64, 64, 5
+        max_pixels_x = tf.minimum(img_h // 2 - nx, img_h // 2 + nx)
+        max_pixels_y = tf.minimum(img_w // 2 - ny, img_w // 2 + ny)
+
+        x1 = tf.maximum(0, img_h // 2 - max_pixels_x)
+        x2 = tf.minimum(img_h, img_h // 2 + max_pixels_x)
+        y1 = tf.maximum(0, img_w // 2 - max_pixels_y)
+        y2 = tf.minimum(img_w, img_w // 2 + max_pixels_y)
+
+        cropped_images = tf.image.crop_to_bounding_box(images, x1[0], y1[0], x2[0] - x1[0], y2[0] - y1[0])
+        resized_images = tf.image.resize(cropped_images, (64, 64), method='nearest')
+
+        return resized_images
+
+
+    def gaussian_noise(self, images, apply_prob=0.2) :
+
         us = tf.random.uniform((tf.shape(images)[0], tf.shape(images)[-1]), minval=1, maxval=3, dtype=tf.float32)  # shape batch, 5  sample un u par image par channel (1 à 3 fois le bruit médian)
         new_sigmas = tf.multiply(us, tf.expand_dims(tf.cast(self.mads, dtype=tf.float32), axis=0))   #    batch, 5 * 1, 5     batch, 5  le mads représente le noise scale et les u à quel point ils s'expriment 
         # on a un sigma par channel par image
         noises = tf.random.normal(shape=tf.shape(images), mean=0, stddev=1, dtype=tf.float32) # batch, 64, 64, 5
         sampled_noises = tf.multiply(noises, tf.expand_dims(tf.expand_dims(tf.math.sqrt(new_sigmas), axis=1), axis=1))  # on multiplie par la racine du sigma pour avoir un bruit 0, sigma
         apply_noise = tf.cast(tf.random.uniform((tf.shape(images)[0], 1, 1, 1)) < apply_prob, tf.float32)
-        return images + apply_noise * sampled_noises * (1 - tf.cast(masks, dtype=tf.float32))
+        return images + apply_noise * sampled_noises 
     
     def process_batch(self, images, masks, ebv=None) :
         
         images = self.gaussian_noise(images, masks)
         images = self.zoom(images, masks)
+        images = self.center_jitter(images)
 
         images = tf.image.random_flip_left_right(images)
         images = tf.image.random_flip_up_down(images)

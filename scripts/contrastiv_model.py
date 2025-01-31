@@ -150,6 +150,35 @@ class simCLR(keras.Model) :
         return loss_dict
 
 
+class simCLR1(keras.Model) :
+    def __init__(self, backbone, head, color_head, temp=0.7) :
+        super().__init__()
+        self.backbone = backbone
+        self.head = head
+        self.temp=temp
+
+    def call(self, input, training=True) :
+        x = self.backbone(input, training=training)
+        z = self.head(x, training=training)
+        return z
+
+    def train_step(self, data) : 
+        images, labels = data
+        with tf.GradientTape(persistent=True) as tape :
+            z = self(images)
+
+            contrastiv_loss = self.loss(z, self.temp)
+
+            regu_loss = sum(self.losses)
+            total_loss = regu_loss + contrastiv_loss
+  
+        gradients = tape.gradient(total_loss, self.backbone.trainable_variables + self.head.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
+
+
+        del tape
+        return {"contrastiv_loss":contrastiv_loss, "regu_loss":regu_loss}
+
 
 class simCLRcolor1(keras.Model) :
     def __init__(self, backbone, head, color_head, temp=0.7) :
@@ -184,6 +213,53 @@ class simCLRcolor1(keras.Model) :
 
         del tape
         return {"contrastiv_loss":contrastiv_loss, "regu_loss":regu_loss, "color_loss":color_loss}
+    
+class simCLRcolor1_adversarial(keras.Model) :
+    def __init__(self, backbone, head, color_head, adversarial_net, temp=0.7) :
+        super().__init__()
+        self.backbone = backbone
+        self.head = head
+        self.color_head = color_head
+        self.adversarial_net = adversarial_net
+        self.survey_accuracy = tf.keras.metrics.BinaryAccuracy()
+        self.temp=temp
+
+    def call(self, input, training=True) :
+        x = self.backbone(input, training=training)
+        z = self.head(x, training=training)
+        c = self.color_head(x, training=training)
+        classif = self.adversarial_net(x, training=training)
+        return z, c, classif
+
+    def train_step(self, data) : 
+        images, labels = data
+        with tf.GradientTape(persistent=True) as tape :
+            z, c, classif = self(images)
+
+            contrastiv_loss = self.loss(z, self.temp)
+            color_loss = tf.keras.losses.mean_squared_error(labels["color"], c)
+
+            classif_xent = tf.keras.losses.sparse_categorical_crossentropy(labels["survey"], classif)
+            self.survey_accuracy.update_state(labels["survey"], classif)
+            backbone_adversarial_loss = -classif_xent
+
+            regu_loss = sum(self.losses)
+            total_loss = regu_loss + contrastiv_loss
+
+        gradients = tape.gradient(backbone_adversarial_loss, self.backbone.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables))
+
+        gradients = tape.gradient(classif_xent, self.adversarial_net.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.adversarial_net.trainable_variables))
+  
+        gradients = tape.gradient(total_loss, self.backbone.trainable_variables + self.head.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.head.trainable_variables))
+
+        gradients = tape.gradient(color_loss, self.backbone.trainable_variables + self.color_head.trainable_variables)
+        self.optimizer.apply_gradients(zip(gradients, self.backbone.trainable_variables + self.color_head.trainable_variables))
+
+        del tape
+        return {"contrastiv_loss":contrastiv_loss, "regu_loss":regu_loss, "color_loss":color_loss, "adversarial_loss":classif_xent, "acc":self.survey_accuracy.result()}
 
             
 class NTXent(keras.losses.Loss) :
