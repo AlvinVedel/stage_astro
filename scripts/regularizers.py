@@ -1,6 +1,126 @@
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
+from tensorflow.keras.regularizers import Regularizer
+
+
+
+class ThomsonRegularizerFirst(Regularizer):
+    def __init__(self, lambda_=1e-3, lambda_l2=0):
+        self.lambda_ = lambda_
+        self.lambda_l2 = lambda_l2
+
+    def __call__(self, w):
+        n_filt = w.shape[-1]  # Nombre de filtres dans la couche
+        w_reshaped = tf.reshape(w, [-1, n_filt])
+        
+        filt_neg = w_reshaped * -1
+        w_reshaped = tf.concat([w_reshaped, filt_neg], axis=1)
+        
+        # Calcul des produits internes normalisés entre tous les filtres
+        filt_norm = tf.sqrt(tf.reduce_sum(w_reshaped * w_reshaped, axis=0, keepdims=True) + 1e-4)
+        norm_mat = tf.matmul(tf.transpose(filt_norm), filt_norm)
+        inner_pro = tf.matmul(tf.transpose(w_reshaped), w_reshaped)
+        inner_pro /= norm_mat
+
+        cross_terms = 2.0 - 2.0 * inner_pro + tf.linalg.diag(tf.ones([n_filt * 2]))
+        final = tf.pow(cross_terms, -1)  # Répulsion entre filtres
+        final -= tf.linalg.band_part(final, -1, 0)
+
+        cnt = n_filt * (n_filt - 1) / 2.0
+        loss = tf.reduce_sum(final) / cnt
+
+        l2_loss = self.lambda_l2 * tf.reduce_sum(tf.square(w))
+        
+        return self.lambda_ * loss + l2_loss
+
+    def get_config(self):
+        return {"lambda_": self.lambda_}
+
+
+
+class ThomsonRegularizerProject(Regularizer):
+    def __init__(self, lambda_=1e-3, pd=30, pn=1, pnd=0, lambda_l2=0):
+        self.lambda_ = lambda_
+        self.pd = pd  # Dimension de projection
+        self.pn = pn  # Nombre de vecteurs gaussiens pour la projection
+        self.pnd = pnd  # Proportion de la projection appliquée
+        self.lambda_l2 = lambda_l2
+
+    def __call__(self, w):
+        n_filt = w.shape[-1]  # Nombre de filtres dans la couche
+        w_reshaped = tf.reshape(w, [-1, n_filt])
+        
+        # Création de vecteurs gaussiens aléatoires pour la projection
+        random_vectors = tf.random.normal([self.pd, w.shape[0] * w.shape[1]], mean=0.0, stddev=1.0)
+
+        # Application de la projection : projection des poids sur ces vecteurs
+        w_reshaped = tf.matmul(random_vectors, w_reshaped)
+        
+        # Calcul des produits internes (similarité entre filtres)
+        filt_norm = tf.sqrt(tf.reduce_sum(w_reshaped * w_reshaped, axis=0, keepdims=True) + 1e-4)
+        norm_mat = tf.matmul(tf.transpose(filt_norm), filt_norm)
+        inner_pro = tf.matmul(tf.transpose(w_reshaped), w_reshaped)
+        inner_pro /= norm_mat
+        
+        # Calcul de la répulsion entre les filtres
+        cross_terms = 2.0 - 2.0 * inner_pro + tf.linalg.diag(tf.ones([n_filt * 2]))
+        final = tf.pow(cross_terms, -1)
+        final -= tf.linalg.band_part(final, -1, 0)
+        
+        cnt = n_filt * (n_filt - 1) / 2.0
+        loss = tf.reduce_sum(final) / cnt
+
+
+        l2_loss = self.lambda_l2 * tf.reduce_sum(tf.square(w))
+        
+        return self.lambda_ * loss + l2_loss
+
+    def get_config(self):
+        return {"lambda_": self.lambda_, "pd": self.pd, "pn": self.pn, "pnd": self.pnd, "lambda_l2":self.lambda_l2}
+
+
+
+class ThomsonRegularizerFinal(Regularizer):
+    def __init__(self, lambda_=1e-3, lambda_l2=0):
+        self.lambda_ = lambda_
+        self.lambda_l2 = lambda_l2
+
+    def __call__(self, w):
+        n_filt = w.shape[-1]  # Nombre de filtres dans la couche
+        w_reshaped = tf.reshape(w, [-1, n_filt])
+
+        filt_norm = tf.sqrt(tf.reduce_sum(w_reshaped * w_reshaped, axis=0, keepdims=True) + 1e-4)
+        norm_mat = tf.matmul(tf.transpose(filt_norm), filt_norm)
+        inner_pro = tf.matmul(tf.transpose(w_reshaped), w_reshaped)
+        inner_pro /= norm_mat
+        
+        cross_terms = 2.0 - 2.0 * inner_pro + tf.linalg.diag(tf.ones([n_filt]))
+        final = tf.pow(cross_terms, -1)
+        final -= tf.linalg.band_part(final, -1, 0)
+        
+        cnt = n_filt * (n_filt - 1) / 2.0
+        loss = tf.reduce_sum(final) / cnt
+
+        l2_loss = self.lambda_l2 * tf.reduce_sum(tf.square(w))
+        
+        return 10 * self.lambda_ * loss + l2_loss
+
+    def get_config(self):
+        return {"lambda_": self.lambda_, "lambda_l2":self.lambda_l2}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
