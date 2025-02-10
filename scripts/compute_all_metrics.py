@@ -5,7 +5,7 @@ from tensorflow.keras import layers
 from contrastiv_model import simCLR
 import matplotlib.pyplot as plt
 from vit_layers import ViT_backbone
-from deep_models import basic_backbone, astro_head, astro_model, AstroModel, adv_network
+from deep_models import basic_backbone, astro_head, astro_model, AstroModel, adv_network, AstroFinetune
 import os
 os.environ["CUDA_VISIBLE_DEVICES"]='0'
 
@@ -29,7 +29,7 @@ def z_med(probas, bin_central_values) :
     index = np.argmax(cdf>=0.5)
     return bin_central_values[index]
 
-plots_name = "simCLR_nonorm"
+plots_name = "version2_simCLR"
 path_memory = {}
 import gc
 
@@ -37,10 +37,10 @@ for i, finetune_base in enumerate(["base2", "base3", "base1"]) :   #### POUR CHA
     base_liste = ["_UD", "_D"]
     print("finetune base", finetune_base)
 
-    fig1, ax1 = plt.subplots(nrows=len(base_liste), ncols=4, figsize=(20, 10)) # pour 1 treyer + 3 simCLR dans 2 conditions modèles   ==>   heatmap
-    fig2, ax2 = plt.subplots(nrows=len(base_liste), ncols=4, figsize=(20, 10)) # ===> BIAS
-    fig3, ax3 = plt.subplots(nrows=len(base_liste), ncols=4, figsize=(20, 10)) # ===> SMAD
-    fig4, ax4 = plt.subplots(nrows=len(base_liste), ncols=4, figsize=(20, 10)) # ===> OUTL
+    fig1, ax1 = plt.subplots(nrows=len(base_liste), ncols=6, figsize=(50, 25)) # pour 1 treyer + 3 simCLR dans 2 conditions modèles   ==>   heatmap
+    fig2, ax2 = plt.subplots(nrows=len(base_liste), ncols=6, figsize=(50, 25)) # ===> BIAS
+    fig3, ax3 = plt.subplots(nrows=len(base_liste), ncols=6, figsize=(50, 25)) # ===> SMAD
+    fig4, ax4 = plt.subplots(nrows=len(base_liste), ncols=6, figsize=(50, 25)) # ===> OUTL
 
 
 
@@ -61,7 +61,7 @@ for i, finetune_base in enumerate(["base2", "base3", "base1"]) :   #### POUR CHA
         #npz_files = [f for f in os.listdir(directory) if f.endswith(inf_base+'.npz')]   ## Récupère les fichiers sur lesquels inférer
         #simbases = ["cleaned_cnn_supervised", "cleaned_cnn_supervised_noadv"]
         
-        simbases = ["nonorm350_ColorHead_Regularized", "norm350_ColorHead_Regularized"] #    , "UD800_classif","UD_D800_classif"]
+        simbases = ["norm300_ColorHead_Regularized_fullBN", "norm300_ColorHead_Regularized_v2_adversarial_fullBN", "norm300_NoColor_Regularized_v2_fullBN"] #    , "UD800_classif","UD_D800_classif"]
         iter=0
         #model_liste = ["simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"]
         for k in range((len(simbases))*2) :
@@ -71,17 +71,18 @@ for i, finetune_base in enumerate(["base2", "base3", "base1"]) :   #### POUR CHA
                 model_name = "../model_save/checkpoints_supervised/"+simbases[k]+"_"+finetune_base+".weights.h5"
                 tag_name = "supervised_cleaned"
                 treyer = True
-                if k == 1 :
-                    model = astro_model(basic_backbone(), astro_head())
+                if True :
+                    #model = astro_model(basic_backbone(), astro_head())
+                    model = AstroFinetune(basic_backbone(full_bn=True), astro_head(1024, 400))
                     print("LE ASTRO_MODEL a ", len(model.layers), "layers")
-                    model = AstroModel(back=basic_backbone(), head=astro_head(), is_adv=False, adv_network=adv_network())
-                    print("AstroModel a ", len(model.layers), "layers")
+                    #model = AstroModel(back=basic_backbone(), head=astro_head(), is_adv=False, adv_network=adv_network())
+                    #print("AstroModel a ", len(model.layers), "layers")
                     model(np.random.random((32, 64, 64, 6)))
                     model.load_weights(model_name)
-                    inp = keras.Input((64, 64, 6))
-                    x = model.back(inp)
-                    pdf, reg = model.head(x)
-                    model = keras.Model(inp, [pdf, reg])
+                    #inp = keras.Input((64, 64, 6))
+                    #x = model.back(inp)
+                    #pdf, reg = model.head(x)
+                    #model = keras.Model(inp, [pdf, reg])
                     #inp = keras.Input((64, 64, 6))
                     #x = model.back(inp)
                     #pdf, reg = model.head(x)
@@ -113,13 +114,15 @@ for i, finetune_base in enumerate(["base2", "base3", "base1"]) :   #### POUR CHA
                     #back.summary()
                     model = astro_model(back, astro_head(256, 400))
                 else :
-                    back = basic_backbone()
-                    print("SUMMARY BACK")
-                    back.summary()
-                    head = astro_head(1024, 400)
-                    print("SUMMARY HEAD")
-                    head.summary()
-                    model = astro_model(back, head)
+                    #back = basic_backbone()
+                    #print("SUMMARY BACK")
+                    #back.summary()
+                    #head = astro_head(1024, 400)
+                    #print("SUMMARY HEAD")
+                    #head.summary()
+                    #model = astro_model(back, head)
+                    model = AstroFinetune(basic_backbone(full_bn=True), astro_head(1024, 400))
+                    model(np.random.random((32, 64, 64, 6)))
                 #model_name = base_path+"model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
                 model_name = "../model_save/checkpoints_simCLR_finetune/simCLR_finetune_UD_D__"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
                 tag_name = 'sim_'+sim_base+"_"+cond

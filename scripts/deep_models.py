@@ -20,33 +20,52 @@ def inception_block(input):
     return conc
 
 
-def basic_backbone() :
+def basic_backbone(full_bn=True) :
     inp = keras.Input((64, 64, 6))
     c1 = layers.Conv2D(96, padding='same', strides=1, kernel_size=3)(inp) # 64
     c1 = layers.PReLU()(c1) 
+    if full_bn :
+        c1 = layers.BatchNormalization()(c1)
     c2 = layers.Conv2D(96, padding='same', kernel_size=3, strides=1, activation='tanh')(c1)  #64
+    if full_bn :
+        c2 = layers.BatchNormalization()(c2)
     p1 = layers.AveragePooling2D((2, 2))(c2)  # 32
     c3 = layers.Conv2D(128, padding='same', strides=1, kernel_size=3)(p1)
     c3 = layers.PReLU()(c3)
+    if full_bn :
+        c3 = layers.BatchNormalization()(c3)
     c4 = layers.Conv2D(128, padding='same', kernel_size=3, strides=1)(c3)  #32
     c4 = layers.PReLU(name='c4')(c4) 
+    if full_bn :
+        c4 = layers.BatchNormalization()(c4)
     p2 = layers.AveragePooling2D((2, 2))(c4)  # 16
     c5 = layers.Conv2D(256, padding='same', strides=1, kernel_size=3)(p2) #16
     c5 = layers.PReLU()(c5)
+    if full_bn :
+        c5 = layers.BatchNormalization()(c5)
     c6 = layers.Conv2D(256, padding='same', kernel_size=3, strides=1)(c5)  #16
     c6 = layers.PReLU()(c6)
+    if full_bn :
+       c6 = layers.BatchNormalization()(c6)
     p3 = layers.AveragePooling2D((2, 2))(c6) # 8
     c7 = layers.Conv2D(256, kernel_size=3, strides=1, padding='valid')(p3) # 6
     c7 = layers.PReLU()(c7)
+    if full_bn :
+        c7 = layers.BatchNormalization()(c7)
     c8 = layers.Conv2D(256, kernel_size=3, strides=1, padding='valid')(c7) # 4
     c8 = layers.PReLU()(c8)
+    if full_bn :
+        c8 = layers.BatchNormalization()(c8)
     c9 = layers.Conv2D(256, padding='valid', kernel_size=3, strides=1)(c8) # 2, 2, 256
     c9 = layers.PReLU()(c9)
-    
+    if full_bn :
+        c9 = layers.BatchNormalization()(c9)
     flat = layers.Flatten(name='flatten')(c9) # 2, 2, 256 = 1024 
 
     l1 = layers.Dense(1024)(flat) 
     l1 = layers.PReLU()(l1)
+    if full_bn :
+        l1 = layers.BatchNormalization()(l1)
    
     return keras.Model(inputs=inp, outputs=l1)
 
@@ -88,13 +107,22 @@ def treyer_backbone(bn=False) :
     return model
 
 
-def projection_mlp(input_shape=1024, bn=False):
+def projection_mlp(input_shape=1024, bn=True):
     latent_input = keras.Input((input_shape))
     x = layers.Dense(512, activation='linear')(latent_input)
     if bn :
         x = layers.BatchNormalization()(x)
     x = layers.PReLU()(x)
     x = layers.Dense(256, activation='linear', activity_regularizer=tf.keras.regularizers.L1L2(l1=1e-3, l2=1e-2))(x)
+    return keras.Model(latent_input, x)
+
+def noregu_projection_mlp(input_shape=1024, bn=True):
+    latent_input = keras.Input((input_shape))
+    x = layers.Dense(512, activation='linear')(latent_input)
+    if bn :
+        x = layers.BatchNormalization()(x)
+    x = layers.PReLU()(x)
+    x = layers.Dense(256, activation='linear')(x)
     return keras.Model(latent_input, x)
 
 
@@ -110,7 +138,7 @@ def color_mlp(input_shape=1024) :
 def classif_mlp(input_shape=1024) :
     latent_input = keras.Input((input_shape))
     x = layers.Dense(256, activation='relu')(latent_input)
-    x = layers.Dropout(0.4)
+    x = layers.Dropout(0.4)(x)
     x = layers.Dense(256, activation='relu')(x)
     output = layers.Dense(2, activation='softmax')(x)
     return keras.Model(latent_input, output)
@@ -154,6 +182,37 @@ def adv_network() :
     drop2 = layers.Dropout(0.4)(fc2)
     classif = layers.Dense(2, activation='softmax')(drop2)
     return keras.Model(inp, classif)
+
+
+
+class AstroFinetune(tf.keras.Model):
+    def __init__(self, back, head, train_back=False) :
+        super().__init__()
+        self.back = back
+        self.head = head
+        self.train_back=train_back
+
+    def call(self, inputs, training=True) :
+        x = self.back(inputs)
+        pdf, reg = self.head(x, training=training)
+        return {"pdf":pdf, "reg":reg}
+
+    def train_step(self, inputs) :
+        images, labels = inputs
+        with tf.GradientTape() as tape :
+            pred_dict = self(images, training=True)
+            classif_loss = tf.reduce_mean(tf.keras.losses.sparse_categorical_crossentropy(labels["pdf"], pred_dict["pdf"]))
+            reg_loss = tf.reduce_mean(tf.keras.losses.mean_absolute_error(labels["reg"], pred_dict["reg"]))
+            total_loss = classif_loss + reg_loss
+        if self.train_back :
+            trainable_vars = self.back.trainable_variables + self.head.trainable_variables
+        else :
+            trainable_vars = self.head.trainable_variables
+
+        gradients = tape.gradient(total_loss, trainable_vars)
+        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+        return {"crossent":classif_loss, "mae":reg_loss}
+
 
 
 class AstroModel(tf.keras.Model) :

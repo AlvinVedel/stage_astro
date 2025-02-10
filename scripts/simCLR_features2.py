@@ -3,7 +3,7 @@ import numpy as np
 from sklearn.manifold import TSNE
 from tensorflow.keras import layers
 import tensorflow.keras as keras
-from contrastiv_model import simCLRcolor1, simCLRcolor1_adversarial, simCLR1
+from contrastiv_model import simCLRcolor1
 from deep_models import basic_backbone, projection_mlp, color_mlp, classif_mlp
 import matplotlib.pyplot as plt
 from vit_layers import ViT_backbone
@@ -13,16 +13,14 @@ import os
 os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
 
-#model = simCLR1(basic_backbone(full_bn=True), projection_mlp(1024, True))
-#model = simCLRcolor1(basic_backbone(full_bn=False), projection_mlp(1024, False), color_mlp(1024))
-model = simCLRcolor1_adversarial(basic_backbone(full_bn=True), projection_mlp(1024, True), color_mlp(1024), classif_mlp())
+
+model = simCLRcolor1(basic_backbone(), projection_mlp(1024), color_mlp(1024))
 #model = simCLRcolor1(ViT_backbone(), projection_mlp(256), color_mlp(256))
 #model = simCLR(basic_backbone(), projection_mlp(1024))
 base_path = "../model_save/checkpoints_new_simCLR/"
-#model_name = "simCLR_UD_D_nonorm350_ColorHead_Regularized.weights.h5"
-model_name = "simCLR_UD_D_norm350_ColorHead_Regularized_v2_adversarial_fullBN.weights.h5"
+model_name = "simCLR_UD_D_norm350_ColorHead_Regularized.weights.h5"
 
-code_save = "COL_REG_FULLBN_ADV_NORM350"
+code_save = "ColorHead_Regularized_norm350"
 
 model(np.random.random((32, 64, 64, 6)))
 model.load_weights(base_path+model_name)
@@ -133,6 +131,7 @@ for i in range(len(indices3)) :
 features = np.concatenate(all_latents, axis=0)
 metas = np.concatenate(all_metas, axis=0)  # 12*20k, 5
 
+
 ra = metas[:, 0]
 dec = metas[:, 1]
 ebv = metas[:, 2]
@@ -184,7 +183,7 @@ if True :
     tsne = TSNE(n_components=2, random_state=42)
     data_tsne = tsne.fit_transform(features)
     print("tsne ended")
-    np.save("tsne_coord_"+code_save+".npy", np.concatenate([data_tsne, np.expand_dims(z, axis=1)], axis=1))
+
     width_x = np.max(data_tsne[:, 0]) - np.min(data_tsne[:, 0])
     width_y = np.max(data_tsne[:, 1]) - np.min(data_tsne[:, 1])
 

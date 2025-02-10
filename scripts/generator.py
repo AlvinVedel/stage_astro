@@ -84,6 +84,7 @@ class MultiGen(tf.keras.utils.Sequence):
         gc.collect()
         if self.same_samples :
             ud_images = np.zeros((40000, 64, 64, 6))
+            ud_colors = np.zeros((40000, 5))
 
             random.shuffle(self.survey_paths["UD"])
             random.shuffle(self.survey_paths["D"])
@@ -93,42 +94,61 @@ class MultiGen(tf.keras.utils.Sequence):
             while ud_index < 40000 :
                 path = self.survey_paths["UD"][path_iter]
                 data = np.load(path, allow_pickle=True)
-                images = data["cube"][..., :6]  # on ne prend que les 5 premières bandes
+                images = data["cube"][..., :6]  # on ne prend que les 5 premières bande
                 meta = data["info"]
+                self.file_tracker[path] = (self.file_tracker[path][0]+1, images.shape[0])
+                indices = np.arange(len(meta))
+                random.shuffle(indices)
+                images = images[indices]
+                meta = meta[indices]
+                #print(meta[0], meta[0].dtype)
                 colors = np.array([np.array([m["u"] - m["g"], m["g"] - m["r"], m['r'] - m["i"], m["i"] - m["z"], m["z"] - m["y"]]) for m in meta])
-                self.colors.append(colors)
+                #self.colors.append(colors)
                 #masks = np.expand_dims(data["cube"][..., 6], axis=-1)
                     #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
                 #images = np.concatenate([images, masks], axis=-1)
                 if len(images) + ud_index > ud_images.shape[0] :
                     ud_images[ud_index:] = images[:(ud_images.shape[0] - ud_index)]
+                    ud_colors[ud_index:] = colors[:(ud_images.shape[0] - ud_index)]
                 else :
                     ud_images[ud_index:ud_index+len(images)] = images
+                    ud_colors[ud_index:ud_index+len(images)] = colors
 
                 ud_index += len(images)
             self.images.append(ud_images)
+            self.colors.append(ud_colors)
             self.surveys.append(np.ones((40000)))
 
-            ud_images = np.zeros((40000, 64, 64, 6))
 
+            ud_images = np.zeros((40000, 64, 64, 6))
+            ud_colors = np.zeros((40000, 5))
             ud_index = 0
             path_iter = 0
             while ud_index < 40000 :
                 path = self.survey_paths["D"][path_iter]
                 data = np.load(path, allow_pickle=True)
+                meta = data["info"]
                 images = data["cube"][..., :6]  # on ne prend que les 5 premières bandes
+                self.file_tracker[path] = (self.file_tracker[path][0]+1, images.shape[0])
+                indices = np.arange(len(meta))
+                random.shuffle(indices)
+                images = images[indices]
+                meta = meta[indices]
                 colors = np.array([np.array([m["u"] - m["g"], m["g"] - m["r"], m['r'] - m["i"], m["i"] - m["z"], m["z"] - m["y"]]) for m in meta])
-                self.colors.append(colors)
+                #self.colors.append(colors)
                 #masks = np.expand_dims(data["cube"][..., 6], axis=-1)
                     #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
                 #images = np.concatenate([images, masks], axis=-1)
                 if len(images) + ud_index > ud_images.shape[0] :
                     ud_images[ud_index:] = images[:(ud_images.shape[0] - ud_index)]
+                    ud_colors[ud_index:] = colors[:(ud_images.shape[0] - ud_index)]
                 else :
                     ud_images[ud_index:ud_index+len(images)] = images
+                    ud_colors[ud_index:ud_index+len(images)] = colors
 
                 ud_index += len(images)
             self.images.append(ud_images)
+            self.colors.append(ud_colors)
             self.surveys.append(np.zeros((40000)))
 
             del ud_images
@@ -184,6 +204,7 @@ class MultiGen(tf.keras.utils.Sequence):
         print("nb images loaded :", np.sum([self.file_tracker[path][1]*self.file_tracker[path][0] for path in self.paths]))
         print("nb distinct images loaded :", np.sum([self.file_tracker[path][1] if self.file_tracker[path][0]>0 else 0 for path in self.paths]))
         print("nb files :", len(self.paths))
+        #print("I have load datas :", self.images.shape, self.colors.shape)
 
         
  
@@ -237,10 +258,10 @@ class MultiGen(tf.keras.utils.Sequence):
         apply_noise = tf.cast(tf.random.uniform((tf.shape(images)[0], 1, 1, 1)) < apply_prob, tf.float32)
         return images + apply_noise * sampled_noises 
     
-    def process_batch(self, images, masks, ebv=None) :
+    def process_batch(self, images, ebv=None) :
         
-        images = self.gaussian_noise(images, masks)
-        images = self.zoom(images, masks)
+        images = self.gaussian_noise(images)
+        images = self.zoom(images)
         images = self.center_jitter(images)
 
         images = tf.image.random_flip_left_right(images)
@@ -292,20 +313,21 @@ class MultiGen(tf.keras.utils.Sequence):
                 
         if self.do_color :
             batch_colors = tf.cast(tf.tile(batch_colors, [2, 1]), dtype=tf.float32)
+            #print(batch_colors.shape)
             labels_dict["color"] = batch_colors
 
         if self.do_adversarial :
-            batch_surveys = tf.cast(tf.tile(tf.expand_dims(batch_surveys, axis=1), [2, 1]), dtype=tf.float32)
+            batch_survey = tf.cast(tf.tile(tf.expand_dims(batch_survey, axis=1), [2, 1]), dtype=tf.float32)
             labels_dict["survey"] = batch_survey
 
         
 
-        batch_masks = batch_images[:, :, :, 6]
+        #batch_masks = batch_images[:, :, :, 6]
         batch_images = batch_images[:, :, :, :6]
-        batch_masks = tf.cast(tf.tile(batch_masks, [2, 1, 1]), dtype=bool)
+        #batch_masks = tf.cast(tf.tile(batch_masks, [2, 1, 1]), dtype=bool)
         batch_images = tf.cast(tf.tile(batch_images, [2, 1, 1, 1]), dtype=tf.float32)
 
-        augmented_images = self.process_batch(batch_images, batch_masks)
+        augmented_images = self.process_batch(batch_images)
         
 
         if self.do_seg :
@@ -328,7 +350,8 @@ class MultiGen(tf.keras.utils.Sequence):
         indices = np.arange(0, self.images.shape[0], dtype=np.int32)
         np.random.shuffle(indices)
         self.images = self.images[indices]
-        self.colors = self.colors[indices]
+        if self.do_color :
+            self.colors = self.colors[indices]
 
 
 

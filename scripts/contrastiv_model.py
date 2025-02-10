@@ -151,7 +151,7 @@ class simCLR(keras.Model) :
 
 
 class simCLR1(keras.Model) :
-    def __init__(self, backbone, head, color_head, temp=0.7) :
+    def __init__(self, backbone, head, temp=0.7) :
         super().__init__()
         self.backbone = backbone
         self.head = head
@@ -198,7 +198,7 @@ class simCLRcolor1(keras.Model) :
         images, labels = data
         with tf.GradientTape(persistent=True) as tape :
             z, c = self(images)
-
+            #print(images.shape, c.shape, labels["color"].shape)
             contrastiv_loss = self.loss(z, self.temp)
             color_loss = tf.keras.losses.mean_squared_error(labels["color"], c)
 
@@ -235,7 +235,7 @@ class simCLRcolor1_adversarial(keras.Model) :
         images, labels = data
         with tf.GradientTape(persistent=True) as tape :
             z, c, classif = self(images)
-
+            #print(images.shape, c.shape, labels["color"].shape, classif.shape, labels["survey"].shape)
             contrastiv_loss = self.loss(z, self.temp)
             color_loss = tf.keras.losses.mean_squared_error(labels["color"], c)
 

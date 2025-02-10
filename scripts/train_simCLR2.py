@@ -15,7 +15,7 @@ import time
 
 
 model_save = 'checkpoints_new_simCLR/simCLR_UD_D_norm'
-iter_suffixe="_ColorHead_Regularized_v2_adversarial"
+iter_suffixe="_ColorHead_Regularized_v2_adversarial_fullBN"
 allowed_extensions = ["UD.npz", "_D.npz"]
 batch_size=256
 lr = 1e-4
@@ -25,7 +25,7 @@ callbacks = [LinearDecay(0, 2, 40)]
 do_color = True
 do_seg = False
 do_drop_band = False
-do_adversarial = False
+do_adversarial = True
 
 load_model = False
 iter = 0
@@ -40,7 +40,7 @@ iter = 0
 
 #model = simCLR(backbone=basic_backbone(), head=projection_mlp(1024, False),
 #                regularization=sup_regu, color_head=color, segmentor=segment, deconvolutor=reconstr, adversarial=adverse)
-model = simCLRcolor1_adversarial(basic_backbone(), projection_mlp(1024, False), color_mlp(1024), classif_mlp())
+model = simCLRcolor1_adversarial(basic_backbone(full_bn=True), projection_mlp(1024, True), color_mlp(1024), classif_mlp())
 #model = simCLRcolor1(ViT_backbone(), projection_mlp(256, False), color_mlp(256))
 model.compile(optimizer=keras.optimizers.Adam(lr), loss=ContrastivLoss(normalize=True))
 model(np.random.random((32, 64, 64, 6)))
@@ -65,7 +65,7 @@ if load_model :
 
 
 data_gen = MultiGen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_phot/"], 
-               batch_size=batch_size, extensions=allowed_extensions, do_color=do_color, do_seg=do_seg, do_mask_band=do_drop_band)
+               batch_size=batch_size, extensions=allowed_extensions, do_color=do_color, do_seg=do_seg, do_mask_band=do_drop_band, do_adversarial=do_adversarial)
 
 
 

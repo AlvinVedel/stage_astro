@@ -15,7 +15,7 @@ import time
 
 
 model_save = 'checkpoints_new_simCLR/simCLR_UD_D_norm'
-iter_suffixe="_NoColor_Regularized_v2"
+iter_suffixe="_NoColor_Regularized_v2_fullBN"
 allowed_extensions = ["UD.npz", "_D.npz"]
 batch_size=256
 lr = 1e-4
@@ -41,8 +41,8 @@ iter = 0
 #model = simCLR(backbone=basic_backbone(), head=projection_mlp(1024, False),
 #                regularization=sup_regu, color_head=color, segmentor=segment, deconvolutor=reconstr, adversarial=adverse)
 #model = simCLRcolor1(basic_backbone(), projection_mlp(1024, False), color_mlp(1024))
-model = simCLR1(basic_backbone(), projection_mlp(1024, False))
-model.compile(optimizer=keras.optimizers.Adam(lr), loss=ContrastivLoss())
+model = simCLR1(basic_backbone(full_bn=True), projection_mlp(1024, True))
+model.compile(optimizer=keras.optimizers.Adam(lr), loss=ContrastivLoss(normalize=True))
 model(np.random.random((32, 64, 64, 6)))
 
 """
@@ -64,7 +64,7 @@ if load_model :
 
 
 
-data_gen = MultiGen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/phot/"], 
+data_gen = MultiGen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_phot/"], 
                batch_size=batch_size, extensions=allowed_extensions, do_color=do_color, do_seg=do_seg, do_mask_band=do_drop_band)
 
 
@@ -74,6 +74,6 @@ while iter <= 1000 :
     iter+=1
     model.fit(data_gen, epochs=10, callbacks=callbacks)  # normalement 4mn max par epoch = 400mn 
     data_gen._load_data()
-    if iter % 2 == 0 :
+    if iter % 5 == 0 :
         filename = "../model_save/"+model_save+str(iter*10)+iter_suffixe+".weights.h5"
         model.save_weights(filename)  # 6000 minutes   ==> 15 fois 100 épochs
