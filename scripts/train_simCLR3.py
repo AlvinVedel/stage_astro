@@ -15,14 +15,14 @@ import time
 
 
 model_save = 'checkpoints_new_simCLR/simCLR_UD_D_norm'
-iter_suffixe="_NoColor_Regularized_v2_fullBN"
+iter_suffixe="ViT_petit_model_v2"
 allowed_extensions = ["UD.npz", "_D.npz"]
 batch_size=256
 lr = 1e-4
 callbacks = [LinearDecay(0, 2, 40)]
 
 #### PARAMS  générateur
-do_color = False
+do_color = True
 do_seg = False
 do_drop_band = False
 do_adversarial = False
@@ -40,8 +40,8 @@ iter = 0
 
 #model = simCLR(backbone=basic_backbone(), head=projection_mlp(1024, False),
 #                regularization=sup_regu, color_head=color, segmentor=segment, deconvolutor=reconstr, adversarial=adverse)
-#model = simCLRcolor1(basic_backbone(), projection_mlp(1024, False), color_mlp(1024))
-model = simCLR1(basic_backbone(full_bn=True), projection_mlp(1024, True))
+model = simCLRcolor1(ViT_backbone(), projection_mlp(1024, False), color_mlp(1024))
+#model = simCLR1(basic_backbone(full_bn=True), projection_mlp(1024, True))
 model.compile(optimizer=keras.optimizers.Adam(lr), loss=ContrastivLoss(normalize=True))
 model(np.random.random((32, 64, 64, 6)))
 

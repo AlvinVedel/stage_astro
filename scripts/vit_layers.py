@@ -59,19 +59,30 @@ class Block(tf.keras.Model) :
 
 
 class PatchExtractor(tf.keras.layers.Layer) :
-    def __init__(self, patch_size=4, embed_dim=512, image_size=64) :
+    def __init__(self, patch_size=4, embed_dim=1024, image_size=64) :
         super().__init__()
         self.patch_size=patch_size
         self.embed_dim = embed_dim
         self.patch_conv = tf.keras.layers.Conv2D(filters=self.embed_dim, kernel_size=(self.patch_size, self.patch_size), strides=(self.patch_size, self.patch_size), padding='valid', activation='linear')
-        self.num_patches = (image_size // patch_size) ** 2
-        self.position_embedding = layers.Embedding(
-            input_dim=num_patches, output_dim=embed_dim
+        self.num_patches = (image_size // patch_size) ** 2 +1  # pour cls
+        self.position_embedding = tf.keras.layers.Embedding(
+            input_dim=self.num_patches, output_dim=embed_dim
+        )
+        self.cls_token = self.add_weight(
+            shape=(1, 1, embed_dim),
+            initializer="zeros",
+            trainable=True,
+            name="cls_token"
         )
 
     def call(self, inputs) :
         res_conv = self.patch_conv(inputs)  # shape batch, H, W, filtres
         patch_embedding = tf.reshape(res_conv, (tf.shape(res_conv)[0], -1, tf.shape(res_conv)[-1]))  # shape BATCH, N_PATCH, EMBED_DIM
+
+        batch_size = tf.shape(patch_embedding)[0]
+        cls_token = tf.tile(self.cls_token, [batch_size, 1, 1])
+        patch_embedding = tf.concat([cls_token, patch_embedding], axis=1)
+
         positions = tf.expand_dims(
             tf.arange(start=0, stop=self.num_patches, step=1), axis=0
         )
@@ -80,22 +91,29 @@ class PatchExtractor(tf.keras.layers.Layer) :
     
 
 class ViT_backbone(tf.keras.layers.Layer) :
-    def __init__(self, embed_dim=1024, num_blocks=4, num_heads=8, patch_size=4, gp='average') :
+    def __init__(self, embed_dim=1024, num_blocks=4, num_heads=8, patch_size=4, gp='none') :
         super().__init__()
         self.embed_dim=embed_dim
         self.patch_master = PatchExtractor(patch_size, embed_dim=self.embed_dim, image_size=64)
         self.blocks = [Block(embed_dim=self.embed_dim, num_heads=num_heads) for i in range(num_blocks)]
         if gp == "average" :
             self.last_pool = layers.GlobalAveragePooling1D()
-        else :
+            self.gp=True
+        elif gp == "max" :
             self.last_pool = layers.GlobalMaxPooling1D()
+            self.gp=True
+        elif gp=="none" :
+            self.gp=False
 
     def call(self, inputs) :
         x = self.patch_master(inputs) 
         for i in range(len(self.blocks)) :
             x = self.blocks[i](x)
-        
-        return self.last_pool(x)   # sortie B, N
+
+        if self.gp :
+            return self.last_pool(x)
+        else :
+            return x[0]   # sortie B, N   => cls token
 
 
 
