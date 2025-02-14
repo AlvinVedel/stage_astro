@@ -362,7 +362,7 @@ class MultiGen(tf.keras.utils.Sequence):
 
 
 class SupervisedGenerator(keras.utils.Sequence) :
-    def __init__(self, data_path, batch_size, nbins=150, adversarial=False, adv_extensions=["_D.npz"], adversarial_dir=None) :
+    def __init__(self, data_path, batch_size, nbins=400, adversarial=False, adv_extensions=["_D.npz"], adversarial_dir=None, contrast=False) :
         super(SupervisedGenerator, self).__init__()
         self.batch_size = batch_size
         self.data_path = data_path
@@ -371,6 +371,7 @@ class SupervisedGenerator(keras.utils.Sequence) :
         self.adversarial_dir = adversarial_dir
         self.adversarial_paths = []
         self.extensions=adv_extensions
+        self.contrast = contrast
         #self.load_data()
         #self.on_epoch_end()
         if self.adversarial :
@@ -466,6 +467,10 @@ class SupervisedGenerator(keras.utils.Sequence) :
 
         batch_masks = batch_images[:, :, :, 6]
         batch_images = batch_images[:, :, :, :6]
+        if self.contrast :
+            batch_images = tf.tile(batch_images, [2, 1, 1, 1])
+            batch_z = tf.tile(batch_z, [2])
+            batch_z2 = tf.tile(batch_z2, [2])
 
         augmented_images = self.process_batch(batch_images, batch_masks)
         if self.adversarial :

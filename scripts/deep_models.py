@@ -2,6 +2,7 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
 from vit_layers import ViT_backbone
+from contrastiv_model import NTXent
 from regularizers import ThomsonRegularizerFinal, ThomsonRegularizerFirst, ThomsonRegularizerProject
 
 
@@ -245,6 +246,45 @@ class AstroFinetune(tf.keras.Model):
             total_loss = classif_loss + reg_loss
         if self.train_back :
             trainable_vars = self.back.trainable_variables + self.head.trainable_variables
+        else :
+            trainable_vars = self.head.trainable_variables
+
+        gradients = tape.gradient(total_loss, trainable_vars)
+        self.optimizer.apply_gradients(zip(gradients, trainable_vars))
+        return {"crossent":classif_loss, "mae":reg_loss}
+    
+
+
+
+class ContrastivAstroFinetune(tf.keras.Model):
+    def __init__(self, back, head, projection_head, train_back=False) :
+        super().__init__()
+        self.back = back
+        self.head = head
+        self.projection_head = projection_head
+        self.train_back=train_back
+        self.contrast_loss = NTXent(normalize=True)
+
+
+    def call(self, inputs, training=True) :
+        x = self.back(inputs, training=self.train_back)
+        pdf, reg = self.head(x, training=training)
+        proj = self.projection_head(x, training=training)
+        return {"pdf":pdf, "reg":reg, "projection":proj}
+
+    def train_step(self, inputs) :
+        images, labels = inputs
+        with tf.GradientTape() as tape :
+            pred_dict = self(images, training=True)
+            classif_loss = tf.reduce_mean(tf.keras.losses.sparse_categorical_crossentropy(labels["pdf"], pred_dict["pdf"]))
+            reg_loss = tf.reduce_mean(tf.keras.losses.mean_absolute_error(labels["reg"], pred_dict["reg"]))
+            total_loss = classif_loss + reg_loss
+            if self.train_back :   # sert à rien de maintenir tête de contraste sur représentations figées
+                contrastiv_loss = self.contrast_loss(pred_dict["projection"])
+                total_loss += contrastiv_loss
+            
+        if self.train_back :
+            trainable_vars = self.back.trainable_variables + self.head.trainable_variables + self.projection_head.trainable_variables
         else :
             trainable_vars = self.head.trainable_variables
 
