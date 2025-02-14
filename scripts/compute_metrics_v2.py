@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 from vit_layers import ViT_backbone
 from deep_models import basic_backbone, astro_head, astro_model, AstroModel, adv_network, AstroFinetune
 import os
+from keras.applications import ResNet50
 import gc
 from scipy.stats import gaussian_kde
 import matplotlib.pyplot as plt
@@ -20,12 +21,18 @@ model_dir = "model_save/checkpoints_simCLR_finetune2/"
 
 
 
-
+## si supervisé, ne pas inclure weights.h5
 model_name = "norm300_ColorHead_Regularized_HeadPre0_clip3.weights.h5"
 plots_name = "ColHead_Regu_HeadPre0_Clip3"
 with_plots = False
+supervised = False
+
+if supervised :
+    model_dir = "model_save/checkpoints_supervised/"
+
 
 model = AstroFinetune(basic_backbone(full_bn=False), head=astro_head(1024, 400))
+#model = AstroFinetune(ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg'), head=astro_head(2048, 400))
 model(np.random.random((32, 64, 64, 6)))
 
 
@@ -110,7 +117,10 @@ for i, inf_base in enumerate(inf_bases) :
 
         for j, tb in enumerate(train_bases) :
                         
-            model.load_weights(base_path+model_dir+"simCLR_finetune_UD_D__ALL_base="+tb+"_model="+model_name)
+            if supervised :
+                model.load_weights(base_path+model_dir+model_name+"_"+tb+".weights.h5")
+            else :
+                model.load_weights(base_path+model_dir+"simCLR_finetune_UD_D__ALL_base="+tb+"_model="+model_name)
             output = model.predict(images)
             probas = output["pdf"]
             z_meds = np.array([z_med(p, bins_centres) for p in probas])
