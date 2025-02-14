@@ -280,17 +280,18 @@ class ContrastivAstroFinetune(tf.keras.Model):
             reg_loss = tf.reduce_mean(tf.keras.losses.mean_absolute_error(labels["reg"], pred_dict["reg"]))
             total_loss = classif_loss + reg_loss
             if self.train_back :   # sert à rien de maintenir tête de contraste sur représentations figées
-                contrastiv_loss = self.contrast_loss(pred_dict["projection"])
+                contrastiv_loss = self.contrast_loss(pred_dict["projection"]) *0.2
                 total_loss += contrastiv_loss
             
         if self.train_back :
             trainable_vars = self.back.trainable_variables + self.head.trainable_variables + self.projection_head.trainable_variables
         else :
             trainable_vars = self.head.trainable_variables
+            contrastiv_loss = 0.0
 
         gradients = tape.gradient(total_loss, trainable_vars)
         self.optimizer.apply_gradients(zip(gradients, trainable_vars))
-        return {"crossent":classif_loss, "mae":reg_loss}
+        return {"crossent":classif_loss, "mae":reg_loss, "contrastiv_loss":contrastiv_loss}
 
 
 
