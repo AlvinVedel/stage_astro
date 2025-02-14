@@ -301,7 +301,6 @@ class NTXent(keras.losses.Loss) :
 
 
 
-
 ###### BarlowTwins #######
 
 class BarlowTwins(keras.Model) :
