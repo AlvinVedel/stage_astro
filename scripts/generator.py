@@ -362,7 +362,7 @@ class MultiGen(tf.keras.utils.Sequence):
 
 
 class SupervisedGenerator(keras.utils.Sequence) :
-    def __init__(self, data_path, batch_size, nbins=400, adversarial=False, adv_extensions=["_D.npz"], adversarial_dir=None, contrast=False) :
+    def __init__(self, data_path, batch_size, nbins=400, adversarial=False, adv_extensions=["_D.npz"], adversarial_dir=None, contrast=False, apply_log=False) :
         super(SupervisedGenerator, self).__init__()
         self.batch_size = batch_size
         self.data_path = data_path
@@ -372,6 +372,7 @@ class SupervisedGenerator(keras.utils.Sequence) :
         self.adversarial_paths = []
         self.extensions=adv_extensions
         self.contrast = contrast
+        self.apply_log = apply_log
         #self.load_data()
         #self.on_epoch_end()
         if self.adversarial :
@@ -406,9 +407,14 @@ class SupervisedGenerator(keras.utils.Sequence) :
         print(meta.dtype)
         self.z_values = np.array([m["ZSPEC"] for m in meta])
         self.z_values = self.z_values.astype("float32")
+        if self.apply_log :
+            self.z_values = np.log(1+self.z_values)
         print("Z VALS", self.z_values)
         #bins_edges = np.linspace(0, 6, 300)
-        bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
+        if self.apply_log :
+            bins_edges = np.linspace(0, np.log(1+6), 401)
+        else :
+            bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
         self.z_bins = np.zeros((len(self.z_values)))
         for j, z in enumerate(self.z_values) :
             i = 0
