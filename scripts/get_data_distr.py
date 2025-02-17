@@ -34,7 +34,7 @@ for file in ["cube_1_D.npz",  "cube_1_UD.npz",  "cube_2_UD.npz",  "cube_3_UD.npz
     print(data.dtype)
     type_ = 1 if "_D" in file else 0
     for row in data :
-        z_value = data["ZSPEC"]
+        z_value = row["ZSPEC"]
         count_ind = find_index(z_value, redshift_distribution_edges)
         inference_counter[type_, count_ind] += 1
 
@@ -45,17 +45,17 @@ for file in ["cube_1_D.npz",  "cube_1_UD.npz",  "cube_2_UD.npz",  "cube_3_UD.npz
 print("end for inference base")
 
 
-for file in ["base1", "base2", "base3"] :
+for i, file in enumerate(["base1", "base2", "base3"]) :
     data = np.load(base_path+"finetune/"+file+".npz", allow_pickle=True)["info"]
     print(data.dtype)
     
     for row in data :
-        z_value = data["ZSPEC"]
+        z_value = row["ZSPEC"]
         count_ind = find_index(z_value, redshift_distribution_edges)
-        finetune_counter[count_ind] += 1
+        finetune_counter[i, count_ind] += 1
 
         bin_count_ind = find_index(z_value, classif_bins)
-        bin_finetune_counter[bin_count_ind] += 1
+        bin_finetune_counter[i, bin_count_ind] += 1
 
 
 print("finis pour le finetune")
@@ -69,7 +69,7 @@ for file in ["cube_10_D.npz" , "cube_12_D.npz",  "cube_1_UD.npz",  "cube_2_UD.np
     print(data.dtype)
     type_ = 1 if "_D" in file else 0
     for row in data :
-        z_value = data["ZPHOT"]
+        z_value = row["ZPHOT"]
         count_ind = find_index(z_value, redshift_distribution_edges)
         unsup_counter[type_, count_ind] += 1
 
@@ -105,21 +105,23 @@ for i in range(inference_counter.shape[0]) :
 
 
 
-for i in range(finetune_counter.shape[0]) : 
-   
-    data_frame["kind"].append("finetune")
-    data_frame["split"].append("uniforme")
-    data_frame["plage_value"].append(redshift_distribution_centres[i])
-    data_frame["count"].append(finetune_counter[i])
-    data_frame["survey"] = "UD"
+for i in range(finetune_counter.shape[0]) :
 
-for i in range(bin_finetune_counter.shape[0]) : 
+    for j in range(finetune_counter.shape[1]) : 
    
-    data_frame["kind"].append("finetune")
-    data_frame["split"].append("bin")
-    data_frame["plage_value"].append(bins_centers[i])
-    data_frame["count"].append(finetune_counter[i])
-    data_frame["survey"] = "UD"
+        data_frame["kind"].append("finetune_base"+str(i+1))
+        data_frame["split"].append("uniforme")
+        data_frame["plage_value"].append(redshift_distribution_centres[j])
+        data_frame["count"].append(finetune_counter[i, j])
+        data_frame["survey"] = "UD"
+
+    for j in range(bin_finetune_counter.shape[1]) : 
+   
+        data_frame["kind"].append("finetune_base"+str(i+1))
+        data_frame["split"].append("bin")
+        data_frame["plage_value"].append(bins_centers[j])
+        data_frame["count"].append(bin_finetune_counter[i, j])
+        data_frame["survey"] = "UD"
 
 
 
@@ -146,7 +148,7 @@ for i in range(unsup_counter.shape[0]) :
 import pandas as pd
 
 df = pd.DataFrame(data_frame)
-df.to_csv(base_path+"data/bases_distributions.csv", index=False)
+df.to_csv(base_path+"bases_distributions.csv", index=False)
 
 
 
