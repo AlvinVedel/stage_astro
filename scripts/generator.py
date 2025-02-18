@@ -394,14 +394,25 @@ class SupervisedGenerator(keras.utils.Sequence) :
         random.shuffle(self.adversarial_paths)
 
     def load_data(self) :
-        data = np.load(self.data_path, allow_pickle=True)
-        images = data["cube"][..., :6]  # on ne prend que les 5 premières bandes
-        masks = np.expand_dims(data["cube"][..., 6], axis=-1)
+        if isinstance(self.data_path, str) :
+            data = np.load(self.data_path, allow_pickle=True)
+            images = data["cube"][..., :6]
+            meta = data["info"]
+        elif isinstance(self.data_path, list) :
+            images = []
+            meta = []
+            for path in self.data_path :
+                data = np.load(path, allow_pickle=True)
+                images.append(data["cube"][..., :6])
+                meta.append(data["info"])
+            images = np.concatenate(images, axis=0)
+            meta = np.concatenate(meta, axis=0)
+          # on ne prend que les 5 premières bandes
 
         #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
-        self.images = np.concatenate([images, masks], axis=-1).astype(np.float32)  # N, 64, 64, 6
+        self.images = images.astype(np.float32)  # N, 64, 64, 6
 
-        meta = data["info"]
+        
         print(meta[0])
         print(meta[0].dtype)
         print(meta.dtype)
