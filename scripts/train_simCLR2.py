@@ -15,7 +15,7 @@ import time
 
 
 model_save = 'checkpoints_new_simCLR/simCLR_UD_D_norm'
-iter_suffixe="_ColorHead_Regularized_fullBN"
+iter_suffixe="_ColorHead_Regularized_fullBN_v2"
 allowed_extensions = ["UD.npz", "_D.npz"]
 batch_size=256
 lr = 1e-4
@@ -75,5 +75,7 @@ while iter <= 1000 :
     model.fit(data_gen, epochs=10, callbacks=callbacks)  # normalement 4mn max par epoch = 400mn 
     data_gen._load_data()
     if iter % 5 == 0 :
+        pred = model.backbone(data_gen.images[:10])
+        print("time to check features :", np.max(pred), np.min(pred), np.var(pred))
         filename = "../model_save/"+model_save+str(iter*10)+iter_suffixe+".weights.h5"
         model.save_weights(filename)  # 6000 minutes   ==> 15 fois 100 épochs

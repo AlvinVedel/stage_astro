@@ -43,6 +43,18 @@ class LinearDecay(tf.keras.callbacks.Callback):
             print(f"\nEpoch {self.epoch_counter}: Learning rate is set to {current_lr}")
 
 
+class AlternateTreyerScheduler(tf.keras.callbacks.Callback):
+    def __init__(self, eps) :
+        super().__init__()
+        self.eps = eps
+
+    def on_epoch_begin(self, epoch, logs=None):
+        if epoch in self.eps:
+            old_lr = self.model.optimizer.lr.numpy()  # On récupère le LR actuel
+            new_lr = old_lr / 10  # Diviser le LR par 10
+            tf.keras.backend.set_value(self.model.optimizer.lr, new_lr)
+            print(f"\nEpoch {epoch+1}: Learning rate is reduced to {new_lr}")
+
 
 class TreyerScheduler(tf.keras.callbacks.Callback):
     def on_epoch_begin(self, epoch, logs=None):

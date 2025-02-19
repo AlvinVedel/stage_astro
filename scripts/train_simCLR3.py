@@ -5,7 +5,7 @@ from tensorflow.keras import layers
 from contrastiv_model import simCLR, NTXent as ContrastivLoss, simCLRcolor1, simCLR1
 from generator import MultiGen
 from regularizers import VarRegularizer, TripletCosineRegularizer, CosineDistRegularizer
-from deep_models import basic_backbone, projection_mlp, color_mlp, treyer_backbone, segmentor, deconvolutor, classif_mlp
+from deep_models import basic_backbone, projection_mlp, color_mlp, treyer_backbone, segmentor, deconvolutor, classif_mlp, noregu_projection_mlp
 from vit_layers import Block, ViT_backbone
 from schedulers import CosineDecay, LinearDecay
 
@@ -17,9 +17,9 @@ import time
 model_save = 'checkpoints_new_simCLR/simCLR_UD_D_norm'
 iter_suffixe="ViT_petit_model_v2"
 allowed_extensions = ["UD.npz", "_D.npz"]
-batch_size=256
+batch_size=128
 lr = 1e-4
-callbacks = [LinearDecay(0, 2, 40)]
+callbacks = []# [LinearDecay(0, 2, 40)]
 
 #### PARAMS  générateur
 do_color = True
@@ -40,7 +40,7 @@ iter = 0
 
 #model = simCLR(backbone=basic_backbone(), head=projection_mlp(1024, False),
 #                regularization=sup_regu, color_head=color, segmentor=segment, deconvolutor=reconstr, adversarial=adverse)
-model = simCLRcolor1(ViT_backbone(), projection_mlp(1024, False), color_mlp(1024))
+model = simCLRcolor1(ViT_backbone(patch_size=8, mlp_ratio=2.0), noregu_projection_mlp(1024, True), color_mlp(1024))
 #model = simCLR1(basic_backbone(full_bn=True), projection_mlp(1024, True))
 model.compile(optimizer=keras.optimizers.Adam(lr), loss=ContrastivLoss(normalize=True))
 model(np.random.random((32, 64, 64, 6)))

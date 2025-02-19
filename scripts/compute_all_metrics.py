@@ -29,18 +29,18 @@ def z_med(probas, bin_central_values) :
     index = np.argmax(cdf>=0.5)
     return bin_central_values[index]
 
-plots_name = "version2_simCLR"
+plots_name = "COL_NOREG_FBN"
 path_memory = {}
 import gc
 
-for i, finetune_base in enumerate(["base2", "base3", "base1"]) :   #### POUR CHAQUE CONDITION D ENTRAINEMENT ON VA AVOIR UN SUBPLOT
+for i, finetune_base in enumerate(["base1", "base2", "base3"]) :   #### POUR CHAQUE CONDITION D ENTRAINEMENT ON VA AVOIR UN SUBPLOT
     base_liste = ["_UD", "_D"]
     print("finetune base", finetune_base)
 
-    fig1, ax1 = plt.subplots(nrows=len(base_liste), ncols=6, figsize=(50, 25)) # pour 1 treyer + 3 simCLR dans 2 conditions modèles   ==>   heatmap
-    fig2, ax2 = plt.subplots(nrows=len(base_liste), ncols=6, figsize=(50, 25)) # ===> BIAS
-    fig3, ax3 = plt.subplots(nrows=len(base_liste), ncols=6, figsize=(50, 25)) # ===> SMAD
-    fig4, ax4 = plt.subplots(nrows=len(base_liste), ncols=6, figsize=(50, 25)) # ===> OUTL
+    fig1, ax1 = plt.subplots(nrows=len(base_liste), ncols=2, figsize=(50, 25)) # pour 1 treyer + 3 simCLR dans 2 conditions modèles   ==>   heatmap
+    fig2, ax2 = plt.subplots(nrows=len(base_liste), ncols=2, figsize=(50, 25)) # ===> BIAS
+    fig3, ax3 = plt.subplots(nrows=len(base_liste), ncols=2, figsize=(50, 25)) # ===> SMAD
+    fig4, ax4 = plt.subplots(nrows=len(base_liste), ncols=2, figsize=(50, 25)) # ===> OUT2
 
 
 
@@ -61,7 +61,7 @@ for i, finetune_base in enumerate(["base2", "base3", "base1"]) :   #### POUR CHA
         #npz_files = [f for f in os.listdir(directory) if f.endswith(inf_base+'.npz')]   ## Récupère les fichiers sur lesquels inférer
         #simbases = ["cleaned_cnn_supervised", "cleaned_cnn_supervised_noadv"]
         
-        simbases = ["norm300_ColorHead_Regularized_fullBN", "norm300_ColorHead_Regularized_v2_adversarial_fullBN", "norm300_NoColor_Regularized_v2_fullBN"] #    , "UD800_classif","UD_D800_classif"]
+        simbases = ["norm300_ColorHead_NotRegularized_fullBN"] #    , "UD800_classif","UD_D800_classif"]
         iter=0
         #model_liste = ["simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"]
         for k in range((len(simbases))*2) :
@@ -121,10 +121,10 @@ for i, finetune_base in enumerate(["base2", "base3", "base1"]) :   #### POUR CHA
                     #print("SUMMARY HEAD")
                     #head.summary()
                     #model = astro_model(back, head)
-                    model = AstroFinetune(basic_backbone(full_bn=True), astro_head(1024, 400))
+                    model = AstroFinetune(basic_backbone(full_bn=True, all_bn=True), astro_head(1024, 400))
                     model(np.random.random((32, 64, 64, 6)))
                 #model_name = base_path+"model_save/checkpoints_simCLR_finetune/simCLR_finetune_"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
-                model_name = "../model_save/checkpoints_simCLR_finetune/simCLR_finetune_UD_D__"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
+                model_name = "../model_save/checkpoints_simCLR_finetune2/simCLR_finetune_UD_D__"+cond+"_base="+finetune_base+"_model="+sim_base+".weights.h5"
                 tag_name = 'sim_'+sim_base+"_"+cond
                 treyer = True
                 iter+=1

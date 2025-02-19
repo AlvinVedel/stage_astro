@@ -21,7 +21,9 @@ class Block(tf.keras.Model) :
 
 
 
-        self.qkv = layers.Dense(self.embed_dim*3, activation='linear', use_bias=False)
+        self.v = layers.Dense(self.embed_dim, activation='linear', use_bias=False)
+        self.q = layers.Dense(self.embed_dim, activation='linear', use_bias=False)
+        self.k = layers.Dense(self.embed_dim, activation='linear', use_bias=False)
         self.proj = layers.Dense(self.embed_dim, activation='linear')
 
         self.mlp1 = layers.Dense(int(self.embed_dim*self.mlp_ratio), activation='gelu')
@@ -33,11 +35,15 @@ class Block(tf.keras.Model) :
 
         ##### ATTENTION PART #####
         b, n, c = tf.shape(x_nrom)[0], tf.shape(x_nrom)[1], tf.shape(x_nrom)[2]
-        qkv = self.qkv(x_nrom)  # shape batch, n, c*3
-        qkv = tf.reshape(qkv, (b, n, 3, self.num_heads, c // self.num_heads))   # shape batch, n, 3, 8, c/8    batch, 65, 3, 8, 72
-        qkv = tf.transpose(qkv, perm=[2, 0, 3, 1, 4])    # 3, batch, 8, 65, 72
+        #qkv = self.qkv(x_nrom)  # shape batch, n, c*3
         head_dim = self.embed_dim // self.num_heads
-        q, k, v = qkv[0] * head_dim**-.5, qkv[1], qkv[2]   # séparation q k v chacun étant    batch, num_head, n,  c/num_head  
+        q = tf.transpose(tf.reshape(self.q(x_nrom) * head_dim**-.5, (b, n, self.num_heads, c // self.num_heads)), perm=[0, 2, 1, 3])
+        k = tf.transpose(tf.reshape(self.k(x_nrom), (b, n, self.num_heads, c // self.num_heads)), perm=[0, 2, 1, 3])
+        v = tf.transpose(tf.reshape(self.v(x_nrom), (b, n, self.num_heads, c // self.num_heads)), perm=[0, 2, 1, 3])
+        #qkv = tf.reshape(qkv, (b, n, 3, self.num_heads, c // self.num_heads))   # shape batch, n, 3, 8, c/8    batch, 65, 3, 8, 72
+        #qkv = tf.transpose(qkv, perm=[2, 0, 3, 1, 4])    # 3, batch, 8, 65, 72
+        #head_dim = self.embed_dim // self.num_heads
+        #q, k, v = qkv[0] * head_dim**-.5, qkv[1], qkv[2]   # séparation q k v chacun étant    batch, num_head, n,  c/num_head  
         # 1, 8, 65, 72
 
         attn = tf.matmul(q, k, transpose_b=True)  # 1, 8, 65, 65
@@ -84,18 +90,18 @@ class PatchExtractor(tf.keras.layers.Layer) :
         patch_embedding = tf.concat([cls_token, patch_embedding], axis=1)
 
         positions = tf.expand_dims(
-            tf.arange(start=0, stop=self.num_patches, step=1), axis=0
+            tf.range(start=0, limit=self.num_patches, delta=1), axis=0
         )
         patch_embedding += self.position_embedding(positions)
         return patch_embedding
     
 
-class ViT_backbone(tf.keras.layers.Layer) :
-    def __init__(self, embed_dim=1024, num_blocks=4, num_heads=8, patch_size=4, gp='none') :
+class ViT_backbone(tf.keras.Model) :
+    def __init__(self, embed_dim=1024, num_blocks=4, num_heads=8, patch_size=4, gp='none', mlp_ratio=4.0) :
         super().__init__()
         self.embed_dim=embed_dim
         self.patch_master = PatchExtractor(patch_size, embed_dim=self.embed_dim, image_size=64)
-        self.blocks = [Block(embed_dim=self.embed_dim, num_heads=num_heads) for i in range(num_blocks)]
+        self.blocks = [Block(embed_dim=self.embed_dim, num_heads=num_heads, mlp_ratio=mlp_ratio) for i in range(num_blocks)]
         if gp == "average" :
             self.last_pool = layers.GlobalAveragePooling1D()
             self.gp=True
@@ -113,7 +119,7 @@ class ViT_backbone(tf.keras.layers.Layer) :
         if self.gp :
             return self.last_pool(x)
         else :
-            return x[0]   # sortie B, N   => cls token
+            return x[:, 0]   # sortie B, N   => cls token
 
 
 

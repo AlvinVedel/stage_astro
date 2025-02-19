@@ -92,16 +92,16 @@ for i in range(inference_counter.shape[0]) :
         data_frame["plage_value"].append(redshift_distribution_centres[j])
         data_frame["count"].append(inference_counter[i, j])
         surv = "D" if i == 1 else "UD"
-        data_frame["survey"] = surv
+        data_frame["survey"].append(surv)
 
 
     for j in range(bin_inference_counter.shape[1]) :
         data_frame["kind"].append("inference")
         data_frame["split"].append("bin")
         data_frame["plage_value"].append(bins_centers[j])
-        data_frame["count"].append(inference_counter[i, j])
+        data_frame["count"].append(bin_inference_counter[i, j])
         surv = "D" if i == 1 else "UD"
-        data_frame["survey"] = surv
+        data_frame["survey"].append(surv)
 
 
 
@@ -113,7 +113,7 @@ for i in range(finetune_counter.shape[0]) :
         data_frame["split"].append("uniforme")
         data_frame["plage_value"].append(redshift_distribution_centres[j])
         data_frame["count"].append(finetune_counter[i, j])
-        data_frame["survey"] = "UD"
+        data_frame["survey"].append("UD")
 
     for j in range(bin_finetune_counter.shape[1]) : 
    
@@ -121,7 +121,7 @@ for i in range(finetune_counter.shape[0]) :
         data_frame["split"].append("bin")
         data_frame["plage_value"].append(bins_centers[j])
         data_frame["count"].append(bin_finetune_counter[i, j])
-        data_frame["survey"] = "UD"
+        data_frame["survey"].append("UD")
 
 
 
@@ -133,7 +133,7 @@ for i in range(unsup_counter.shape[0]) :
         data_frame["plage_value"].append(redshift_distribution_centres[j])
         data_frame["count"].append(unsup_counter[i, j])
         surv = "D" if i == 1 else "UD"
-        data_frame["survey"] = surv
+        data_frame["survey"].append(surv)
 
 
     for j in range(bin_unsup_counter.shape[1]) :
@@ -142,7 +142,7 @@ for i in range(unsup_counter.shape[0]) :
         data_frame["plage_value"].append(bins_centers[j])
         data_frame["count"].append(bin_unsup_counter[i, j])
         surv = "D" if i == 1 else "UD"
-        data_frame["survey"] = surv
+        data_frame["survey"].append(surv)
 
 
 import pandas as pd
