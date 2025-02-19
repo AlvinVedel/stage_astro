@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
-from contrastiv_model import simCLR, NTXent as ContrastivLoss, simCLRcolor1
+from contrastiv_model import simCLR, NTXent as ContrastivLoss, simCLRcolor1, simCLR1
 from generator import MultiGen
 from tensorflow.keras.applications import ResNet50
 from regularizers import VarRegularizer, TripletCosineRegularizer, CosineDistRegularizer
@@ -16,14 +16,14 @@ import time
 
 
 model_save = 'checkpoints_new_simCLR/simCLR_UD_D_norm'
-iter_suffixe="_ColorHead_Regularized_fullBN"
+iter_suffixe="_NoColorHead_NotRegularized_resnet50"
 allowed_extensions = ["UD.npz", "_D.npz"]
 batch_size=256
-lr = 1e-4
-callbacks = [LinearDecay(0, 2, 40)]
+lr = 1e-3
+callbacks = [] # [LinearDecay(0, 2, 40)]
 
 #### PARAMS  générateur
-do_color = True
+do_color = False
 do_seg = False
 do_drop_band = False
 do_adversarial = False
@@ -42,7 +42,8 @@ iter = 0
 #model = simCLR(backbone=basic_backbone(), head=projection_mlp(1024, False),
 #                regularization=sup_regu, color_head=color, segmentor=segment, deconvolutor=reconstr, adversarial=adverse)
 #model = simCLRcolor1(basic_backbone(), projection_mlp(1024, False), color_mlp(1024))
-model = simCLRcolor1(ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg'), noregu_projection_mlp(1024, bn=True), color_mlp(1024))
+#model = simCLRcolor1(ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg'), noregu_projection_mlp(2048, bn=True), color_mlp(2048))
+model = simCLR1(ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg'), noregu_projection_mlp(2048, True))
 #model = simCLRcolor1(basic_backbone(full_bn=True), noregu_projection_mlp(1024, True), color_mlp(1024))
 model.compile(optimizer=keras.optimizers.Adam(lr), loss=ContrastivLoss(normalize=True))
 model(np.random.random((32, 64, 64, 6)))

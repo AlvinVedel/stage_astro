@@ -15,7 +15,7 @@ import time
 
 
 model_save = 'checkpoints_new_simCLR/simCLR_UD_D_norm'
-iter_suffixe="_ColorHead_NotRegularized_fullBN"
+iter_suffixe="_ColorHead_NotRegularized_fullBN_minus1"
 allowed_extensions = ["UD.npz", "_D.npz"]
 batch_size=256
 lr = 1e-4
@@ -41,7 +41,7 @@ iter = 0
 #model = simCLR(backbone=basic_backbone(), head=projection_mlp(1024, False),
 #                regularization=sup_regu, color_head=color, segmentor=segment, deconvolutor=reconstr, adversarial=adverse)
 #model = simCLRcolor1(basic_backbone(), projection_mlp(1024, False), color_mlp(1024))
-model = simCLRcolor1(basic_backbone(full_bn=True), noregu_projection_mlp(1024, True), color_mlp(1024))
+model = simCLRcolor1(basic_backbone(full_bn=True, all_bn=False), noregu_projection_mlp(1024, True), color_mlp(1024))
 model.compile(optimizer=keras.optimizers.Adam(lr), loss=ContrastivLoss(normalize=True))
 model(np.random.random((32, 64, 64, 6)))
 

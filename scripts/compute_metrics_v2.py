@@ -22,22 +22,24 @@ model_dir = "model_save/checkpoints_simCLR_finetune2/"
 
 
 ## si supervisé, ne pas inclure weights.h5
-model_name = "norm300_ColorHead_Regularized_HeadPre0_clip3.weights.h5"
-plots_name = "ColHead_Regu_HeadPre0_Clip3"
+model_name = "norm300_ColorHead_NotRegularized_resnet50_HeadPre0_clip3_hayat2.weights.h5"
+#model_name = "basic_baseline_log"
+plots_name = "resnet_color_h0_c3_b256"
 with_plots = False
 supervised = False
+log_z = False
 
 if supervised :
     model_dir = "model_save/checkpoints_supervised/"
 
 
-model = AstroFinetune(basic_backbone(full_bn=False), head=astro_head(1024, 400))
-#model = AstroFinetune(ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg'), head=astro_head(2048, 400))
+#model = AstroFinetune(basic_backbone(full_bn=False, all_bn=False), head=astro_head(1024, 400))
+model = AstroFinetune(ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg'), head=astro_head(2048, 400))
 model(np.random.random((32, 64, 64, 6)))
 
 
 bigbins_edges = np.linspace(0, 6, 13)  # de 0 à 6 en 0.5
-bins_centres = (bigbins_edges[1:] + bigbins_edges[:-1])/2
+bigbins_centres = (bigbins_edges[1:] + bigbins_edges[:-1])/2
 
 data_frame = {"metric":[], "finetune_base":[], "value":[], "plage":[], "inference_base":[]}
 
@@ -58,8 +60,12 @@ def z_med(probas, bin_central_values) :
     index = np.argmax(cdf>=0.5)
     return bin_central_values[index]
 
-bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
-bins_centres = (bins_edges[1:] + bins_edges[:-1])/2
+if log_z :
+    bins_edges = np.linspace(0, np.log(6+1), 401)
+    bins_centres = (bins_edges[1:] + bins_edges[:-1])/2
+else :
+    bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
+    bins_centres = (bins_edges[1:] + bins_edges[:-1])/2
 
 def extract_z(tup) :
     return tup[40]
@@ -124,6 +130,8 @@ for i, inf_base in enumerate(inf_bases) :
             output = model.predict(images)
             probas = output["pdf"]
             z_meds = np.array([z_med(p, bins_centres) for p in probas])
+            if log_z :
+                z_meds = np.exp(z_meds) - 1
             file_preds.append(z_meds)
 
         pred_zs.append(file_preds)   # liste de taille     nb_files,  nb_finetune_bases ,    nb_z (indéterminé)
@@ -185,7 +193,7 @@ for i, inf_base in enumerate(inf_bases) :
 
 
             for p in range(1, 4) :
-                ax[j, p].plot(bins_centres, metric_save[i, j, :, p])
+                ax[j, p].plot(bigbins_centres, metric_save[i, j, :, p])
                 ax[j, p].set_xlabel("redshift (z)")
                 ax[j, p].set_ylabel(metrics_list[p-1])
                  
@@ -217,8 +225,8 @@ for i, inf_base in enumerate(inf_bases) :
             for k, metr in enumerate(metrics_list) :
 
                 data_frame["metric"].append(metr)
-                data_frame["finetune_base"].append(train_bases)
-                data_frame["plage"].append(bins_centres[bin_])
+                data_frame["finetune_base"].append(train_bases[j])
+                data_frame["plage"].append(bigbins_centres[bin_])
                 data_frame["inference_base"].append(inf_bases_aliases[i])
                 data_frame["value"].append(metric_save[i, j, bin_, k])
 

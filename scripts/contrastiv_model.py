@@ -190,7 +190,6 @@ class simCLRcolor1(keras.Model) :
 
     def call(self, input, training=True) :
         x = self.backbone(input, training=training)
-        
         z = self.head(x, training=training)
         c = self.color_head(x, training=training)
         return z, c
@@ -296,6 +295,7 @@ class NTXent(keras.losses.Loss) :
 
         return loss
     
+
 
 
 

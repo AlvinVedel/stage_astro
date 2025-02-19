@@ -2,7 +2,6 @@ import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
 from vit_layers import ViT_backbone
-from contrastiv_model import NTXent
 from regularizers import ThomsonRegularizerFinal, ThomsonRegularizerFirst, ThomsonRegularizerProject
 
 
@@ -22,10 +21,12 @@ def inception_block(input):
     return conc
 
 
-def basic_backbone(full_bn=True) :
+def basic_backbone(full_bn=True, all_bn=False) :
     inp = keras.Input((64, 64, 6))
     c1 = layers.Conv2D(96, padding='same', strides=1, kernel_size=3)(inp) # 64
     c1 = layers.PReLU()(c1) 
+    if all_bn :
+        c1 = layers.BatchNormalization()(c1)
     c2 = layers.Conv2D(96, padding='same', kernel_size=3, strides=1, activation='tanh')(c1)  #64
     if full_bn :
         c2 = layers.BatchNormalization()(c2)
@@ -96,7 +97,7 @@ def comhe_backbone(l2_value=1e-5) :
     c9 = layers.PReLU()(c9)
     flat = layers.Flatten(name='flatten')(c9) # 2, 2, 256 = 1024 
 
-    l1 = layers.Dense(1024, kernel_regularizer=keras.regularizers.L2(l2_value), bias_regularizers=keras.regularizers.L2(l2_value))(flat) 
+    l1 = layers.Dense(1024, kernel_regularizer=keras.regularizers.L2(l2_value), bias_regularizer=keras.regularizers.L2(l2_value))(flat) 
     l1 = layers.PReLU()(l1)
    
     return keras.Model(inputs=inp, outputs=l1)
@@ -104,9 +105,9 @@ def comhe_backbone(l2_value=1e-5) :
 
 def comhe_projection_head(input_shape, l2_value=1e-5) :
     latent_input = keras.Input((input_shape))
-    x = layers.Dense(512, activation='linear', kernel_regularizer=keras.regularizers.L2(l2_value), bias_regularizers=keras.regularizers.L2(l2_value))(latent_input)
+    x = layers.Dense(512, activation='linear', kernel_regularizer=keras.regularizers.L2(l2_value), bias_regularizer=keras.regularizers.L2(l2_value))(latent_input)
     x = layers.PReLU()(x)
-    x = layers.Dense(256, activation='linear', kernel_regularizer=keras.regularizers.L2(l2_value), bias_regularizers=keras.regularizers.L2(l2_value))(x)
+    x = layers.Dense(256, activation='linear', kernel_regularizer=keras.regularizers.L2(l2_value), bias_regularizer=keras.regularizers.L2(l2_value))(x)
     return keras.Model(latent_input, x)
 
 
@@ -147,22 +148,22 @@ def treyer_backbone(bn=False) :
     return model
 
 
-def projection_mlp(input_shape=1024, bn=True):
+def projection_mlp(input_shape=1024, bn=True, out_dim=256):
     latent_input = keras.Input((input_shape))
     x = layers.Dense(512, activation='linear')(latent_input)
     if bn :
         x = layers.BatchNormalization()(x)
     x = layers.PReLU()(x)
-    x = layers.Dense(256, activation='linear', activity_regularizer=tf.keras.regularizers.L1L2(l1=1e-3, l2=1e-2))(x)
+    x = layers.Dense(out_dim, activation='linear', activity_regularizer=tf.keras.regularizers.L1L2(l1=1e-3, l2=1e-2))(x)
     return keras.Model(latent_input, x)
 
-def noregu_projection_mlp(input_shape=1024, bn=True):
+def noregu_projection_mlp(input_shape=1024, bn=True, out_dim=256):
     latent_input = keras.Input((input_shape))
     x = layers.Dense(512, activation='linear')(latent_input)
     if bn :
         x = layers.BatchNormalization()(x)
     x = layers.PReLU()(x)
-    x = layers.Dense(256, activation='linear')(x)
+    x = layers.Dense(out_dim, activation='linear')(x)
     return keras.Model(latent_input, x)
 
 
@@ -252,7 +253,13 @@ class AstroFinetune(tf.keras.Model):
         gradients = tape.gradient(total_loss, trainable_vars)
         self.optimizer.apply_gradients(zip(gradients, trainable_vars))
         return {"crossent":classif_loss, "mae":reg_loss}
-    
+
+
+
+
+
+
+
 
 
 
@@ -292,6 +299,22 @@ class ContrastivAstroFinetune(tf.keras.Model):
         gradients = tape.gradient(total_loss, trainable_vars)
         self.optimizer.apply_gradients(zip(gradients, trainable_vars))
         return {"crossent":classif_loss, "mae":reg_loss, "contrastiv_loss":contrastiv_loss}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

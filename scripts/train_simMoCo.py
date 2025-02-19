@@ -1,3 +1,4 @@
+
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
@@ -11,12 +12,12 @@ from keras.applications import ResNet50
 from schedulers import CosineDecay, LinearDecay
 
 import os 
-os.environ["CUDA_VISIBLE_DEVICES"] = '0, 1'
+os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 import time
 
 
 model_save = 'checkpoints_new_simCLR/simCLR_UD_D_norm'
-iter_suffixe="_ColorHead_NotRegularized_fullBN"
+iter_suffixe="_resnet50_bank5000"
 allowed_extensions = ["UD.npz", "_D.npz"]
 batch_size=256
 lr = 1e-4
@@ -48,13 +49,13 @@ def update_network_with_momentum(network_1, network_2, momentum=0.999):
     
     return network_2
 
-
+#backbone = basic_backbone(full_bn=True, all_bn=False)
 backbone = ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg')
-head = noregu_projection_mlp(1024, bn=True)
-color_head = color_mlp(1024)
+head = noregu_projection_mlp(2048, bn=True, out_dim=128)
+color_head = color_mlp(2048)
 
 late_backbone = ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg')
-late_head = noregu_projection_mlp(1024, bn=True)
+late_head = noregu_projection_mlp(2048, bn=True, out_dim=128)
 
 if load_model :
     backbone.load_weights("../model_save/"+model_save+str(iter*10)+iter_suffixe+".weights.h5")
@@ -71,11 +72,11 @@ data_gen = MultiGen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleane
 
 
 
-
-bank = np.zeros((10000, 1024))
+#checkpoints_new_simCLR
+bank = np.zeros((5000, 128))
 bank_index = 0
 bank_counter = 0
-
+loss_function = ContrastivLoss(0.1)
 
 
 def compute_loss_cpu(batch_representation, bank_representation, temperature=0.1) :
@@ -152,26 +153,40 @@ while True :   ## on attend fin du job
         #nstep = train_images.shape[0] // batch_size
 
         for b, batch in enumerate(data_gen) :
+            batch, labels_dict = batch
+            color_labels = labels_dict["color"]
+            #bank_representation = late_head(late_backbone(batch, training=False), training=False).numpy()
+            ## stockage dans mémoire
+            #for i in range(bank_representation.shape[0]) :
+                #bank[bank_index] = bank_representation[i]
+                #bank_index = (bank_index+1)%bank.shape[0]
+                #bank_counter = min(bank.shape[0], bank_counter+1)
+
+            with tf.GradientTape() as tape :
+                x = backbone(batch, training=True)
+                current_representation = head(x, training=True)
+                #current_representation = head(backbone(batch, training=True), training=True)
+                if bank_counter > 0 :
+                    selected_el = bank[:bank_counter]
+                    print(selected_el.shape)
+                    loss = compute_loss_cpu(current_representation,selected_el, 0.1)
+                else :
+                    loss = loss_function.call(current_representation, 0.1)
+                color_loss = tf.reduce_mean(tf.reduce_sum( (color_head(x, training=True) - color_labels)**2, axis=-1))
+                total_loss = loss + color_loss
+            gradients = tape.gradient(total_loss, head.trainable_variables+backbone.trainable_variables+color_head.trainable_variables)
+            optimizer.apply_gradients(zip(gradients, head.trainable_variables+backbone.trainable_variables+color_head.trainable_variables))
+
+            if b % 100 == 0 :
+                print("LOSS : ", loss, color_loss)
 
             bank_representation = late_head(late_backbone(batch, training=False), training=False).numpy()
             ## stockage dans mémoire
+            print("representation : ",bank_representation.shape)
             for i in range(bank_representation.shape[0]) :
                 bank[bank_index] = bank_representation[i]
                 bank_index = (bank_index+1)%bank.shape[0]
                 bank_counter = min(bank.shape[0], bank_counter+1)
-
-            with tf.GradientTape() as tape :
-                current_representation = head(backbone(batch, training=True), training=True)
-
-                loss = compute_loss_cpu(current_representation, bank[:bank_counter], 0.1)
-
-            gradients = tape.gradient(loss, head.trainable_variables+backbone.trainable_variables)
-            optimizer.apply_gradients(zip(gradients, head.trainable_variables+backbone.trainable_variables))
-
-            if b % 100 == 0 :
-                print("LOSS : ", loss)
-
-            
                 
             late_head = update_network_with_momentum(head, late_head, momentum=momentum)
             late_backbone = update_network_with_momentum(backbone, late_backbone, momentum=momentum)  

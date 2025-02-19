@@ -27,8 +27,8 @@ model(np.random.random((32, 64, 64, 5)))
 
 
 
-load_w_path = "model_save/checkpoints_simCLR_UD_D/simCLR_cosmos_bnTrue_"
-model_name = "norm300_NoColor_Regularized"
+load_w_path = "model_save/checkpoints_new_simCLR/simCLR_UD_D_"
+model_name = "norm300_ColorHead_NotRegularized_resnet50"
 save_w_path = "model_save/checkpoints_simCLR_finetune_progress/"
 plots_path = "plots/simCLR/simCLR_finetune/"
 

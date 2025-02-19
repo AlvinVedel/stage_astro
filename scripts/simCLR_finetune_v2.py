@@ -28,8 +28,8 @@ model(np.random.random((32, 64, 64, 6)))
 
 
 load_w_path = "model_save/checkpoints_new_simCLR/simCLR_UD_D_"
-model_name = "norm300_Color_Regularized_v2_fullBN_minus1"
-save_w_path = "model_save/checkpoints_simCLR_finetune/simCLR_finetune_petitLR_UD_D_"
+model_name = "norm300_Color_NotRegularized_fullBN_minus1"
+save_w_path = "model_save/checkpoints_simCLR_finetune/simCLR_finetune_UD_D_"
 plots_path = "plots/simCLR/simCLR_finetune/"
 
 
@@ -37,7 +37,7 @@ n_epochs = 50
 
 for base in ["base1", "base2", "base3"] :
 
-    data_gen = SupervisedGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=32, nbins=400)
+    data_gen = SupervisedGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=32, nbins=400, contrast=True)
 
     
     model(np.random.random((32, 64, 64, 6)))

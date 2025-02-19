@@ -4,13 +4,14 @@ import plotly.io as pio
 
 
 base_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/"
-files_to_plot = []
-
+data_dir = "data/metrics_save/"
+files_to_plot = ["resultats_ColHead_Regu_HeadPre0_Clip3.csv"]
+model_names = ["Pretrain0"]
 
 # Charger les datasets
-data_files = [pd.read_csv(base_path + file) for i, file in enumerate(files_to_plot)]
+data_files = [pd.read_csv(base_path + data_dir + file) for i, file in enumerate(files_to_plot)]
 for i, df in enumerate(data_files):
-    df["model"] = f"Model_{i}"  # Ajouter un identifiant pour chaque modèle
+    df["model"] = model_names[i]     #f"Model_{i}"  # Ajouter un identifiant pour chaque modèle
 df = pd.concat(data_files)  # Fusionner en un seul DataFrame
 
 # Récupérer les valeurs uniques
