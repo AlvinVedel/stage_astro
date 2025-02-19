@@ -256,6 +256,8 @@ class AstroFinetune(tf.keras.Model):
 
 
 
+
+
 class ContrastivAstroFinetune(tf.keras.Model):
     def __init__(self, back, head, projection_head, train_back=False) :
         super().__init__()

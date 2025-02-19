@@ -51,3 +51,15 @@ class TreyerScheduler(tf.keras.callbacks.Callback):
             new_lr = old_lr / 10  # Diviser le LR par 10
             tf.keras.backend.set_value(self.model.optimizer.lr, new_lr)
             print(f"\nEpoch {epoch+1}: Learning rate is reduced to {new_lr}")
+
+
+class AlternateTreyerScheduler(tf.keras.callbacks.Callback):
+    def __init__(self, ep_list=[70, 90]) :
+        super().__init__()
+        self.ep_list = ep_list
+    def on_epoch_begin(self, epoch, logs=None):
+        if epoch in self.ep_list :
+            old_lr = self.model.optimizer.lr.numpy()  # On récupère le LR actuel
+            new_lr = old_lr / 10  # Diviser le LR par 10
+            tf.keras.backend.set_value(self.model.optimizer.lr, new_lr)
+            print(f"\nEpoch {epoch+1}: Learning rate is reduced to {new_lr}")

@@ -423,7 +423,8 @@ class SupervisedGenerator(keras.utils.Sequence) :
         print("Z VALS", self.z_values)
         #bins_edges = np.linspace(0, 6, 300)
         if self.apply_log :
-            bins_edges = np.linspace(0, np.log(1+6), 401)
+            bins_edges = np.linspace(np.log(0+1), np.log(1+6), 401)
+
         else :
             bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
         self.z_bins = np.zeros((len(self.z_values)))
@@ -509,3 +510,145 @@ class SupervisedGenerator(keras.utils.Sequence) :
         self.images = self.images[indices]
         self.z_values = self.z_values[indices]
         self.z_bins = self.z_bins[indices]
+
+
+
+
+
+
+
+
+
+class COINGenerator(keras.utils.Sequence) :
+    def __init__(self, data_path, batch_size, nbins=400, contrast=True, apply_log=False) :
+        super(SupervisedGenerator, self).__init__()
+        self.batch_size = batch_size
+        self.data_path = data_path
+        self.nbins=nbins
+        self.contrast=contrast
+        self.apply_log = apply_log
+        #self.load_data()
+        #self.on_epoch_end()
+        self.load_data()
+        self.on_epoch_end()
+
+
+    def _find_paths(self, dir_path) :
+        #for dire in dir_paths :
+        for root, dirs, files in os.walk(dir_path):
+            for file in files:
+                if file.endswith(tuple(self.extensions)):
+                    filepath = os.path.join(root, file)
+                    self.adversarial_paths.append(filepath)
+                    print("+1 file")
+        random.shuffle(self.adversarial_paths)
+
+    def load_data(self) :
+        if isinstance(self.data_path, str) :
+            data = np.load(self.data_path, allow_pickle=True)
+            images = data["cube"][..., :6]
+            meta = data["info"]
+        elif isinstance(self.data_path, list) :
+            images = []
+            meta = []
+            for path in self.data_path :
+                data = np.load(path, allow_pickle=True)
+                images.append(data["cube"][..., :6])
+                meta.append(data["info"])
+            images = np.concatenate(images, axis=0)
+            meta = np.concatenate(meta, axis=0)
+          # on ne prend que les 5 premières bandes
+
+        #images = np.sign(images)*(np.sqrt(np.abs(images)+1)-1 )   # PAS BESOIN CAR SAUVEGARDEES NORMALISES
+        self.images = images.astype(np.float32)  # N, 64, 64, 6
+
+        
+        print(meta[0])
+        print(meta[0].dtype)
+        print(meta.dtype)
+        self.z_values = np.array([m["ZSPEC"] for m in meta])
+        self.z_values = self.z_values.astype("float32")
+        if self.apply_log :
+            self.z_values = np.log(1+self.z_values)
+        print("Z VALS", self.z_values)
+        #bins_edges = np.linspace(0, 6, 300)
+        if self.apply_log :
+            bins_edges = np.linspace(np.log(0+1), np.log(1+6), 401)
+
+        else :
+            bins_edges = np.concatenate([np.linspace(0, 4, 381), np.linspace(4, 6, 21)[1:]], axis=0)
+        self.z_bins = np.zeros((len(self.z_values)))
+        for j, z in enumerate(self.z_values) :
+            i = 0
+            flag = True
+            while flag and i < len(bins_edges)-1 :
+                if z >= bins_edges[i] and z < bins_edges[i+1] :
+                    self.z_bins[j] = i
+                    flag = False
+                i+=1
+            if flag : 
+                self.z_bins[j] = i-1
+        print(np.max(self.z_bins), np.min(self.z_bins))
+        print("NAN IMGS :",np.any(np.isnan(self.images)))
+        print("NAN Z :", np.any(np.isnan(self.z_values)), np.any(np.isnan(self.z_bins)))
+        self.z_bins = self.z_bins.astype(np.int32)
+        print(self.z_bins)
+
+        
+
+        ## considère méthode basique avec intervale arbitraire
+
+        
+
+
+    def __len__(self):
+        return int(np.ceil(len(self.images) / self.batch_size))
+
+    def process_batch(self, images, masks, ebv=None) :
+
+        images = tf.image.random_flip_left_right(images)
+        images = tf.image.random_flip_up_down(images)
+        rotations = tf.random.uniform((tf.shape(images)[0],), minval=0, maxval=4, dtype=tf.int32)
+        images = tf.map_fn(rotate_image, (images, rotations), dtype=images.dtype)
+
+
+        return images
+
+    def __getitem__(self, index):
+        batch_images = self.images[index*self.batch_size : (index+1)*self.batch_size]
+        batch_z = self.z_bins[index*self.batch_size : (index+1)*self.batch_size]
+        batch_z2 = self.z_values[index*self.batch_size : (index+1)*self.batch_size]
+        
+
+
+        if tf.shape(batch_images)[0] < self.batch_size:
+            # Compléter le batch avec des images dupliquées ou ignorer (selon ta logique)
+            pad_size = self.batch_size - batch_images.shape[0]
+            batch_images = tf.concat([batch_images, self.images[:pad_size]], axis=0)  # Compléter avec les premières images
+            batch_z = tf.concat([batch_z, self.z_bins[:pad_size]], axis=0)
+            batch_z2 = tf.concat([batch_z2, self.z_values[:pad_size]], axis=0)
+            
+
+
+        batch_masks = batch_images[:, :, :, 6]
+        batch_images = batch_images[:, :, :, :6]
+        
+        if self.contrast :
+            batch_images = tf.tile(batch_images, [2, 1, 1, 1])
+            batch_z = tf.tile(batch_z, [2])
+            batch_z2 = tf.tile(batch_z2, [2])
+        
+
+        augmented_images = self.process_batch(batch_images, batch_masks)
+        
+
+        return augmented_images, {"pdf":batch_z, "reg":batch_z2}
+
+    def on_epoch_end(self):
+        indices = np.arange(0, self.images.shape[0], dtype=np.int32)
+        np.random.shuffle(indices)
+        self.images = self.images[indices]
+        self.z_values = self.z_values[indices]
+        self.z_bins = self.z_bins[indices]
+        self.z_maxs = self.z_maxs[indices]
+        self.z_mins = self.z_mins[indices]
