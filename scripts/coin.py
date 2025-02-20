@@ -9,17 +9,18 @@ from contrastiv_model import simCLRcolor1, simCLR1
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 from schedulers import AlternateTreyerScheduler
+import gc
 
 
 base_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/"
 finetune_base = "base1.npz"
 ssl_weights = "checkpoints_new_simCLR/simCLR_UD_D_norm300_ColorHead_NotRegularized_resnet50"
-save_name = "resnet5k"
+save_name = "resnet50"
 
 
-tsne_data = np.load(base_path+"data/cleaned_spec/cube_1_UD.npz", allow_pickle=True)
-tsne_images = tsne_data["cube"]
-tsne_z = np.array([m["ZSPEC"] for m in tsne_data["info"]])
+#tsne_data = np.load(base_path+"data/cleaned_spec/cube_1_UD.npz", allow_pickle=True)
+#tsne_images = tsne_data["cube"][..., :6]
+#tsne_z = np.array([m["ZSPEC"] for m in tsne_data["info"]])
 
 
 all_coords = np.zeros((10, 50000, 2))  # random, supervisé, ssl , ssl finetuné, ssl finetuné + contrastive,  ssl coin
@@ -94,15 +95,17 @@ def evaluate_model(model, bins_edges, metric_edges) :
     z_pred = []
     ud_smad = np.zeros((bins_centres.shape[0]))
     for file in ["cube_1_UD", "cube_2_UD", "cube_3_UD"] :
+        print("j'en suis au file", file)
         data = np.load(base_path+"data/cleaned_spec/"+file+".npz", allow_pickle=True)
         nb_im = data["info"].shape[0]
         index = 0
         while index < nb_im :
+            print(index)
             if index+512 > nb_im :
-                im_to_infer = data["cube"][index:]
+                im_to_infer = data["cube"][index:][..., :6]
                 z_to_pred = np.array([m["ZSPEC"] for m in data["info"][index:]])
             else :
-                im_to_infer = data["cube"][index:index+512]
+                im_to_infer = data["cube"][index:index+512][..., :6]
                 z_to_pred = np.array([m["ZSPEC"] for m in data["info"][index:index+512]])
             index+=512
             z_true.append(z_to_pred)
@@ -110,6 +113,10 @@ def evaluate_model(model, bins_edges, metric_edges) :
             probas = output["pdf"]
             z_meds = np.array([z_med(p, bins_centres) for p in probas])
             z_pred.append(z_meds)
+            del im_to_infer
+            gc.collect()
+        del data
+        gc.collect()
 
     z_true = np.concatenate(z_true, axis=0)
     z_pred = np.exp(np.concatenate(z_pred, axis=0))-1
@@ -128,7 +135,7 @@ def evaluate_model(model, bins_edges, metric_edges) :
             ud_smad[bin_] = sigma_mad
 
 
-
+    print("eval mi-parcours")
     z_true = []
     z_pred = []
     d_smad = np.zeros((bins_centres.shape[0]))
@@ -182,11 +189,23 @@ bins_edges = np.linspace(np.log(1), np.log(7), 401)
 random_network = ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg')
 random_network(np.random.random((32, 64, 64, 6)))
 
+
+tsne_data = np.load(base_path+"data/cleaned_spec/cube_1_UD.npz", allow_pickle=True)
+tsne_images = tsne_data["cube"][..., :6]
+tsne_z = np.array([m["ZSPEC"] for m in tsne_data["info"]])
+
 random_features = random_network.predict(tsne_images)
+del tsne_data, tsne_images
+gc.collect()
+print("before tsne")
 
 tsne = TSNE(2)
 tsne_coord = tsne.fit_transform(random_features)
 all_coords[0] = tsne_coord
+
+print("random tsne ended")
+del random_features
+gc.collect()
 
 model = AstroFinetune(random_network, astro_head(2048, 400))
 
@@ -197,7 +216,7 @@ for i in range(ud_metric.shape[0]) :
     dataset["d_smad"].append(d_metric[i])
     dataset["ud_smad"].append(ud_metric[i])
 
-
+print("random eval ended")
 
 # ------- ENTRAINEMENT SUPERVISE  -----------
 
@@ -208,11 +227,23 @@ data_gen = SupervisedGenerator(base_path+"data/finetune/"+finetune_base, batch_s
 model.fit(data_gen, epochs=100, callbacks=[AlternateTreyerScheduler()])
 
 backbone = model.back 
+
+tsne_data = np.load(base_path+"data/cleaned_spec/cube_1_UD.npz", allow_pickle=True)
+tsne_images = tsne_data["cube"][..., :6]
+
 supervised_features = backbone.predict(tsne_images)
+
+del tsne_data, tsne_images
+gc.collect()
+print("before tsne")
 
 tsne = TSNE(2)
 tsne_coord = tsne.fit_transform(supervised_features)
 all_coords[1] = tsne_coord
+
+print("supervised tsne ended")
+del supervised_features
+gc.collect()
 
 
 ud_metric, d_metric = evaluate_model(model, bins_edges, metric_edges)
@@ -222,7 +253,7 @@ for i in range(ud_metric.shape[0]) :
     dataset["d_smad"].append(d_metric[i])
     dataset["ud_smad"].append(ud_metric[i])
 
-
+print("supervised eval ended")
 
 # --------- SSL ET FINETUNING ----------
 
@@ -232,11 +263,24 @@ base_simCLR = simCLRcolor1(ResNet50(include_top=False, weights=None, input_shape
 base_simCLR(np.random.random((32, 64, 64, 6)))
 base_simCLR.load_weights(base_path+"model_save/"+ssl_weights+".weights.h5")
 backbone = base_simCLR.backbone
+
+tsne_data = np.load(base_path+"data/cleaned_spec/cube_1_UD.npz", allow_pickle=True)
+tsne_images = tsne_data["cube"][..., :6]
+
 raw_ssl_features = backbone.predict(tsne_images)
+
+del tsne_data, tsne_images
+gc.collect()
+
+print("before tsne")
+
 tsne = TSNE(2)
 tsne_coord = tsne.fit_transform(raw_ssl_features)
 all_coords[2] = tsne_coord
 
+print("ssl tsne ended")
+del raw_ssl_features
+gc.collect()
 
 
 ## FINETUNING
@@ -245,10 +289,23 @@ data_gen = SupervisedGenerator(base_path+"data/finetune/"+finetune_base, batch_s
 model(np.random.random((32, 64, 64, 6)))
 model.fit(data_gen, epochs=100, callbacks=[AlternateTreyerScheduler()])
 backbone = model.back 
+
+tsne_data = np.load(base_path+"data/cleaned_spec/cube_1_UD.npz", allow_pickle=True)
+tsne_images = tsne_data["cube"][..., :6]
+
 finetune_ssl_features = backbone.predict(tsne_images)
+
+del tsne_data, tsne_images
+gc.collect()
+print("before tsne")
+
 tsne = TSNE(2)
 tsne_coord = tsne.fit_transform(finetune_ssl_features)
 all_coords[3] = tsne_coord
+
+print("finetune tsne ended")
+del finetune_ssl_features
+gc.collect()
 
 
 ud_metric, d_metric = evaluate_model(model, bins_edges, metric_edges)
@@ -258,6 +315,7 @@ for i in range(ud_metric.shape[0]) :
     dataset["d_smad"].append(d_metric[i])
     dataset["ud_smad"].append(ud_metric[i])
 
+print("finetune eval ended")
 
 ## FINETUNING EN MAINTENANT CONTRASTIVE
 
@@ -298,10 +356,20 @@ for epoch in range(100) :
     data_gen.on_epoch_end()
 
 model = AstroFinetune(backbone, classifier)
+tsne_data = np.load(base_path+"data/cleaned_spec/cube_1_UD.npz", allow_pickle=True)
+tsne_images = tsne_data["cube"][..., :6]
 finetune_et_contrast_ssl_features = backbone.predict(tsne_images)
+del tsne_data, tsne_images
+gc.collect()
+print("before tsne")
+
 tsne = TSNE(2)
 tsne_coord = tsne.fit_transform(finetune_et_contrast_ssl_features)
 all_coords[4] = tsne_coord
+
+print("finetune+contrast tsne ended")
+del finetune_et_contrast_ssl_features
+gc.collect()
 
 
 ud_metric, d_metric = evaluate_model(model, bins_edges, metric_edges)
@@ -312,7 +380,7 @@ for i in range(ud_metric.shape[0]) :
     dataset["ud_smad"].append(ud_metric[i])
 
 
-
+print("finetune+contrast eval ended")
 
 ## FINETUNING EN MAINTENANT CONTRASTIVE SUR BEAUCOUP DE DONNEES
 
@@ -364,13 +432,20 @@ for epoch in range(100) :
 
 
 model = AstroFinetune(backbone, classifier)
-
+tsne_data = np.load(base_path+"data/cleaned_spec/cube_1_UD.npz", allow_pickle=True)
+tsne_images = tsne_data["cube"][..., :6]
 finetune_et_contrast_all_ssl_features = backbone.predict(tsne_images)
+del tsne_data, tsne_images
+gc.collect()
+print("before tsne")
+
 tsne = TSNE(2)
 tsne_coord = tsne.fit_transform(finetune_et_contrast_all_ssl_features)
 all_coords[5] = tsne_coord
 
-
+print("finetune+contrast sur tout tsne eneded")
+del finetune_et_contrast_all_sll_features
+gc.collect()
 
 ud_metric, d_metric = evaluate_model(model, bins_edges, metric_edges)
 for i in range(ud_metric.shape[0]) :
@@ -381,7 +456,7 @@ for i in range(ud_metric.shape[0]) :
 
 
 
-
+print("finetune+contrast sur tout eval ended")
 
 
 
@@ -421,11 +496,20 @@ for epoch in range(50) :
 
     data_gen.on_epoch_end()
 
-
+print("before tsne")
+tsne_data = np.load(base_path+"data/cleaned_spec/cube_1_UD.npz", allow_pickle=True)
+tsne_images = tsne_data["cube"][..., :6]
 coin_features = backbone.predict(tsne_images)
+del tsne_images, tsne_data
+gc.collect()
+
 tsne = TSNE(2)
 tsne_coord = tsne.fit_transform(coin_features)
 all_coords[6] = tsne_coord
+
+print("raw coin tsne ended")
+del coin_features
+gc.collect()
 
 
 ### A PARTIR DE LA ON VA RE UTILISER CE QUI A ETE ENTRAINE AVEC COIN
@@ -476,11 +560,21 @@ for epoch in range(50) :
 
 
 model = AstroFinetune(backbone, classifier)
-
+tsne_data = np.load(base_path+"data/cleaned_spec/cube_1_UD.npz", allow_pickle=True)
+tsne_images = tsne_data["cube"][..., :6]
 coin_treyer_features = backbone.predict(tsne_images)
+del tsne_data, tsne_images
+gc.collect()
+print("before tsne")
+
 tsne = TSNE(2)
 tsne_coord = tsne.fit_transform(coin_treyer_features)
 all_coords[7] = tsne_coord
+
+print("coin finetune tsne ended")
+del coin_treyer_features
+gc.collect()
+
 
 
 
@@ -492,7 +586,7 @@ for i in range(ud_metric.shape[0]) :
     dataset["ud_smad"].append(ud_metric[i])
 
 
-
+print("coin finetune eval ended")
 
 
 ## ETAPE 2 : COIN + TREYER + CONTRASTIV
@@ -536,11 +630,21 @@ for epoch in range(50) :
 
 
 model = AstroFinetune(backbone, classifier)
-
+tsne_data = np.load(base_path+"data/cleaned_spec/cube_1_UD.npz", allow_pickle=True)
+tsne_images = tsne_data["cube"][..., :6]
 coin_treyer_contrastiv_features = backbone.predict(tsne_images)
+del tsne_data, tsne_images
+gc.collect()
+print("before tsne")
+
 tsne = TSNE(2)
 tsne_coord = tsne.fit_transform(coin_treyer_contrastiv_features)
 all_coords[8] = tsne_coord
+
+print("coin finetune contrast tsne ended")
+del coin_treyer_contrastiv_features
+gc.collect()
+
 
 
 ud_metric, d_metric = evaluate_model(model, bins_edges, metric_edges)
@@ -551,7 +655,7 @@ for i in range(ud_metric.shape[0]) :
     dataset["ud_smad"].append(ud_metric[i])
 
 
-
+print("coin finetune contrast eval ended")
 
 
 
@@ -596,11 +700,22 @@ for epoch in range(50) :
 
 
 model = AstroFinetune(backbone, classifier)
-
+tsne_data = np.load(base_path+"data/cleaned_spec/cube_1_UD.npz", allow_pickle=True)
+tsne_images = tsne_data["cube"][..., :6]
 coin_treyer_consup_features = backbone.predict(tsne_images)
+del tsne_data, tsne_images
+gc.collect()
+print("before tsne")
+
 tsne = TSNE(2)
 tsne_coord = tsne.fit_transform(coin_treyer_consup_features)
 all_coords[9] = tsne_coord
+
+print("coin finetune consup tsne ended")
+del coin_treyer_consup_features
+gc.collect()
+
+
 
 ud_metric, d_metric = evaluate_model(model, bins_edges, metric_edges)
 for i in range(ud_metric.shape[0]) :
@@ -609,6 +724,7 @@ for i in range(ud_metric.shape[0]) :
     dataset["d_smad"].append(d_metric[i])
     dataset["ud_smad"].append(ud_metric[i])
 
+print("coin finetune consup eval ended")
 
 import pandas as pd
 
@@ -619,7 +735,7 @@ df.to_csv(base_path+"data/metrics_save/coin_comp"+save_name+".csv", index=False)
 np.savez(base_path+"data/metrics_save/tsnes"+save_name+".npz", array1=all_coords, array2=tsne_z)
 
 
-
+print("file saved")
 
 
 

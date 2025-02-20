@@ -34,7 +34,7 @@ def compute_target(x) :
 
 
 class MultiGen(tf.keras.utils.Sequence):
-    def __init__(self, paths, batch_size, do_color=True, do_seg=True, do_mask_band=True, do_adversarial=False, image_size=(64, 64, 6), shuffle=True, extensions=[".npz"], same_samples=True):
+    def __init__(self, paths, batch_size, do_color=True, do_seg=True, do_mask_band=True, do_adversarial=False, image_size=(64, 64, 6), shuffle=True, extensions=[".npz"], same_samples=True, n_samples=40000):
         self.paths = []
         self.survey_paths = {"UD":[], "D":[]}
         self.path_index=0
@@ -42,6 +42,7 @@ class MultiGen(tf.keras.utils.Sequence):
         self.shuffle = shuffle
         self.image_size = image_size
         self.max_images = 70000
+        self.n_samples=n_samples
         self.extensions = extensions
         self.n_epochs = 0
         self.do_color=do_color
@@ -83,15 +84,15 @@ class MultiGen(tf.keras.utils.Sequence):
 
         gc.collect()
         if self.same_samples :
-            ud_images = np.zeros((40000, 64, 64, 6))
-            ud_colors = np.zeros((40000, 5))
+            ud_images = np.zeros((self.n_samples, 64, 64, 6))
+            ud_colors = np.zeros((self.n_samples, 5))
 
             random.shuffle(self.survey_paths["UD"])
             random.shuffle(self.survey_paths["D"])
 
             ud_index = 0
             path_iter = 0
-            while ud_index < 40000 :
+            while ud_index < self.n_samples :
                 path = self.survey_paths["UD"][path_iter]
                 data = np.load(path, allow_pickle=True)
                 images = data["cube"][..., :6]  # on ne prend que les 5 premières bande
@@ -117,14 +118,14 @@ class MultiGen(tf.keras.utils.Sequence):
                 ud_index += len(images)
             self.images.append(ud_images)
             self.colors.append(ud_colors)
-            self.surveys.append(np.ones((40000)))
+            self.surveys.append(np.ones((self.n_samples)))
 
 
-            ud_images = np.zeros((40000, 64, 64, 6))
-            ud_colors = np.zeros((40000, 5))
+            ud_images = np.zeros((self.n_samples, 64, 64, 6))
+            ud_colors = np.zeros((self.n_samples, 5))
             ud_index = 0
             path_iter = 0
-            while ud_index < 40000 :
+            while ud_index < self.n_samples :
                 path = self.survey_paths["D"][path_iter]
                 data = np.load(path, allow_pickle=True)
                 meta = data["info"]
@@ -149,7 +150,7 @@ class MultiGen(tf.keras.utils.Sequence):
                 ud_index += len(images)
             self.images.append(ud_images)
             self.colors.append(ud_colors)
-            self.surveys.append(np.zeros((40000)))
+            self.surveys.append(np.zeros((self.n_samples)))
 
             del ud_images
             gc.collect()
@@ -459,7 +460,7 @@ class SupervisedGenerator(keras.utils.Sequence) :
     def __len__(self):
         return int(np.ceil(len(self.images) / self.batch_size))
 
-    def process_batch(self, images, masks, ebv=None) :
+    def process_batch(self, images, ebv=None) :
 
         images = tf.image.random_flip_left_right(images)
         images = tf.image.random_flip_up_down(images)
@@ -483,14 +484,14 @@ class SupervisedGenerator(keras.utils.Sequence) :
             batch_z2 = tf.concat([batch_z2, self.z_values[:pad_size]], axis=0)
 
 
-        batch_masks = batch_images[:, :, :, 6]
+        #batch_masks = batch_images[:, :, :, 6]
         batch_images = batch_images[:, :, :, :6]
         if self.contrast :
             batch_images = tf.tile(batch_images, [2, 1, 1, 1])
             batch_z = tf.tile(batch_z, [2])
             batch_z2 = tf.tile(batch_z2, [2])
 
-        augmented_images = self.process_batch(batch_images, batch_masks)
+        augmented_images = self.process_batch(batch_images)
         if self.adversarial :
             batch_images = self.adversarial_images[index*self.batch_size:(index+1)*self.batch_size]
             if tf.shape(batch_images)[0] < self.batch_size:
@@ -604,7 +605,7 @@ class COINGenerator(keras.utils.Sequence) :
     def __len__(self):
         return int(np.ceil(len(self.images) / self.batch_size))
 
-    def process_batch(self, images, masks, ebv=None) :
+    def process_batch(self, images, ebv=None) :
 
         images = tf.image.random_flip_left_right(images)
         images = tf.image.random_flip_up_down(images)
@@ -630,7 +631,7 @@ class COINGenerator(keras.utils.Sequence) :
             
 
 
-        batch_masks = batch_images[:, :, :, 6]
+        #batch_masks = batch_images[:, :, :, 6]
         batch_images = batch_images[:, :, :, :6]
         
         if self.contrast :
@@ -639,7 +640,7 @@ class COINGenerator(keras.utils.Sequence) :
             batch_z2 = tf.tile(batch_z2, [2])
         
 
-        augmented_images = self.process_batch(batch_images, batch_masks)
+        augmented_images = self.process_batch(batch_images)
         
 
         return augmented_images, {"pdf":batch_z, "reg":batch_z2}
@@ -650,5 +651,4 @@ class COINGenerator(keras.utils.Sequence) :
         self.images = self.images[indices]
         self.z_values = self.z_values[indices]
         self.z_bins = self.z_bins[indices]
-        self.z_maxs = self.z_maxs[indices]
-        self.z_mins = self.z_mins[indices]
+
