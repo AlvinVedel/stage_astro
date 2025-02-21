@@ -297,6 +297,82 @@ class NTXent(keras.losses.Loss) :
     
 
 
+class CoreTuning(keras.losses.Loss) :
+    def __init__(self, temp=0.07, seuil=0.2) :
+        self.temp = temp
+        self.seuil = seuil
+
+    def call(self, batch, z_values) :
+        batch_size = tf.shape(batch)[0]
+        batch, z_values = self.mix_features(batch, z_values)
+        large_num = 1e8
+        classes = tf.cast(tf.expand_dims(z_values, axis=1) - tf.expand_dims(z_values, axis=0)<self.seuil, dtype=tf.float32)  ## on calcule les classes 
+        ### batch, 1 - 1, batch ==> batch, batch   ==> en bool si <seuil   => en float   ==> pour chaque ligne, 1 si appartiennent "a la meme classe" i.e proche car régression
+        
+        logits = tf.matmul(batch, batch, transpose_b=True) /self.temp  ## produit scalaire des éléments entre eux
+        logits_max = tf.reduce_max(logits, axis=1, keepdims=True)
+        logits = logits - logits_max  
+
+        masks = tf.one_hot(tf.range(batch_size), batch_size)
+        logits = logits - masks * large_num  
+
+        exp_logits = tf.exp(logits)
+        log_prob = logits - tf.math.log(tf.reduce_sum(exp_logits, axis=1, keepdims=True))
+
+        weight =1 - tf.exp(log_prob)
+
+        weighted_log_prob = weight * classes * log_prob
+        mean_log_prob_pos = tf.reduce_sum(weighted_log_prob, axis=1) / tf.maximum(tf.reduce_sum(classes, axis=1), 1e-8)
+
+        loss = -tf.reduce_mean(mean_log_prob_pos)
+        return loss
+
+
+    def mix_features(self, batch, z_val) :
+        batch_size = tf.shape(batch)[0]
+        batch = batch / tf.expand_dims(tf.math.sqrt(tf.reduce_sum(batch**2, axis=1)), axis=1)
+        z_distances = tf.abs(tf.expand_dims(z_val, axis=1) - tf.expand_dims(z_val, axis=0)) 
+        z_distances = z_distances / tf.reduce_max(z_distances, keepdims=True)
+        cos_dist = 1 - tf.matmul(batch, batch, transpose_b=True)  
+        ratio = cos_dist / z_distances  
+
+        ## HARD POSITIV GENERATION
+        hard_negativ_inds = tf.argmin(ratio, axis=1)
+        hard_positiv_inds = tf.argmax(ratio, axis=1)
+
+        hard_negativ_f = batch[hard_negativ_inds]
+        hard_negativ_y = z_val[hard_negativ_inds]
+
+        hard_positiv_f = batch[hard_positiv_inds]
+        hard_positiv_y = z_val[hard_positiv_inds]
+
+        lam = tf.random.uniform(shape=(batch_size, 1), minval=0, maxval=1, dtype=tf.float32)
+
+        f_ = lam * hard_positiv_f + (1-lam) * hard_negativ_f
+        y_ = lam * hard_positiv_y + (1-lam) * hard_negativ_y
+
+
+        ## HARD NEGATIV GENERATION
+        order = tf.random_index_shuffle(tf.range(batch_size))
+        features2 = batch[order]
+        y2 = z_val[order]
+        lam = tf.random.uniform(shape=(batch_size, 1), minval=0.8, maxval=1.0, dtype=tf.float32)
+        f2_ = (1-lam) * batch + lam * features2
+        y2_ = (1-lam)*z_val + lam * y2
+
+        all_features = tf.concat([f_, f2_], axis=0)  # BS, 2048
+        all_y = tf.concat([y_, y2_], axis=0)  # BS
+        return all_features, all_y
+
+
+
+
+        
+
+
+
+
+
 
 
 
