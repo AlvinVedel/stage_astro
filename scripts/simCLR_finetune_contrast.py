@@ -24,19 +24,19 @@ base_path = "/lustre/fswork/projects/rech/dnz/ull82ct/astro/"
 model = simCLRcolor1(ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg'), noregu_projection_mlp(2048, True), color_mlp(2048))
 #model = simCLRcolor1(ViT_backbone(embed_dim=1024, num_blocks=4, num_heads=8, patch_size=8, gp='none', mlp_ratio=2.0), noregu_projection_mlp(1024), color_mlp(1024))
 #model(np.random.random((32, 64, 64, 6)))
-in_dim = 1024
+in_dim = 2048
 
 
-load_w_path = "model_save/checkpoints_new_simCLR/simCLR_UD_D_norm150ViT_petit_model_v2.weights.h5"
-load_w_path = "model_save/checkpoints_new_simCLR/simCLR_UD_D_norm200_ColorHead_Regularized_resnet50.weights.h5"
-save_w_path = "model_save/simCLR_finetune_comparaison/vit_patch8_"
+#load_w_path = "model_save/checkpoints_new_simCLR/simCLR_UD_D_norm150ViT_petit_model_v2.weights.h5"
+load_w_path = "model_save/checkpoints_new_simCLR/simCLR_UD_D_norm300_ColorHead_NotRegularized_resnet50.weights.h5"
+save_w_path = "model_save/simCLR_finetune_comparaison/resnet50_color_"
 
-for condition in ["sup", "fine", "finecon", "fine_extercon"] :
+for condition in ["fine", "finecon", "fine_extercon"] :
     for base in ["base1", "base2", "base3"] :
 
         #data_gen = SupervisedGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=32, nbins=400)
         data_gen = COINGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=32, nbins=400, apply_log=True)
-        n_epochs = 100
+        n_epochs = 50
 
         if condition == "sup" :
 
@@ -44,7 +44,7 @@ for condition in ["sup", "fine", "finecon", "fine_extercon"] :
             #back = basic_backbone(full_bn=False, all_bn=False)
             #back = ViT_backbone(embed_dim=1024, num_blocks=4, num_heads=8, patch_size=8, gp='none', mlp_ratio=2.0)
             back = ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg')
-            classifier = astro_head(2048, 400)
+            classifier = astro_head(in_dim, 400)
             optim = keras.optimizers.Adam(1e-4)
 
             for ep in range(n_epochs) :
@@ -53,7 +53,7 @@ for condition in ["sup", "fine", "finecon", "fine_extercon"] :
                 for batch in data_gen :
                     images, labels_dict = batch
                     with tf.GradientTape() as tape :
-                        x = back(batch, training=True)
+                        x = back(images, training=True)
                         pdf, reg = classifier(x, training=True)
 
                         pdf_loss = tf.keras.losses.sparse_categorical_crossentropy(labels_dict["pdf"], pdf)
@@ -74,6 +74,7 @@ for condition in ["sup", "fine", "finecon", "fine_extercon"] :
         if condition == "fine" :
 
             data_gen.contrast=False
+            model(np.random.random((32, 64, 64, 6)))
             model.load_weights(base_path+load_w_path)
             back = model.backbone
             classifier = astro_head(in_dim, 400)
@@ -85,7 +86,7 @@ for condition in ["sup", "fine", "finecon", "fine_extercon"] :
                 for batch in data_gen :
                     images, labels_dict = batch
                     with tf.GradientTape() as tape :
-                        x = back(batch, training=True)
+                        x = back(images, training=True)
                         pdf, reg = classifier(x, training=True)
 
                         pdf_loss = tf.keras.losses.sparse_categorical_crossentropy(labels_dict["pdf"], pdf)
@@ -108,6 +109,7 @@ for condition in ["sup", "fine", "finecon", "fine_extercon"] :
             
             data_gen.contrast=True
             contrastiv_loss = NTXent(normalize=True)
+            model(np.random.random((32, 64, 64, 6)))
             model.load_weights(base_path+load_w_path)
             back = model.backbone
             classifier = astro_head(in_dim, 400)
@@ -120,7 +122,7 @@ for condition in ["sup", "fine", "finecon", "fine_extercon"] :
                 for batch in data_gen :
                     images, labels_dict = batch
                     with tf.GradientTape() as tape :
-                        x = back(batch, training=True)
+                        x = back(images, training=True)
                         pdf, reg = classifier(x, training=True)
                         z = proj(x, training=True)
 
@@ -147,6 +149,7 @@ for condition in ["sup", "fine", "finecon", "fine_extercon"] :
             data_gen.contrast=True
             unsup_gen = MultiGen([base_path+"data/cleaned_spec/", base_path+"data/cleaned_phot/"],batch_size=256, do_color=False, do_seg=False, do_mask_band=False, do_adversarial=False, n_samples=30000)
             contrastiv_loss = NTXent(normalize=True)
+            model(np.random.random((32, 64, 64, 6)))
             model.load_weights(base_path+load_w_path)
             back = model.backbone
             classifier = astro_head(in_dim, 400)
@@ -161,7 +164,7 @@ for condition in ["sup", "fine", "finecon", "fine_extercon"] :
                     unsup_batch = unsup_gen[i]
                     unsup_images, unsup_dict = unsup_batch
                     with tf.GradientTape() as tape :
-                        x = back(batch, training=True)
+                        x = back(images, training=True)
                         pdf, reg = classifier(x, training=True)
 
                         xbis = back(unsup_images, training=True)

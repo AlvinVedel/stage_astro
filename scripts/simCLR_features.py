@@ -15,24 +15,27 @@ os.environ["CUDA_VISIBLE_DEVICES"] = '0'
 
 
 #model = simCLR1(basic_backbone(full_bn=True), projection_mlp(1024, True))
-#model = simCLRcolor1(basic_backbone(full_bn=True, all_bn=False), projection_mlp(1024, True), color_mlp(1024))
+model = simCLRcolor1(basic_backbone(full_bn=False, all_bn=False), noregu_projection_mlp(1024, False), color_mlp(1024))
 #model = AstroFinetune(basic_backbone(full_bn=False, all_bn=False), astro_head(1024, 400))
-model = simCLR1(ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg'), noregu_projection_mlp(2048, bn=True))
+#model = simCLR1(ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg'), noregu_projection_mlp(2048, bn=True))
 #model = simCLRcolor1(ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg'), noregu_projection_mlp(2048, bn=True), color_mlp(2048))
 #model = simCLRcolor1_adversarial(basic_backbone(full_bn=True), projection_mlp(1024, True), color_mlp(1024), classif_mlp())
-#model = simCLRcolor1(ViT_backbone(), projection_mlp(256), color_mlp(256))
+#model = simCLRcolor1(ViT_backbone(patch_size=8, mlp_ratio=2.0), projection_mlp(1024), color_mlp(1024))
 #model = simCLR(basic_backbone(), projection_mlp(1024))
 base_path = "../model_save/checkpoints_new_simCLR/"
-#model_name = "simCLR_UD_D_nonorm350_ColorHead_Regularized.weights.h5"
-model_name = "simCLR_UD_D_norm300_NoColorHead_NotRegularized_resnet50.weights.h5"
+model_name = "simCLR_UD_D_norm300_ColorHead_Regularized.weights.h5"
+#model_name = "simCLR_UD_D_norm300_ColorHead_NotRegularized_resnet50.weights.h5"
+#model_name = "v2__300ViT_petit_model_v2.weights.h5"
+#model_name = "v2__300_ColorHead_Regularized_noBN.weights.h5"
+#model_name = "v2__300_ColorHead_NotRegularized_resnet50.weights.h5"
 #model_name = "basic_baseline_base1.weights.h5"
 supervised = False
-if supervised :
+if supervised :	
     base_path = "../model_save/checkpoints_supervised/"
 
 
 
-code_save = "resnet50_nocolor_noreg300"
+code_save = "basic_color_t07_reg"
 
 model(np.random.random((32, 64, 64, 6)))
 model.load_weights(base_path+model_name)

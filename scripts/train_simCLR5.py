@@ -15,21 +15,21 @@ os.environ["CUDA_VISIBLE_DEVICES"] = '0, 1'
 import time
 
 
-model_save = 'checkpoints_new_simCLR/simCLR_UD_D_norm'
-iter_suffixe="_NoColorHead_NotRegularized_resnet50"
+model_save = 'checkpoints_new_simCLR/v2__'
+iter_suffixe="_ColorHead_NotRegularized_resnet50"
 allowed_extensions = ["UD.npz", "_D.npz"]
 batch_size=256
-lr = 1e-3
-callbacks = [] # [LinearDecay(0, 2, 40)]
+lr = 5e-4
+callbacks = [LinearDecay(0, 2, 50)]
 
 #### PARAMS  générateur
-do_color = False
+do_color = True
 do_seg = False
 do_drop_band = False
 do_adversarial = False
 
-load_model = False
-iter = 0
+load_model = True
+iter = 20
 
 #intermediate_outputs = []
 #color = {"do":True, "network":color_mlp(1024), "need":[0], "weight":1}
@@ -43,7 +43,7 @@ iter = 0
 #                regularization=sup_regu, color_head=color, segmentor=segment, deconvolutor=reconstr, adversarial=adverse)
 #model = simCLRcolor1(basic_backbone(), projection_mlp(1024, False), color_mlp(1024))
 #model = simCLRcolor1(ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg'), noregu_projection_mlp(2048, bn=True), color_mlp(2048))
-model = simCLR1(ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg'), noregu_projection_mlp(2048, True))
+model = simCLRcolor1(ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg'), noregu_projection_mlp(2048, True), color_mlp(2048), temp=0.1)
 #model = simCLRcolor1(basic_backbone(full_bn=True), noregu_projection_mlp(1024, True), color_mlp(1024))
 model.compile(optimizer=keras.optimizers.Adam(lr), loss=ContrastivLoss(normalize=True))
 model(np.random.random((32, 64, 64, 6)))
@@ -63,7 +63,7 @@ with h5py.File(weights_path, "r") as f:
     model.color_params["network"].set_weights(color_weights)
 """
 if load_model :
-    model.load_weights("../model_save/"+model_save+str(iter*10)+iter_suffixe+".weights.h5")
+    model.load_weights("../model_save/checkpoints_new_simCLR/v2__200_ColorHead_NotRegularized_resnet50.weights.h5")
 
 
 
@@ -81,3 +81,6 @@ while iter <= 1000 :
     if iter % 5 == 0 :
         filename = "../model_save/"+model_save+str(iter*10)+iter_suffixe+".weights.h5"
         model.save_weights(filename)  # 6000 minutes   ==> 15 fois 100 épochs
+        latent = data_gen.images[:32]
+        latent = model.backbone(latent)
+        print(np.min(latent), np.max(latent), np.var(latent))

@@ -93,12 +93,20 @@ def evaluate_model(model, bins_edges, metric_edges) :
 
     z_true = []
     z_pred = []
-    ud_smad = np.zeros((bins_centres.shape[0]))
+    ud_smad = np.zeros((metric_centres.shape[0]))
     for file in ["cube_1_UD", "cube_2_UD", "cube_3_UD"] :
         print("j'en suis au file", file)
         data = np.load(base_path+"data/cleaned_spec/"+file+".npz", allow_pickle=True)
         nb_im = data["info"].shape[0]
         index = 0
+        z_true.append(np.array([m["ZSPEC"] for m in data["info"]]))
+        im_to_infer = data["cube"][..., :6]
+        output = model.predict(im_to_infer)
+        probas = output["pdf"]
+        z_pred.append(np.array([z_med(p, bins_centres) for p in probas]))
+        del im_to_infer, data
+        gc.collect()
+        """
         while index < nb_im :
             print(index)
             if index+512 > nb_im :
@@ -117,7 +125,7 @@ def evaluate_model(model, bins_edges, metric_edges) :
             gc.collect()
         del data
         gc.collect()
-
+        """
     z_true = np.concatenate(z_true, axis=0)
     z_pred = np.exp(np.concatenate(z_pred, axis=0))-1
 
@@ -138,11 +146,17 @@ def evaluate_model(model, bins_edges, metric_edges) :
     print("eval mi-parcours")
     z_true = []
     z_pred = []
-    d_smad = np.zeros((bins_centres.shape[0]))
+    d_smad = np.zeros((metric_centres.shape[0]))
     for file in ["cube_1_D"] :
         data = np.load(base_path+"data/cleaned_spec/"+file+".npz", allow_pickle=True)
         nb_im = data["info"].shape[0]
         index = 0
+        im_to_infer = data["cube"][..., :6]
+        z_true.append(np.array([m["ZSPEC"] for m in data["info"]]))
+        output = model.predict(im_to_infer)
+        probas = output["pdf"]
+        z_pred.append(np.array([z_med(p, bins_centres) for p in probas]))
+        """
         while index < nb_im :
             if index+512 > nb_im :
                 im_to_infer = data["cube"][index:]
@@ -156,7 +170,9 @@ def evaluate_model(model, bins_edges, metric_edges) :
             probas = output["pdf"]
             z_meds = np.array([z_med(p, bins_centres) for p in probas])
             z_pred.append(z_meds)
-
+        """
+        del im_to_infer, data
+        gc.collect()
 
     z_true = np.concatenate(z_true, axis=0)
     z_pred = np.exp(np.concatenate(z_pred, axis=0))-1
@@ -223,7 +239,7 @@ print("random eval ended")
 
 model = AstroFinetune(ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg'), astro_head(2048, 400), train_back=True)
 data_gen = SupervisedGenerator(base_path+"data/finetune/"+finetune_base, batch_size=256, nbins=400, apply_log=True)
-
+model.compile(optimizer=tf.keras.optimizers.Adam(1e-4))
 model.fit(data_gen, epochs=100, callbacks=[AlternateTreyerScheduler()])
 
 backbone = model.back 
@@ -287,6 +303,7 @@ gc.collect()
 model = AstroFinetune(base_simCLR.backbone, astro_head(2048, 400), train_back=True)
 data_gen = SupervisedGenerator(base_path+"data/finetune/"+finetune_base, batch_size=256, nbins=400, apply_log=True)
 model(np.random.random((32, 64, 64, 6)))
+model.compile(optimizer=tf.keras.optimizers.Adam(1e-4))
 model.fit(data_gen, epochs=100, callbacks=[AlternateTreyerScheduler()])
 backbone = model.back 
 
@@ -383,7 +400,7 @@ for i in range(ud_metric.shape[0]) :
 print("finetune+contrast eval ended")
 
 ## FINETUNING EN MAINTENANT CONTRASTIVE SUR BEAUCOUP DE DONNEES
-
+"""
 data_gen = COINGenerator(base_path+"data/finetune/"+finetune_base, batch_size=256, nbins=400, apply_log=True)
 unsup_data_gen = MultiGen([base_path+"data/cleaned_spec/", base_path+"data/cleaned_phot/"], batch_size=256, extensions=["_UD.npz", "_D.npz"], do_color=False, do_seg=False, do_mask_band=False)
 base_simCLR = simCLRcolor1(ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6), pooling='avg'), noregu_projection_mlp(2048), color_mlp(2048))
@@ -457,7 +474,7 @@ for i in range(ud_metric.shape[0]) :
 
 
 print("finetune+contrast sur tout eval ended")
-
+"""
 
 
 

@@ -522,7 +522,7 @@ class SupervisedGenerator(keras.utils.Sequence) :
 
 class COINGenerator(keras.utils.Sequence) :
     def __init__(self, data_path, batch_size, nbins=400, contrast=True, apply_log=False) :
-        super(SupervisedGenerator, self).__init__()
+        super(COINGenerator, self).__init__()
         self.batch_size = batch_size
         self.data_path = data_path
         self.nbins=nbins

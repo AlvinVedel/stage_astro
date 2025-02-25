@@ -20,7 +20,7 @@ model_save = 'checkpoints_new_simCLR/simCLR_UD_D_norm'
 iter_suffixe="_resnet50_bank"+str(bank_size)
 allowed_extensions = ["UD.npz", "_D.npz"]
 batch_size=256
-lr = 1e-4
+lr = 5e-4
 optimizer = tf.keras.optimizers.Adam(lr)
 callbacks = [LinearDecay(0, 2, 40)]
 loss_tracker = tf.keras.metrics.Mean(name="loss")
@@ -31,7 +31,7 @@ do_seg = False
 do_drop_band = False
 do_adversarial = False
 
-load_model = False
+load_model = True
 iter = 0
 
 momentum = 0.999
@@ -59,9 +59,9 @@ late_backbone = ResNet50(include_top=False, weights=None, input_shape=(64, 64, 6
 late_head = noregu_projection_mlp(2048, bn=True, out_dim=128)
 
 if load_model :
-    backbone.load_weights("../model_save/"+model_save+str(iter*10)+iter_suffixe+".weights.h5")
-    head.load_weights("../model_save/"+model_save+str(iter*10)+iter_suffixe+".weights.h5")
-    color_head.load_weights("../model_save/"+model_save+str(iter*10)+iter_suffixe+".weights.h5")
+    backbone.load_weights("../model_save/backbone_simMoco.weights.h5")
+    head.load_weights("../model_save/head_simMoco.weights.h5")
+    #color_head.load_weights("../model_save/"+model_save+str(iter*10)+iter_suffixe+".weights.h5")
 
 
 late_backbone.set_weights(backbone.get_weights())
@@ -181,7 +181,7 @@ def compute_loss_tf(batch_representation, bank_representation, temperature=0.1):
 
 
 
-iter_ = 0
+iter_ = 13
 while True :   ## on attend fin du job
     iter_+=1
     for epoch in range(10) :
@@ -241,9 +241,9 @@ while True :   ## on attend fin du job
     data_gen._load_data()
     loss_tracker.reset_states()
 
-    backbone.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/backbone_simMoco.weights.h5")
-    head.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/head_simMoco.weights.h5")
-
+    backbone.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/backbone_simMoco_5k_"+str(iter_)+"iter.weights.h5")
+    head.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/head_simMoco_5k_"+str(iter_)+"iter.weights.h5")
+    color_head.save_weights("/lustre/fswork/projects/rech/dnz/ull82ct/astro/model_save/colorhead_simMoco_5k_"+str(iter_)+"iter.weights.h5")
             
                 
             

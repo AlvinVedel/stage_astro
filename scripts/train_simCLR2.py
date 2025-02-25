@@ -2,10 +2,10 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras as keras
 from tensorflow.keras import layers
-from contrastiv_model import simCLR, NTXent as ContrastivLoss, simCLRcolor1, simCLRcolor1_adversarial    
+from contrastiv_model import simCLR, NTXent as ContrastivLoss, simCLRcolor1
 from generator import MultiGen
 from regularizers import VarRegularizer, TripletCosineRegularizer, CosineDistRegularizer
-from deep_models import basic_backbone, projection_mlp, color_mlp, treyer_backbone, segmentor, deconvolutor, classif_mlp
+from deep_models import basic_backbone, projection_mlp, color_mlp, treyer_backbone, segmentor, deconvolutor, classif_mlp, noregu_projection_mlp
 from vit_layers import Block, ViT_backbone
 from schedulers import CosineDecay, LinearDecay
 
@@ -14,12 +14,12 @@ os.environ["CUDA_VISIBLE_DEVICES"] = '0, 1'
 import time
 
 
-model_save = 'checkpoints_new_simCLR/simCLR_UD_D_norm'
-iter_suffixe="_ColorHead_Regularized_fullBN_v2"
+model_save = 'checkpoints_new_simCLR/v1__'
+iter_suffixe="_ColorHead_NotRegularized_noBN"
 allowed_extensions = ["UD.npz", "_D.npz"]
 batch_size=256
-lr = 1e-4
-callbacks = [LinearDecay(0, 2, 40)]
+lr = 5e-4
+callbacks = [LinearDecay(0, 2, 50)]
 
 #### PARAMS  générateur
 do_color = True
@@ -27,8 +27,8 @@ do_seg = False
 do_drop_band = False
 do_adversarial = False
 
-load_model = False
-iter = 0
+load_model = True
+iter = 20
 
 #intermediate_outputs = []
 #color = {"do":True, "network":color_mlp(1024), "need":[0], "weight":1}
@@ -40,8 +40,8 @@ iter = 0
 
 #model = simCLR(backbone=basic_backbone(), head=projection_mlp(1024, False),
 #                regularization=sup_regu, color_head=color, segmentor=segment, deconvolutor=reconstr, adversarial=adverse)
-model = simCLRcolor1(basic_backbone(full_bn=True), projection_mlp(1024, True), color_mlp(1024))
-#model = simCLRcolor1(ViT_backbone(), projection_mlp(256, False), color_mlp(256))
+#model = simCLRcolor1(basic_backbone(), projection_mlp(1024, False), color_mlp(1024))
+model = simCLRcolor1(basic_backbone(full_bn=False, all_bn=False), noregu_projection_mlp(1024, False), color_mlp(1024), temp=0.7)
 model.compile(optimizer=keras.optimizers.Adam(lr), loss=ContrastivLoss(normalize=True))
 model(np.random.random((32, 64, 64, 6)))
 
@@ -60,12 +60,12 @@ with h5py.File(weights_path, "r") as f:
     model.color_params["network"].set_weights(color_weights)
 """
 if load_model :
-    model.load_weights("../model_save/"+model_save+str((iter+20)*10)+iter_suffixe+".weights.h5")
+    model.load_weights("../model_save/checkpoints_new_simCLR/v1__200_ColorHead_NotRegularized_noBN.weights.h5")
 
 
 
 data_gen = MultiGen(["/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_spec/", "/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/cleaned_phot/"], 
-               batch_size=batch_size, extensions=allowed_extensions, do_color=do_color, do_seg=do_seg, do_mask_band=do_drop_band, do_adversarial=do_adversarial)
+               batch_size=batch_size, extensions=allowed_extensions, do_color=do_color, do_seg=do_seg, do_mask_band=do_drop_band)
 
 
 
@@ -74,8 +74,9 @@ while iter <= 1000 :
     iter+=1
     model.fit(data_gen, epochs=10, callbacks=callbacks)  # normalement 4mn max par epoch = 400mn 
     data_gen._load_data()
+
     if iter % 5 == 0 :
-        pred = model.backbone(data_gen.images[:10])
-        print("time to check features :", np.max(pred), np.min(pred), np.var(pred))
         filename = "../model_save/"+model_save+str(iter*10)+iter_suffixe+".weights.h5"
         model.save_weights(filename)  # 6000 minutes   ==> 15 fois 100 épochs
+        latent = model.backbone(data_gen.images[:256])
+        print(np.max(latent), np.min(latent), np.var(latent))

@@ -44,7 +44,7 @@ class LinearDecay(tf.keras.callbacks.Callback):
 
 
 class AlternateTreyerScheduler(tf.keras.callbacks.Callback):
-    def __init__(self, eps) :
+    def __init__(self, eps=[70, 90]) :
         super().__init__()
         self.eps = eps
 
