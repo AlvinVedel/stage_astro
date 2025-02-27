@@ -33,7 +33,7 @@ save_w_path = "model_save/simCLR_finetune_comparaison/vit_t01_reg"
 
 #for condition in ["sup", "fine", "finecon", "coretuning"] :
 for condition in ["fine"]:#, "coretuning"] :
-    for base in ["base1", "base2", "base3"] :
+    for base in ["base3"] :
 
         #data_gen = SupervisedGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=32, nbins=400)
         data_gen = COINGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=256, nbins=400, apply_log=True)

@@ -32,12 +32,15 @@ load_w_path = "model_save/checkpoints_new_simCLR/v2__300ViT_petit_model_v2.weigh
 save_w_path = "model_save/simCLR_finetune_comparaison/vit_t01_noreg"
 
 #for condition in ["sup", "fine", "finecon", "coretuning"] :
-for condition in ["fine"] : #["coretuning", "finecon"] :
-    for base in ["base1", "base2", "base3"] :
+for base in ["base3"] :
+    data_gen = COINGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=256, nbins=400, apply_log=True)
+    n_epochs = 100
+    for condition in ["fine", "coretuning"] : #["coretuning", "finecon"] :
+    #for base in ["base3"] :
 
         #data_gen = SupervisedGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=32, nbins=400)
-        data_gen = COINGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=256, nbins=400, apply_log=True)
-        n_epochs = 100
+        #data_gen = COINGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=128, nbins=400, apply_log=True)
+        #n_epochs = 100
 
         if condition == "sup" and base!="base1" and base!="base2":
 

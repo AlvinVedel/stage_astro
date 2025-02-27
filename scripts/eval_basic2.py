@@ -22,9 +22,9 @@ model_dir = "model_save/simCLR_finetune_comparaison/"
 
 
 ## si supervisé, ne pas inclure weights.h5
-model_name = "basic_color_t01_regfine"
+model_name = "basic_color_t07_noregfine"
 #model_name = "basic_baseline_log"
-save_name = "basic_t01_reg_fine"
+save_name = "basic_t07_noreg_fine"
 with_plots = False
 
 log_z = True

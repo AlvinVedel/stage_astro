@@ -363,7 +363,7 @@ class CoreTuning(keras.losses.Loss) :
         #print("hard",hard_positiv_y.shape, hard_negativ_y.shape)
         lam = tf.random.uniform(shape=(batch_size,), minval=0, maxval=1, dtype=tf.float32)
 
-        f_ = lam * hard_positiv_f + (1-lam) * hard_negativ_f
+        f_ = tf.expand_dims(lam, axis=-1) * hard_positiv_f + (1-tf.expand_dims(lam, axis=-1)) * hard_negativ_f
         y_ = lam * hard_positiv_y + (1-lam) * hard_negativ_y
 
         #print("y", y_.shape)
@@ -375,7 +375,7 @@ class CoreTuning(keras.losses.Loss) :
         #y2 = z_val[order]
         #print("y2", y2.shape)
         lam = tf.random.uniform(shape=(batch_size,), minval=0.8, maxval=1.0, dtype=tf.float32)
-        f2_ = (1-lam) * batch + lam * features2
+        f2_ = (1-tf.expand_dims(lam, axis=-1)) * batch + tf.expand_dims(lam, axis=-1) * features2
         y2_ = (1-lam)*z_val + lam * y2
         #print("y2_", y2_.shape)
         all_features = tf.concat([f_, f2_], axis=0)  # BS, 2048

@@ -34,12 +34,12 @@ train_temp=0.1
 
 #load_w_path = "model_save/checkpoints_new_simCLR/simCLR_UD_D_norm150ViT_petit_model_v2.weights.h5"
 load_w_path = "model_save/"
-end_name = "_simMoco_10k_20iter.weights.h5"
-end_head_name = "_simMoco_10k_20_iter.weights.h5"
+end_name = "backbone_simMoco_10k_20iter.weights.h5"
+end_head_name = "head_simMoco_10k_20iter.weights.h5"
 save_w_path = "model_save/simCLR_finetune_comparaison/resnet50_color_t01_moco10k"
 
 #for condition in ["fine", "finecon","coretuning"] :
-for condition in ["finecon"] :
+for condition in ["coretuning"] :
     for base in ["base1", "base2", "base3"] :
 
         #data_gen = SupervisedGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=32, nbins=400)
@@ -84,8 +84,8 @@ for condition in ["finecon"] :
             data_gen.contrast=False
             #model(np.random.random((32, 64, 64, 6)))
 
-            backbone.load_weights(base_path+load_w_path+"backbone"+end_name)
-            head.load_weights(base_path+load_w_path+"head"+end_head_name)
+            backbone.load_weights(base_path+load_w_path+end_name)
+            head.load_weights(base_path+load_w_path+end_head_name)
             
             classifier = astro_head(in_dim, 400)
             optim = keras.optimizers.Adam(1e-4)
@@ -120,8 +120,8 @@ for condition in ["finecon"] :
             
             data_gen.contrast=True
             contrastiv_loss = NTXent(normalize=True)
-            backbone.load_weights(base_path+load_w_path+"backbone"+end_name)
-            head.load_weights(base_path+load_w_path+"head"+end_head_name)
+            backbone.load_weights(base_path+load_w_path+end_name)
+            head.load_weights(base_path+load_w_path+end_head_name)
             classifier = astro_head(in_dim, 400)
             
             optim = keras.optimizers.Adam(1e-4)
@@ -160,8 +160,8 @@ for condition in ["finecon"] :
             data_gen.contrast=False
             #contrastiv_loss = NTXent(normalize=True)
             coretuning_loss = CoreTuning()
-            backbone.load_weights(base_path+load_w_path+"backbone"+end_name)
-            head.load_weights(base_path+load_w_path+"head"+end_head_name)
+            backbone.load_weights(base_path+load_w_path+end_name)
+            head.load_weights(base_path+load_w_path+end_head_name)
             classifier = astro_head(in_dim, 400)
             
             optim = keras.optimizers.Adam(1e-4)

@@ -36,7 +36,7 @@ for condition in ["finecon"] : #["coretuning", "finecon"] :
     for base in ["base1", "base2", "base3"] :
 
         #data_gen = SupervisedGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=32, nbins=400)
-        data_gen = COINGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=256, nbins=400, apply_log=True)
+        data_gen = COINGenerator("/lustre/fswork/projects/rech/dnz/ull82ct/astro/data/finetune/"+base+".npz", batch_size=128, nbins=400, apply_log=True)
         n_epochs = 100
 
         if condition == "sup" and base!="base1" and base!="base2":
@@ -135,7 +135,7 @@ for condition in ["finecon"] : #["coretuning", "finecon"] :
                         total_loss = pdf_loss+reg_loss+con_loss
                     gradients = tape.gradient(total_loss, back.trainable_variables+classifier.trainable_variables+proj.trainable_variables)
                     optim.apply_gradients(zip(gradients, back.trainable_variables+classifier.trainable_variables+proj.trainable_variables))
-                print("finetunecon epoch", ep, total_loss)
+                print("finetunecon epoch", ep, total_loss, pdf_loss, reg_loss, con_loss)
 
             model_to_save = AstroFinetune(back, classifier)
             model_to_save.save_weights(base_path+save_w_path+condition+"_"+base+".weights.h5")

@@ -22,9 +22,9 @@ model_dir = "model_save/simCLR_finetune_comparaison/"
 
 
 ## si supervisé, ne pas inclure weights.h5
-model_name = "vit_t07_regfine"
+model_name = "vit_t01_regcoretuning"
 #model_name = "basic_baseline_log"
-save_name = "vit_t07_finetune"
+save_name = "vit_t01_reg_coretune"
 with_plots = False
 
 log_z = True
