@@ -28,20 +28,22 @@ L'objectif était de constater l'évolution des métriques astrophysiques (biais
 
 Comme énoncé plus haut, l'apprentissage des représentations avec BYOL s'est soldé par un échec à cause du *collapse* des features qui tendaient vers un unique vecteur composé de très grandes valeurs. Cela vient en partie du fait que l'on utilise un réseau convolutif dépourvu de BatchNormalization car elle donne en pratique de moins bons résultats sur la prédiction du redshift (la variance ramenée à 1 est un régulariseur implicite des sorties d'une couche et aurait donc limité ce phénomène). L'avantage de SimCLR sur BYOL est l'utilisation de paires négatives qui forcent le modèle à apprendre des représentations discriminantes vis à vis des autres images du batch. Je suppose que c'est en lien avec cette volonté de "repousser" les vecteurs de paires négatives pour minimiser la loss de contraste mais le modèle tend tout de même à augmenter la dynamique de ses sorties (bien que la cosine similarité s'effectue avec normalisation des projections). L'ajout d'une Batch Normalization en fin d'extracteur résout en partie ce problème, en apparence en tout cas car la dynamique pré-BN continue d'augmenter, une solution alternative à cela a été d'ajouté une régularisation sur l'activité en sortie de la tête de projection et force ainsi le réseau à propager de petites valeurs tout le long (une régularisation L1-L2 a été utilisée).
 
-<div style="display: flex; justify-content: space-between;">
-  <div style="text-align: center;">
-    <h4>SimCLR</h4>
-    <img src="./raw_files/img/tsne_simCLR.png" alt="SimCLR" width="300"/>
-  </div>
-  <div style="text-align: center;">
-    <h4>BarlowTwins</h4>
-    <img src="./raw_files/img/tsne_barlowtwins.png" alt="BarlowTwins" width="300"/>
-  </div>
-  <div style="text-align: center;">
-    <h4>VICReg</h4>
-    <img src="./raw_files/img/tsne_vicreg.png" alt="VICReg" width="300"/>
-  </div>
-</div>
+<table>
+  <tr>
+    <td style="text-align: center;">
+      <h4>SimCLR</h4>
+      <img src="./raw_files/img/tsne_simCLR.png" alt="SimCLR" width="300"/>
+    </td>
+    <td style="text-align: center;">
+      <h4>BarlowTwins</h4>
+      <img src="./raw_files/img/tsne_barlow.png" alt="BarlowTwins" width="300"/>
+    </td>
+    <td style="text-align: center;">
+      <h4>VICReg</h4>
+      <img src="./raw_files/img/tsne_vicreg.png" alt="VICReg" width="300"/>
+    </td>
+  </tr>
+</table>
 
 
 ### Finetuning
