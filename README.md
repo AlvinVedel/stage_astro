@@ -48,7 +48,7 @@ Comme énoncé plus haut, l'apprentissage des représentations avec BYOL s'est s
 
 Ce sont des résultats satisfaisant car on retrouve les hauts redshifts regroupés entre eux, idem pour les bas redshifts. Une solution pour forcer davantage l'apprentissage du redshift est l'utilisation d'une tête de régression branchée sur l'extracteur de caractéristiques, les couleurs sont obtenues comme la différence entre 2 canaux de l'images. Il y a donc 5 couleurs par image et on sait qu'il existe une relation entre la couleur et le redshift comme le montre Masters et al. (2015). 
 
-![SimCLR avec prédiction auxiliaire de la couleur](./raw_files/img/tsne_simCLR_color.png)
+<img src="./raw_files/img/tsne_simCLR_color.png" alt="SimCLR avec prédiction auxiliaire de la couleur" width="300">
 
 La t-SNE comportant une partie aléatoire il n'est pas vraiment possible de tirer une conclusion sur l'utilité de la tête de régression mais certaines autres expériences ont montré un intérêt à l'ajouter, rien en tout cas ne montre d'intérêt à ne pas la mettre.
 
@@ -71,4 +71,131 @@ En parallèle de ces constats sur le negative transfer, d'autres tests pour repr
 |                   | Sans activité               | 0.7                    |
 |                   | Avec activité               | 0.1                    |
 |                   | Sans activité               | 0.1                    |
+
+
+
+Tous les modèles ont été entrainés avec des batch de taille 256, un optimiseur Adam initialisé à 10e-4 et divisé par 10 à 70 et 90 époques pour un total de 100 époques. Chaque modèle ayant vu 5k, 10k et 20k données labellisées issues de UD. Pour tenter de résoudre ces problèmes de frontières sharp, une version du finetuning durant lequel on maintient la perte contrastive a été implémenté ainsi qu'une version de core-tune bricolé pour convenir à la régression. L'évaluation se fait sur les 150 000 données restantes de UD et les 20000 de D à l'aides des métriques du biais, la déviance MAD et la fraction d'outliers.
+
+Il est assez compliqué de montrer tous les résultats en ne surchargeant pas de graphiques aussi seul certains importants seront mis en avant et majoritairement en utilisant la déviance MAD qui nous intéresse le plus.
+
+Premièrement concernant les baselines supervisées, on voit très rapidement que le ResNet50 n'est pas pertinent pour la prédiction du redshift, le CNN "basique" qui est en réalité très proche du réseau état de l'art dans la prédiction du redshift proposé par Treyer et al. (2021) est considéré comme le meilleur modèle bien que le ViT le surpasse sur la base 1, il se fait rapidement battre sur la 2ème base et cela ne fait que s'aggraver sur la 3ème
+<table>
+  <tr>
+    <td style="text-align: center;">
+      <h4>Base 1 (5k)</h4>
+      <img src="./raw_files/img/comp_sup.png" alt="smad ud base 1" width="400"/>
+    </td>
+    <td style="text-align: center;">
+      <h4>Base 2 (10k)</h4>
+      <img src="./raw_files/img/comp_sup2.png" alt="smad ud base2" width="400"/>
+    </td>
+  </tr>
+</table>
+
+En ne considérant maintenant plus que les modèles "basiques" (avec régularisation qui surpasse assez fortement ceux sans), on peut s'interroger sur l'impact de la température.
+De manière assez surprenante pour moi, c'est le modèle avec la température à 0.7 qui obtient de meilleurs résultats, sur toutes les métriques et toutes les plages. Un compromis est peut-être à trouver entre ces deux valeurs de températures, à 0.1 la température ne force pas assez le modèle à trouver des caractéristiques discriminantes là où je continue de penser que 0.7 force à en trouver des trop discriminantes pour les images astrophysiques et encourage les frontières sharp.
+
+<table>
+  <tr>
+    <td style="text-align: center;">
+      <h4>Base 1 (5k)</h4>
+      <img src="./raw_files/img/comp_basic_t1.png" alt="smad ud base 1" width="400"/>
+    </td>
+  </tr>
+</table>
+
+Toujours dans l'optique de conserver le meilleur modèle, on peut maintenant s'intéresser aux variantes de ce finetuning avec la version qui maintient la loss de contraste et l'adaptation de core-tuning. Dans l'exemple ci-dessous on voit que la version avec la perte contrastive prend une valeur énorme entre 4.5 et 5 et ne peut donc pas être considérer comme le "meilleur modèle" cependant il faut noter qu'il y a très peu de données annotés au delà de 4.5, seulement 10 sur 5k, 16 pour 10k et 34 pour 20k.
+Si on s'intéresse aux plages plus petites il est très compétitif avec les finetune classique (mais généralise un peu moins).
+
+C'est presque l'inverse pour core-tune, si on fait attention au début de la distribution il performe moins bien que son homologue finetuné classiquement cependant il ne va pas présenter de pics de valeurs aberrantes.
+
+<table>
+  <tr>
+    <td style="text-align: center;">
+      <h4>Base 1 (5k) - finetune avec/sans contrastive et coretuning</h4>
+      <img src="./raw_files/img/comp_basic_t07.png" alt="smad ud base 1" width="400"/>
+    </td>
+    <td style="text-align: center;">
+      <h4>Base 1 (5k) - apport de core tuning</h4>
+      <img src="./raw_files/img/smad1.png" alt="smad ud base 1" width="400"/>
+    </td>
+    <td style="text-align: center;">
+      <h4>Base 2 (10k) - apport de core tuning</h4>
+      <img src="./raw_files/img/smad2.png" alt="smad ud base 2" width="400"/>
+    </td>
+    <td style="text-align: center;">
+      <h4>Base 3 (20k) - apport de core tuning</h4>
+      <img src="./raw_files/img/samd3.png" alt="smad ud base 3" width="400"/>
+    </td>
+  </tr>
+</table>
+
+Un autre effet très intéressant qui montre la robustesse de l'apprentissage non-supervisé est sur la métrique du biais, on voit très nettement l'intérêt du pré entrainement sur ce genre de cas.
+
+<table>
+  <tr>
+    <td style="text-align: center;">
+      <h4>Base 1 (5k) - biais de prédiction</h4>
+      <img src="./raw_files/img/bias1.png" alt="bias ud base 1" width="400"/>
+    </td>
+    <td style="text-align: center;">
+      <h4>Base 2 (10k) - biais de prédiction</h4>
+      <img src="./raw_files/img/bias2.png" alt="bias ud base 2" width="400"/>
+    </td>
+    <td style="text-align: center;">
+      <h4>Base 3 (20k) - biais de prédiction</h4>
+      <img src="./raw_files/img/bias3.png" alt="bias ud base 3" width="400"/>
+    </td>
+  </tr>
+</table>
+
+
+
+
+Pour finir, un dernier point intéressant est la capacité du modèle à transférer ses connaissances. Dans le cas présent il s'agit de la capacité à prédire sur un autre survey. Il aurait pu être intéressant de constater les performances sur un survey drastiquement différent mais la transférabilité de UD à D serait déjà un bon point, il existe d'autres problèmes de décalages entre les surveys que le self-supervised pourrait aider à résoudre mais qui n'ont pas été exploré ici. Comme il est possible de le voir, les modèles pré-entrainés en non supervisé tendent à réduire le biais (surtout le finetune classique en base 1) et à mesure que les données labellisées augmentent les performances deviennent similaires, c'est possiblement dû à l'apprentissage non-supervisé qui "s'oublie" au détriment du supervisé mais surtout le modèle purement supervisé qui généralise de mieux en mieux, c'est une conclusion assez classique que les modèles finetunés se font rapidement rattrapés par le pur supervisé. Un zoom sur l'intervale [0, 4] est fourni sur la base 2 pour mieux distinguer les courbes et tenter de montrer l'intérêt de core-tune, bien qu'il soit difficile de dire si la différence est significative
+
+<table>
+  <tr>
+    <td style="text-align: center;">
+      <h4>Base 1 (5k) - biais de prédiction (D)</h4>
+      <img src="./raw_files/img/bias1_d.png" alt="bias d base 1" width="400"/>
+    </td>
+    <td style="text-align: center;">
+      <h4>Base 2 (10k) - biais de prédiction (D)</h4>
+      <img src="./raw_files/img/bias2_d.png" alt="bias d base 2" width="400"/>
+    </td>
+    <td style="text-align: center;">
+      <h4>Base 2 (10k) - biais de prédiction (D) zoomé sur [0, 4]</h4>
+      <img src="./raw_files/img/bias2dzoom.png" alt="bias d base 2" width="400"/>
+    </td>
+    <td style="text-align: center;">
+      <h4>Base 3 (20k) - biais de prédiction (D)</h4>
+      <img src="./raw_files/img/bias3d.png" alt="bias d base 3" width="400"/>
+    </td>
+  </tr>
+</table>
+
+Idem pour la déviance MAD, les résultats ressemblent beaucoup à ceux sur UD et il est compliqué de juger leur significativité. Malgré tout l'entrainement non-supervisé semble être une bonne solution pour finir une pré initialisation robuste avant le finetuning sur une petite base de données.
+
+<table>
+  <tr>
+    <td style="text-align: center;">
+      <h4>Base 1 (5k) - biais de prédiction</h4>
+      <img src="./raw_files/img/smad1d.png" alt="bias ud base 1" width="400"/>
+    </td>
+    <td style="text-align: center;">
+      <h4>Base 2 (10k) - biais de prédiction</h4>
+      <img src="./raw_files/img/smad2d.png" alt="bias ud base 2" width="400"/>
+    </td>
+    <td style="text-align: center;">
+      <h4>Base 2 (10k) - biais de prédiction</h4>
+      <img src="./raw_files/img/smad2dzoom.png" alt="bias ud base 2" width="400"/>
+    </td>
+    <td style="text-align: center;">
+      <h4>Base 3 (20k) - biais de prédiction</h4>
+      <img src="./raw_files/img/smad3d.png" alt="bias ud base 3" width="400"/>
+    </td>
+  </tr>
+</table>
+
 
