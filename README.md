@@ -1,5 +1,6 @@
 # stage_astro
 
+Lien vers le diaporama utilisé durant le stage : https://www.canva.com/design/DAGQh9Cx25I/an7696emeNecpP9AUMesNg/edit?utm_content=DAGQh9Cx25I&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton
 
 ## Contexte
 
