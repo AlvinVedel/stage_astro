@@ -62,11 +62,13 @@ En parallèle de ces constats sur le negative transfer, d'autres tests pour repr
 | **Modèle**         | **Régularisation**          | **Température NTXent** |
 |-------------------|-----------------------------|------------------------|
 | **CNN basiques**   | Avec activité               | 0.7 (SimCLR original)  |
-|                   | Sans activité               | 0.7 (SimCLR original)  |
+|                   | Sans activité               | 0.7                    |
 |                   | Avec activité               | 0.1 (Hayat et al.)     |
-|                   | Sans activité               | 0.1 (Hayat et al.)     |
-| **ResNet50**       | Sans régularisation         | 0.7 (SimCLR original)  |
-|                   | Sans régularisation         | 0.1 (Hayat et al.)     |
+|                   | Sans activité               | 0.1                    |
+|-------------------|-----------------------------|------------------------|
+| **ResNet50**       | Sans régularisation         | 0.7                   |
+|                   | Sans régularisation         | 0.1                     |
+|-------------------|-----------------------------|-------------------------|
 | **ViT**            | Avec activité               | 0.7                    |
 |                   | Sans activité               | 0.7                    |
 |                   | Avec activité               | 0.1                    |
