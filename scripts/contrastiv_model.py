@@ -386,6 +386,76 @@ class CoreTuning(keras.losses.Loss) :
 
 
         
+class CoreTuningv2(keras.losses.Loss):
+    def __init__(self, temp=0.07):
+        super().__init__()
+        self.temp = temp
+    
+    def call(self, batch, bin_vectors):
+        batch_size = tf.shape(batch)[0]
+        batch, bin_vectors = self.mix_features(batch, bin_vectors)
+        large_num = 1e8
+        
+        # Définition des classes (même bin ou bins adjacents)
+        classes = tf.matmul(bin_vectors, bin_vectors, transpose_b=True)
+        
+        # Suppression de la diagonale du masque
+        mask_identity = tf.eye(batch_size)
+        classes = classes * (1.0 - mask_identity)
+        
+        # Produit scalaire pour les similarités
+        logits = tf.matmul(batch, batch, transpose_b=True) / self.temp
+        logits_max = tf.reduce_max(logits, axis=1, keepdims=True)
+        logits = logits - logits_max
+        
+        masks = tf.one_hot(tf.range(batch_size), batch_size)
+        logits = logits - masks * large_num  # Évite de se comparer à soi-même
+        
+        exp_logits = tf.exp(logits)
+        log_prob = logits - tf.math.log(tf.reduce_sum(exp_logits, axis=1, keepdims=True))
+        
+        weight = 1 - tf.exp(log_prob)
+        weighted_log_prob = weight * classes * log_prob
+        mean_log_prob_pos = tf.reduce_sum(weighted_log_prob, axis=1) / tf.maximum(tf.reduce_sum(classes, axis=1), 1e-8)
+        
+        loss = -tf.reduce_mean(mean_log_prob_pos)
+        return loss
+    
+    def mix_features(self, batch, bin_vectors):
+        batch_size = tf.shape(batch)[0]
+        batch = batch / tf.expand_dims(tf.math.sqrt(tf.reduce_sum(batch**2, axis=1)), axis=1)
+        
+        # Calcul des similarités
+        cos_sim = tf.matmul(batch, batch, transpose_b=True)
+        
+        # Sélection des hard positives (dans le même bin ou bin adjacent)
+        mask_pos = tf.cast(tf.matmul(bin_vectors, bin_vectors, transpose_b=True) >0, dtype=tf.float32)
+        hard_positiv_inds = tf.argmin(cos_sim * mask_pos, axis=1)
+        hard_positiv_f = tf.gather(batch, hard_positiv_inds)
+        hard_positiv_y = tf.gather(bin_vectors, hard_positiv_inds)
+        
+        # Sélection des hard negatives (en dehors des bins adjacents)
+        mask_neg = 1.0 - mask_pos
+        hard_negativ_inds = tf.argmax(cos_sim * mask_neg, axis=1)
+        hard_negativ_f = tf.gather(batch, hard_negativ_inds)
+        hard_negativ_y = tf.gather(bin_vectors, hard_negativ_inds)
+        
+        # Mélange
+        lam = tf.random.uniform((batch_size, 1), 0, 1, dtype=tf.float32)
+        f_ = lam * hard_positiv_f + (1 - lam) * hard_negativ_f
+        y_ = lam * hard_positiv_y + (1 - lam) * hard_negativ_y
+        
+        # Hard negatives supplémentaires
+        order = tf.random.shuffle(tf.range(batch_size))
+        features2 = tf.gather(batch, order)
+        y2 = tf.gather(bin_vectors, order)
+        lam = tf.random.uniform((batch_size, 1), 0.8, 1.0, dtype=tf.float32)
+        f2_ = (1 - lam) * batch + lam * features2
+        y2_ = (1 - lam) * bin_vectors + lam * y2
+        
+        all_features = tf.concat([f_, f2_], axis=0)
+        all_y = tf.concat([y_, y2_], axis=0)
+        return all_features, all_y
 
 
 
