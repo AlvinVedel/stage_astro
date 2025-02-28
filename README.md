@@ -46,5 +46,28 @@ Comme énoncé plus haut, l'apprentissage des représentations avec BYOL s'est s
 </table>
 
 
+Ce sont des résultats satisfaisant car on retrouve les hauts redshifts regroupés entre eux, idem pour les bas redshifts. Une solution pour forcer davantage l'apprentissage du redshift est l'utilisation d'une tête de régression branchée sur l'extracteur de caractéristiques, les couleurs sont obtenues comme la différence entre 2 canaux de l'images. Il y a donc 5 couleurs par image et on sait qu'il existe une relation entre la couleur et le redshift comme le montre Masters et al. (2015). 
+
+![SimCLR avec prédiction auxiliaire de la couleur](./raw_files/img/tsne_simCLR_color.png)
+
+La t-SNE comportant une partie aléatoire il n'est pas vraiment possible de tirer une conclusion sur l'utilité de la tête de régression mais certaines autres expériences ont montré un intérêt à l'ajouter, rien en tout cas ne montre d'intérêt à ne pas la mettre.
+
+
+
 ### Finetuning
 A l'issue de ces étapes, on peut considérer l'espace latent appris par Self-Supervised comme de bonne qualité, comme prouvée par KNN sur la projection t-SNE (densité des y prédit en fonction des y réels proche de la droite y=x). Cependant un phénomène de *negative transfer* a été observé dans certaines configurations, en effet les représentations apprises pour la tâche non-supervisée ne sont pas forcément **directement** transférable à la prédiction du reshift. Encore une fois selon mon interprétation, la perte contrastive avec une température proche de 1 rend l'apprentissage plus dur car on obtient des logits entre [-1, 1] et qu'on applique ensuite un softmax pour trouver la paire positive, cela implique une presque impossibilité du modèle à discriminer la paire et donc une perte élevé, plus de mises à jour dans le réseau et donc moins de stabilité. Dans le premier cas la température était de 0.7 avec une loss d'environ 10, dans le cas d'une température de 0.1 comme dans les travaux d'Hayat et al. (2021) la loss s'optimise bien mieux aux environs de 0.6. Mais ce n'est pas tout, les features apprises par SSL ne garantissent aucune cohérence au sein d'une même classe car ce concept n'existe pas lors de l'apprentissage ainsi deux images appartenant à la même classe peuvent être opposées dans l'espace latent du moment qu'ils sont bien discriminés individuellement. C'est un problème que tente de résoudre Zhang et al. (2021) avec leur méthode core-tune qui permet de réorganiser l'espace latent pour prendre en compte les classes et en tirant profit de l'apprentissage non-supervisé c'est à dire en maximisant l'entropie sur l'hypersphère mais en minimisant l'entropie de chaque classe, produisant des classes compactes et discriminantes. Ces travaux visent à résoudre les limites de l'apprentissage Self-Supervised concernant les frontières de décision Sharp ainsi que la robustesse adversariale qui sont précisément les problèmes rencontrés ici, cependant cela a été pensé pour de la classification et s'adapte difficilement à de la régression.
+
+En parallèle de ces constats sur le negative transfer, d'autres tests pour reproduire les résultats d'Hayat et al. ont été menés, résultants en beaucoup de modèles finetunés et d'inférence. Il est possible de les regrouper ainsi :
+
+| **Modèle**         | **Régularisation**          | **Température NTXent** |
+|-------------------|-----------------------------|------------------------|
+| **CNN basiques**   | Avec activité               | 0.7 (SimCLR original)  |
+|                   | Sans activité               | 0.7 (SimCLR original)  |
+|                   | Avec activité               | 0.1 (Hayat et al.)     |
+|                   | Sans activité               | 0.1 (Hayat et al.)     |
+| **ResNet50**       | Sans régularisation         | 0.7 (SimCLR original)  |
+|                   | Sans régularisation         | 0.1 (Hayat et al.)     |
+| **ViT**            | Avec activité               | 0.7                    |
+|                   | Sans activité               | 0.7                    |
+|                   | Avec activité               | 0.1                    |
+|                   | Sans activité               | 0.1                    |
