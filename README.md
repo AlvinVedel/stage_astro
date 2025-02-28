@@ -72,6 +72,7 @@ En parallèle de ces constats sur le negative transfer, d'autres tests pour repr
 |                   | Avec activité               | 0.1                    |
 |                   | Sans activité               | 0.1                    |
 
+<<<<<<< HEAD
 
 
 Tous les modèles ont été entrainés avec des batch de taille 256, un optimiseur Adam initialisé à 10e-4 et divisé par 10 à 70 et 90 époques pour un total de 100 époques. Chaque modèle ayant vu 5k, 10k et 20k données labellisées issues de UD. Pour tenter de résoudre ces problèmes de frontières sharp, une version du finetuning durant lequel on maintient la perte contrastive a été implémenté ainsi qu'une version de core-tune bricolé pour convenir à la régression. L'évaluation se fait sur les 150 000 données restantes de UD et les 20000 de D à l'aides des métriques du biais, la déviance MAD et la fraction d'outliers.
@@ -199,3 +200,5 @@ Idem pour la déviance MAD, les résultats ressemblent beaucoup à ceux sur UD e
 </table>
 
 
+=======
+>>>>>>> f6b2762beb601308161e6005798af85ab0c05efd
